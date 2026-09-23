@@ -1,0 +1,33 @@
+{
+  "name": "@fredo/qa-mcp-server",
+  "version": "1.0.0",
+  "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server for Cursor, Claude Desktop, Antigravity, and Copilot",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "fredo-qa-mcp-server": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js",
+    "test": "node --test dist/test/mcp-server.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "qa",
+    "quality-assurance",
+    "compliance",
+    "cursor",
+    "claude",
+    "antigravity"
+  ],
+  "author": "Frédéric Charles Viallet",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
