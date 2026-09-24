@@ -1,4 +1,4 @@
-# Fredo QA Skills — Model Context Protocol (MCP) Server
+# Fredo QA Skills - Model Context Protocol (MCP) Server
 
 Official **Model Context Protocol (MCP)** server for **Fredo QA Skills**.
 Connects AI coding assistants (**Cursor, Claude Desktop, Antigravity, Windsurf, Copilot**) to the Fredo QA Skills quality policy engine and compliance framework.
