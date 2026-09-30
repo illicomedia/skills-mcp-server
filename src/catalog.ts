@@ -64,6 +64,38 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     description: 'Strict JSON Schema validation, JSON-RPC 2.0 contract tests, stdio isolation.',
     rulesSummary: ['JSON-RPC 2.0 compliance', 'Stdio pollution prevention', 'Graceful error handling'],
   },
+  {
+    id: 'qa-c-cpp',
+    name: 'C & C++ Systems Engineering',
+    tier: 'free',
+    category: 'language',
+    description: 'clangd LSP diagnostics, clang-tidy, cppcheck, sanitizers (ASan/UBSan/TSan), and memory safety.',
+    rulesSummary: ['clangd semantic validation', 'ASan/UBSan clean execution', 'Strict compiler warnings (-Werror)'],
+  },
+  {
+    id: 'qa-rust',
+    name: 'Rust Systems Engineering',
+    tier: 'free',
+    category: 'language',
+    description: 'Cargo check, Clippy with -D warnings, rustfmt, cargo-deny, cargo-audit, and Miri safety.',
+    rulesSummary: ['cargo clippy --all-targets -- -D warnings', 'cargo fmt --check', 'cargo deny check and cargo audit'],
+  },
+  {
+    id: 'qa-go',
+    name: 'Go Systems Engineering',
+    tier: 'free',
+    category: 'language',
+    description: 'golangci-lint, go test -race, govulncheck, gosec, and strict error handling.',
+    rulesSummary: ['golangci-lint run', 'go test -race ./...', 'govulncheck ./... and gosec'],
+  },
+  {
+    id: 'qa-java',
+    name: 'Java Enterprise Engineering',
+    tier: 'free',
+    category: 'language',
+    description: 'Checkstyle, SpotBugs, PMD, Error Prone, JaCoCo branch coverage >= 80%, and ArchUnit boundaries.',
+    rulesSummary: ['javac -Werror clean compile', 'SpotBugs & PMD zero violations', 'JaCoCo line & branch coverage >= 80%'],
+  },
 
   // Pro Production (Commercial)
   {

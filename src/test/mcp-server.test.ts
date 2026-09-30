@@ -77,7 +77,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   assert.ok(names.includes('verify_license'));
 });
 
-test('MCP Server: list_skills under Free tier returns exactly 7 MIT skills', () => {
+test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', () => {
   const server = new FredoQaMcpServer(); // no key
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
@@ -90,13 +90,17 @@ test('MCP Server: list_skills under Free tier returns exactly 7 MIT skills', () 
   };
   const res = server.handleRequest(req);
   const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
-  assert.match(text, /7 accessible under FREE plan/);
+  assert.match(text, /11 accessible under FREE plan/);
   assert.match(text, /qa-core/);
   assert.match(text, /dev-flow/);
+  assert.match(text, /qa-c-cpp/);
+  assert.match(text, /qa-rust/);
+  assert.match(text, /qa-go/);
+  assert.match(text, /qa-java/);
   assert.ok(!text.includes('qa-security [PRO]'));
 });
 
-test('MCP Server: list_skills under Pro tier returns 14 skills', () => {
+test('MCP Server: list_skills under Pro tier returns 18 skills', () => {
   const server = new FredoQaMcpServer('fqa_live_pro_team_7fffffff_hash');
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
@@ -109,9 +113,28 @@ test('MCP Server: list_skills under Pro tier returns 14 skills', () => {
   };
   const res = server.handleRequest(req);
   const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
-  assert.match(text, /14 accessible under PRO plan/);
+  assert.match(text, /18 accessible under PRO plan/);
   assert.match(text, /qa-security/);
   assert.match(text, /qa-accessibility/);
+  assert.match(text, /qa-c-cpp/);
+});
+
+test('MCP Server: list_skills under Enterprise tier returns 20 skills', () => {
+  const server = new FredoQaMcpServer('fqa_live_ent_bigcorp_7fffffff_hash');
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 7,
+    method: 'tools/call',
+    params: {
+      name: 'list_skills',
+      arguments: {},
+    },
+  };
+  const res = server.handleRequest(req);
+  const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+  assert.match(text, /20 accessible under ENTERPRISE plan/);
+  assert.match(text, /qa-gdpr-rgpd/);
+  assert.match(text, /qa-ai-infrastructure-compliance/);
 });
 
 test('MCP Server: get_skill_rules returns watermark and content', () => {

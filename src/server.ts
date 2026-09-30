@@ -1,6 +1,6 @@
 import * as readline from 'node:readline';
 import { runComplianceAudit } from './audit.js';
-import { getAvailableSkills, loadSkillContent } from './catalog.js';
+import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
 import { generateCanaryWatermark, validateLicenseKey } from './license.js';
 import type { JsonRpcRequest, JsonRpcResponse, McpTool } from './types.js';
 
@@ -188,8 +188,10 @@ export class FredoQaMcpServer {
           ? skills.filter((s) => s.category === categoryFilter)
           : skills;
 
+        const freeCount = SKILLS_CATALOG.filter((s) => s.tier === 'free').length;
+        const totalCount = SKILLS_CATALOG.length;
         const advisory = license.fallbackMode
-          ? `\n> [!NOTE] Running on Free Foundation tier (7 MIT skills). Upgrade to Pro or Enterprise at https://skills.illicomedia.com/pricing to unlock all 16 skills.\n`
+          ? `\n> [!NOTE] Running on Free Foundation tier (${freeCount} MIT skills). Upgrade to Pro or Enterprise at https://skills.illicomedia.com/pricing to unlock all ${totalCount} skills.\n`
           : '';
 
         const list = filtered
