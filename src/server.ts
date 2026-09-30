@@ -1,6 +1,7 @@
 import * as readline from 'node:readline';
 import { runComplianceAudit } from './audit.js';
 import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
+import { installSkill, syncWorkspaceSkills } from './installer.js';
 import { generateCanaryWatermark, validateLicenseKey } from './license.js';
 import type { JsonRpcRequest, JsonRpcResponse, McpTool } from './types.js';
 
@@ -8,7 +9,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'list_skills',
     description:
-      'List all Fredo QA Skills available under the current license tier (Free Foundation, Pro Production, Enterprise Assurance), including rules summaries and categories.',
+      'List all Fredo QA Skills available under the current license tier (Free, Pro, Enterprise), with rule summaries and categories.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -28,35 +29,100 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         skill_id: {
           type: 'string',
-          description:
-            'The unique identifier of the skill (e.g. qa-core, dev-flow, qa-security, qa-accessibility, qa-gdpr-rgpd)',
+          description: 'The unique skill ID (e.g. qa-core, dev-flow, qa-security, qa-java)',
         },
       },
       required: ['skill_id'],
     },
   },
   {
-    name: 'audit_compliance',
+    name: 'install_skill',
     description:
-      'Execute automated QA and security compliance checks on a project directory. Verifies AGENTS.md directives, security.txt RFC 9116, secret protection, and standardized package scripts.',
+      'Install a Fredo QA skill into .agents/skills/<skill_id>/ with SKILL.md and LICENSE. Enforces authentication for paid Pro and Enterprise skills.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        skill_id: {
+          type: 'string',
+          description: 'The unique skill ID to install',
+        },
+        project_path: {
+          type: 'string',
+          description: 'Target project root directory (defaults to current working directory)',
+        },
+        license_key: {
+          type: 'string',
+          description: 'Optional license key to authenticate or update session before installing',
+        },
+      },
+      required: ['skill_id'],
+    },
+  },
+  {
+    name: 'sync_workspace_skills',
+    description:
+      'Auto-detects project stack and provisions matching QA skills and licenses into .agents/skills/. Respects license tiers and reports auth requirements.',
     inputSchema: {
       type: 'object',
       properties: {
         project_path: {
           type: 'string',
-          description: 'Absolute or relative path to the root directory of the project to audit',
+          description: 'Target project root directory (defaults to current working directory)',
+        },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional list of skill IDs to install. If omitted, auto-detects from project stack.',
+        },
+        license_key: {
+          type: 'string',
+          description: 'Optional license key to authenticate or update session before syncing',
         },
       },
-      required: ['project_path'],
+    },
+  },
+  {
+    name: 'set_license_key',
+    description:
+      'Set or update the Fredo QA Skills license key for the active session to unlock Pro or Enterprise skills dynamically.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        license_key: {
+          type: 'string',
+          description: 'The Fredo QA license key (e.g. fqa_live_pro_..., fqa_live_ent_...)',
+        },
+      },
+      required: ['license_key'],
     },
   },
   {
     name: 'verify_license',
     description:
-      'Inspect the current Fredo QA Skills license key status, active entitlement tier, customer organization, expiration date, and fallback status.',
+      'Inspect the current Fredo QA license status, entitlement tier, customer organization, expiration date, and fallback status.',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        license_key: {
+          type: 'string',
+          description: 'Optional license key to test or inspect without modifying session state',
+        },
+      },
+    },
+  },
+  {
+    name: 'audit_compliance',
+    description:
+      'Execute automated QA and security compliance checks on a project directory (AGENTS.md, RFC 9116 security.txt, secret safety).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_path: {
+          type: 'string',
+          description: 'Path to the root directory of the project to audit',
+        },
+      },
+      required: ['project_path'],
     },
   },
 ];
@@ -95,7 +161,6 @@ export class FredoQaMcpServer {
       }
 
       case 'notifications/initialized': {
-        // Notification, no return content
         return { jsonrpc: '2.0', id };
       }
 
@@ -162,18 +227,42 @@ export class FredoQaMcpServer {
   }
 
   private executeTool(name: string, args: Record<string, unknown>): string {
+    if (args.license_key && typeof args.license_key === 'string') {
+      this.licenseKey = args.license_key.trim();
+    }
     const license = validateLicenseKey(this.licenseKey);
 
     switch (name) {
-      case 'verify_license': {
+      case 'set_license_key': {
+        const key = args.license_key as string;
+        this.licenseKey = key?.trim();
+        const updatedLicense = validateLicenseKey(this.licenseKey);
         return JSON.stringify(
           {
-            status: license.valid ? 'ACTIVE' : license.isExpired ? 'EXPIRED' : 'FREE_TIER',
-            tier: license.tier.toUpperCase(),
-            customer: license.customerName || 'Community User',
-            expiresAt: license.expiresAt || 'Never (Free Tier)',
-            fallbackMode: license.fallbackMode,
-            message: license.message,
+            status: updatedLicense.valid ? 'AUTHENTICATED' : 'FREE_TIER_FALLBACK',
+            tier: updatedLicense.tier.toUpperCase(),
+            customer: updatedLicense.customerName || 'Community User',
+            expiresAt: updatedLicense.expiresAt || 'Never (Free Tier)',
+            valid: updatedLicense.valid,
+            message: updatedLicense.message,
+          },
+          null,
+          2,
+        );
+      }
+
+      case 'verify_license': {
+        const targetLicense = args.license_key
+          ? validateLicenseKey(args.license_key as string)
+          : license;
+        return JSON.stringify(
+          {
+            status: targetLicense.valid ? 'ACTIVE' : targetLicense.isExpired ? 'EXPIRED' : 'FREE_TIER',
+            tier: targetLicense.tier.toUpperCase(),
+            customer: targetLicense.customerName || 'Community User',
+            expiresAt: targetLicense.expiresAt || 'Never (Free Tier)',
+            fallbackMode: targetLicense.fallbackMode,
+            message: targetLicense.message,
             portal: 'https://skills.illicomedia.com/pricing',
           },
           null,
@@ -201,9 +290,7 @@ export class FredoQaMcpServer {
           )
           .join('\n');
 
-        return `# Available Fredo QA Skills (${filtered.length} accessible under ${license.tier.toUpperCase()} plan)
-${advisory}
-${list}`;
+        return `# Available Fredo QA Skills (${filtered.length} accessible under ${license.tier.toUpperCase()} plan)\n${advisory}\n${list}`;
       }
 
       case 'get_skill_rules': {
@@ -216,15 +303,7 @@ ${list}`;
         const skill = skills.find((s) => s.id === skillId);
 
         if (!skill) {
-          // Check if it's a paid skill that requires upgrade
-          return `# Access Restricted: ${skillId}
-This skill is a commercial package requiring an active Pro or Enterprise license.
-Current tier: **${license.tier.toUpperCase()}**
-
-${license.message}
-
-To unlock this skill or obtain an API key, visit:
-https://skills.illicomedia.com/pricing`;
+          return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill or activate an API key, use 'set_license_key' or visit:\nhttps://skills.illicomedia.com/pricing`;
         }
 
         const content = loadSkillContent(skillId);
@@ -234,6 +313,23 @@ https://skills.illicomedia.com/pricing`;
         );
 
         return `${watermark}\n\n${content}`;
+      }
+
+      case 'install_skill': {
+        const skillId = args.skill_id as string;
+        if (!skillId) {
+          throw new Error('Missing parameter "skill_id"');
+        }
+        const projectPath = (args.project_path as string) || process.cwd();
+        const res = installSkill(skillId, projectPath, license);
+        return JSON.stringify(res, null, 2);
+      }
+
+      case 'sync_workspace_skills': {
+        const projectPath = (args.project_path as string) || process.cwd();
+        const requestedSkills = args.skills as string[] | undefined;
+        const res = syncWorkspaceSkills(projectPath, requestedSkills, license);
+        return res.summaryMessage;
       }
 
       case 'audit_compliance': {
@@ -247,9 +343,6 @@ https://skills.illicomedia.com/pricing`;
     }
   }
 
-  /**
-   * Starts the stdio event loop
-   */
   public startStdio(): void {
     const rl = readline.createInterface({
       input: process.stdin,
@@ -265,7 +358,6 @@ https://skills.illicomedia.com/pricing`;
         const request = JSON.parse(trimmed) as JsonRpcRequest;
         const response = this.handleRequest(request);
 
-        // Do not respond to notifications
         if (request.id !== undefined) {
           process.stdout.write(`${JSON.stringify(response)}\n`);
         }

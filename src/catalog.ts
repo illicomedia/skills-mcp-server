@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { SkillMetadata, SkillTier } from './types.js';
+import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
 
 export const SKILLS_CATALOG: SkillMetadata[] = [
   // Free Foundation (MIT)
@@ -239,3 +239,84 @@ ${meta.rulesSummary.map((r, i) => `${i + 1}. **${r}**`).join('\n')}
 - Adhere strictly to zero-hidden-debt principles. Suppressions without documented justification in \`.qa-exceptions.yaml\` are rejected.
 `;
 }
+
+/**
+ * Loads or generates a compliant LICENSE file for a skill
+ */
+export function loadSkillLicense(
+  skillId: string,
+  license: LicenseValidationResult,
+  searchDir?: string,
+): string {
+  const meta = findSkill(skillId);
+  if (!meta) {
+    throw new Error(`Unknown skill: ${skillId}`);
+  }
+
+  // Look for existing license file
+  const candidatePaths = [
+    path.join(searchDir || process.cwd(), 'skills', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills-commercial', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills-commercial', 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills-enterprise', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills-enterprise', 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'LICENSE'),
+  ];
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const content = fs.readFileSync(p, 'utf-8').trim();
+        if (content.length > 0) {
+          if (meta.tier === 'free') {
+            return content;
+          }
+          return `${content}\n\n---\nCOMMERCIAL ACTIVATION CERTIFICATE\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense Key Status: VERIFIED ACTIVE\nExpires: ${license.expiresAt || 'Active Subscription'}\nAuthorized by: Frédéric Charles Viallet (skills.illicomedia.com)`;
+        }
+      } catch {
+        // Fallback to generated license
+      }
+    }
+  }
+
+  // Standard MIT for free tier
+  if (meta.tier === 'free') {
+    return `MIT License
+
+Copyright (c) 2026 Frédéric Charles Viallet
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+  }
+
+  // Commercial / Enterprise License
+  return `Commercial Skills License
+
+Copyright (c) 2026 Frédéric Charles Viallet. All rights reserved.
+
+Licensee: ${license.customerName || 'Licensed Organization'}
+License Tier: ${meta.tier.toUpperCase()}
+License Key Status: VERIFIED ACTIVE
+Expires: ${license.expiresAt || 'Active Subscription'}
+Authorized by: Frédéric Charles Viallet (skills.illicomedia.com)
+
+The material in this directory is proprietary commercial software licensed to the licensee named above.
+No right is granted to redistribute, sublicense, publish publicly, sell, or create public derivative works.
+Use is granted exclusively for internal development within the licensee's organization.`;
+}
+

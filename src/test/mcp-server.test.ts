@@ -1,4 +1,7 @@
 import * as assert from 'node:assert';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import test from 'node:test';
 import { generateCanaryWatermark, validateLicenseKey } from '../license.js';
 import { FredoQaMcpServer } from '../server.js';
@@ -69,12 +72,15 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   };
   const res = server.handleRequest(req);
   const tools = (res.result as { tools: Array<{ name: string }> }).tools;
-  assert.strictEqual(tools.length, 4);
+  assert.strictEqual(tools.length, 7);
   const names = tools.map((t) => t.name);
   assert.ok(names.includes('list_skills'));
   assert.ok(names.includes('get_skill_rules'));
   assert.ok(names.includes('audit_compliance'));
   assert.ok(names.includes('verify_license'));
+  assert.ok(names.includes('install_skill'));
+  assert.ok(names.includes('sync_workspace_skills'));
+  assert.ok(names.includes('set_license_key'));
 });
 
 test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', () => {
@@ -171,4 +177,149 @@ test('MCP Server: audit_compliance returns valid structured audit report', () =>
   assert.ok(typeof report.score === 'number');
   assert.ok(report.totalChecks > 0);
   assert.ok(Array.isArray(report.results));
+});
+
+test('MCP Server: install_skill allows free skills without license key', () => {
+  const server = new FredoQaMcpServer(); // no license key
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-free-'));
+  try {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'tools/call',
+      params: {
+        name: 'install_skill',
+        arguments: { skill_id: 'qa-go', project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    const result = JSON.parse(text);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.tier, 'free');
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')));
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE')));
+    const licenseContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE'), 'utf-8');
+    assert.ok(licenseContent.includes('MIT License'));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: install_skill blocks paid skill without auth and reports required tier', () => {
+  const server = new FredoQaMcpServer(); // no license key
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-block-'));
+  try {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: {
+        name: 'install_skill',
+        arguments: { skill_id: 'qa-security', project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    const result = JSON.parse(text);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.requiresAuth, true);
+    assert.strictEqual(result.requiredTier, 'pro');
+    assert.match(result.message, /Authentication required/);
+    assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-security')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: install_skill succeeds for paid skill with valid license key', () => {
+  const server = new FredoQaMcpServer('fqa_live_pro_acmecorp_7fffffff_hash');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-ok-'));
+  try {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: {
+        name: 'install_skill',
+        arguments: { skill_id: 'qa-security', project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    const result = JSON.parse(text);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.tier, 'pro');
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'SKILL.md')));
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'LICENSE')));
+    const skillContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'SKILL.md'), 'utf-8');
+    assert.match(skillContent, /Fredo QA Skills Provenance/);
+    const licenseContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'LICENSE'), 'utf-8');
+    assert.match(licenseContent, /Commercial Skills License/);
+    assert.match(licenseContent, /acmecorp/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: set_license_key dynamically unlocks session', () => {
+  const server = new FredoQaMcpServer(); // start free
+  const req1: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 11,
+    method: 'tools/call',
+    params: {
+      name: 'set_license_key',
+      arguments: { license_key: 'fqa_live_ent_megaenterprise_7fffffff_hash' },
+    },
+  };
+  const res1 = server.handleRequest(req1);
+  const text1 = (res1.result as { content: Array<{ text: string }> }).content[0].text;
+  const result1 = JSON.parse(text1);
+  assert.strictEqual(result1.status, 'AUTHENTICATED');
+  assert.strictEqual(result1.tier, 'ENTERPRISE');
+  assert.strictEqual(result1.customer, 'megaenterprise');
+
+  // Verify list_skills now returns enterprise tier
+  const req2: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 12,
+    method: 'tools/call',
+    params: { name: 'list_skills', arguments: {} },
+  };
+  const res2 = server.handleRequest(req2);
+  const text2 = (res2.result as { content: Array<{ text: string }> }).content[0].text;
+  assert.match(text2, /20 accessible under ENTERPRISE plan/);
+});
+
+test('MCP Server: sync_workspace_skills auto-detects stack and reports auth status', () => {
+  const server = new FredoQaMcpServer(); // free
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-sync-'));
+  try {
+    // Create a mock Go project with Dockerfile
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/app\ngo 1.22\n');
+    fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), 'FROM golang:1.22\n');
+
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 13,
+      method: 'tools/call',
+      params: {
+        name: 'sync_workspace_skills',
+        arguments: { project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /Fredo QA Skills Workspace Sync/);
+    assert.match(text, /Successfully Installed/);
+    assert.match(text, /qa-go/);
+    assert.match(text, /qa-core/);
+    assert.match(text, /Requires Authentication/);
+    assert.match(text, /qa-security/);
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')));
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-core', 'SKILL.md')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

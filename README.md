@@ -80,8 +80,11 @@ Add to your `antigravity.json` or custom MCP settings:
 |---|---|---|
 | `list_skills` | `{ category?: string }` | Lists all skills accessible under your current plan with their descriptions and key gates. |
 | `get_skill_rules` | `{ skill_id: string }` | Returns complete prompt instructions and QA directives for a skill (e.g. `qa-security`, `qa-accessibility`). |
+| `install_skill` | `{ skill_id: string, project_path?: string, license_key?: string }` | Installs a skill into `.agents/skills/<skill_id>/` with `SKILL.md` and `LICENSE`. Enforces auth for paid Pro & Enterprise skills. |
+| `sync_workspace_skills` | `{ project_path?: string, skills?: string[], license_key?: string }` | Auto-detects project stack and provisions matching QA skills and licenses. Respects license tiers and reports auth status. |
+| `set_license_key` | `{ license_key: string }` | Sets or updates license key dynamically in the active session to unlock Pro or Enterprise skills without server restart. |
 | `audit_compliance` | `{ project_path: string }` | Runs deterministic compliance checks (AGENTS.md, security.txt, test scripts, secret protection) against your repository. |
-| `verify_license` | `{}` | Returns license validity, customer ID, expiry date, tier, and fallback status. |
+| `verify_license` | `{ license_key?: string }` | Returns license validity, customer ID, expiry date, tier, and fallback status. |
 
 ---
 
