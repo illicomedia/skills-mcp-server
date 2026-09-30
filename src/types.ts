@@ -49,5 +49,6 @@ export interface McpTool {
     type: 'object';
     properties: Record<string, unknown>;
     required?: string[];
+    additionalProperties: false;
   };
 }
