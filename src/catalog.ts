@@ -206,9 +206,10 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
 
   // Look for actual file on disk if available
   const candidatePaths = [
+    path.join(searchDir || process.cwd(), 'skills', 'free', skillId, 'SKILL.md'),
+    path.join(searchDir || process.cwd(), 'skills', 'pro', skillId, 'SKILL.md'),
+    path.join(searchDir || process.cwd(), 'skills', 'enterprise', skillId, 'SKILL.md'),
     path.join(searchDir || process.cwd(), 'skills', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), 'skills-commercial', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), 'skills-enterprise', skillId, 'SKILL.md'),
     path.join(searchDir || process.cwd(), '.agents', 'skills', skillId, 'SKILL.md'),
   ];
 
@@ -255,11 +256,12 @@ export function loadSkillLicense(
 
   // Look for existing license file
   const candidatePaths = [
+    path.join(searchDir || process.cwd(), 'skills', 'free', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills', 'pro', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills', 'pro', 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills', 'enterprise', skillId, 'LICENSE'),
+    path.join(searchDir || process.cwd(), 'skills', 'enterprise', 'LICENSE'),
     path.join(searchDir || process.cwd(), 'skills', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills-commercial', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills-commercial', 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills-enterprise', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills-enterprise', 'LICENSE'),
     path.join(searchDir || process.cwd(), 'LICENSE'),
   ];
 
