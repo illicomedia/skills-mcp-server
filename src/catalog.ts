@@ -46,7 +46,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description: 'PHPStan max level, Pint/PHP-CS-Fixer formatting, and boundary architecture.',
-    rulesSummary: ['PHPStan level max', 'Zero deprecated usage', 'Architecture boundaries'],
+    rulesSummary: [
+      'PHPStan level max',
+      'Hardened public forms (HMAC captcha, honeypot, rate limit)',
+      'Architecture boundaries',
+    ],
   },
   {
     id: 'qa-bash',
@@ -112,7 +116,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'pro',
     category: 'compliance',
     description: 'OWASP Top 10 prevention, dependency audits, CSP headers, and secret scanning.',
-    rulesSummary: ['Dependency audit clean', 'Zero hardcoded secrets', 'Strict CSP & security headers'],
+    rulesSummary: [
+      'Dependency audit clean',
+      'CSP on every deploy variant; hosts = active integrations',
+      'Server-verified anti-bot for public forms',
+    ],
   },
   {
     id: 'qa-performance',
@@ -152,7 +160,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'pro',
     category: 'compliance',
     description: 'SPF, DKIM, DMARC p=reject, BIMI assertions, and DNS drift detection.',
-    rulesSummary: ['DMARC p=quarantine or reject', 'Strict SPF records', 'BIMI indicator validation'],
+    rulesSummary: [
+      'DMARC p=quarantine or reject',
+      'X-Retain-Until on personal-data operator mail',
+      'BIMI indicator validation',
+    ],
   },
 
   // Enterprise Assurance (Enterprise)
@@ -161,8 +173,13 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     name: 'GDPR / RGPD Privacy Engineering',
     tier: 'enterprise',
     category: 'enterprise',
-    description: 'Privacy by design, consent banner telemetry, data subject rights (DSR), and DPIA.',
-    rulesSummary: ['Zero unconsented tracking cookies', '30-day DSR handling workflow', 'Privacy policy parity'],
+    description:
+      'Privacy by design, CNIL public-web gates, consent parity, data subject rights (DSR), RoPA, and DPIA.',
+    rulesSummary: [
+      'Equal refuse/accept consent; no unconsented trackers',
+      'Art.13 forms + server-verified captcha + retain-until',
+      'RoPA/CSP/legal copy lockstep with processing flags',
+    ],
   },
   {
     id: 'qa-ai-infrastructure-compliance',
