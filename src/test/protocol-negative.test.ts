@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert';
 import test from 'node:test';
 import { FredoQaMcpServer } from '../server.js';

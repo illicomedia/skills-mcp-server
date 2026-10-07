@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import type { McpTool } from './types.js';
 
 export const MCP_TOOLS: McpTool[] = [
@@ -49,7 +51,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         license_key: {
           type: 'string',
-          description: 'Optional license key to authenticate or update session before installing',
+          description: 'Optional signed license file (path or JSON content) to use for this session before installing',
         },
       },
       required: ['skill_id'],
@@ -74,7 +76,7 @@ export const MCP_TOOLS: McpTool[] = [
         },
         license_key: {
           type: 'string',
-          description: 'Optional license key to authenticate or update session before syncing',
+          description: 'Optional signed license file (path or JSON content) to use for this session before syncing',
         },
       },
       additionalProperties: false,
@@ -83,13 +85,13 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'set_license_key',
     description:
-      'Set or update the Fredo QA Skills license key for the active session to unlock Pro or Enterprise skills dynamically.',
+      'Set the signed Fredo QA Skills license file for the active session to unlock Pro or Enterprise skills.',
     inputSchema: {
       type: 'object',
       properties: {
         license_key: {
           type: 'string',
-          description: 'The Fredo QA license key (e.g. fqa_live_pro_..., fqa_live_ent_...)',
+          description: 'Path to a signed license file (license.json) or its JSON content',
         },
       },
       required: ['license_key'],
@@ -99,13 +101,13 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'verify_license',
     description:
-      'Inspect the current Fredo QA license status, entitlement tier, customer organization, expiration date, and fallback status.',
+      'Inspect the current Fredo QA license: signature validity, tier, licensee, last covered release date (updates_until), and fallback status.',
     inputSchema: {
       type: 'object',
       properties: {
         license_key: {
           type: 'string',
-          description: 'Optional license key to test or inspect without modifying session state',
+          description: 'Optional signed license file (path or JSON content) to inspect without modifying session state',
         },
       },
       additionalProperties: false,
@@ -114,7 +116,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'audit_compliance',
     description:
-      'Execute automated QA and security compliance checks on a project directory (AGENTS.md, RFC 9116 security.txt, secret safety).',
+      'Check that the files and scripts Fredo QA Skills expects are present in a project (AGENTS.md, .qa-exceptions.yaml, security.txt, .gitignore, QA scripts). Presence only: gates are not run and contents are not validated.',
     inputSchema: {
       type: 'object',
       properties: {

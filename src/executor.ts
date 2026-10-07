@@ -1,7 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import { runComplianceAudit } from './audit.js';
 import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
 import { installSkill, syncWorkspaceSkills } from './installer.js';
-import { generateCanaryWatermark, validateLicenseKey } from './license.js';
+import { type LicenseOptions, generateCanaryWatermark, validateLicense } from './license.js';
 import type { LicenseValidationResult } from './types.js';
 
 export class ToolExecutor {
@@ -10,24 +12,26 @@ export class ToolExecutor {
     args: Record<string, unknown>,
     activeLicenseKey: string | undefined,
     onLicenseUpdate: (key: string) => void,
+    licenseOptions: LicenseOptions = {},
   ): string {
     if (args.license_key && typeof args.license_key === 'string') {
       onLicenseUpdate(args.license_key.trim());
       activeLicenseKey = args.license_key.trim();
     }
-    const license = validateLicenseKey(activeLicenseKey);
+    const license = validateLicense(activeLicenseKey, licenseOptions);
 
     switch (name) {
       case 'set_license_key': {
         const key = (args.license_key as string)?.trim();
         onLicenseUpdate(key);
-        const updatedLicense = validateLicenseKey(key);
+        const updatedLicense = validateLicense(key, licenseOptions);
         return JSON.stringify(
           {
             status: updatedLicense.valid ? 'AUTHENTICATED' : 'FREE_TIER_FALLBACK',
             tier: updatedLicense.tier.toUpperCase(),
             customer: updatedLicense.customerName || 'Community User',
-            expiresAt: updatedLicense.expiresAt || 'Never (Free Tier)',
+            licenseId: updatedLicense.licenseId ?? null,
+            updatesUntil: updatedLicense.updatesUntil ?? null,
             valid: updatedLicense.valid,
             message: updatedLicense.message,
           },
@@ -38,21 +42,22 @@ export class ToolExecutor {
 
       case 'verify_license': {
         const targetLicense: LicenseValidationResult = args.license_key
-          ? validateLicenseKey(args.license_key as string)
+          ? validateLicense(args.license_key as string, licenseOptions)
           : license;
         return JSON.stringify(
           {
             status: targetLicense.valid
               ? 'ACTIVE'
               : targetLicense.isExpired
-                ? 'EXPIRED'
+                ? 'UPDATES_ENDED'
                 : 'FREE_TIER',
             tier: targetLicense.tier.toUpperCase(),
             customer: targetLicense.customerName || 'Community User',
-            expiresAt: targetLicense.expiresAt || 'Never (Free Tier)',
+            licenseId: targetLicense.licenseId ?? null,
+            updatesUntil: targetLicense.updatesUntil ?? null,
             fallbackMode: targetLicense.fallbackMode,
             message: targetLicense.message,
-            portal: 'https://skills.illicomedia.com/pricing',
+            portal: 'https://www.illicomedia.com/qa-skills/pricing',
           },
           null,
           2,
@@ -69,7 +74,7 @@ export class ToolExecutor {
         const freeCount = SKILLS_CATALOG.filter((s) => s.tier === 'free').length;
         const totalCount = SKILLS_CATALOG.length;
         const advisory = license.fallbackMode
-          ? `\n> [!NOTE] Running on Free Foundation tier (${freeCount} MIT skills). Upgrade to Pro or Enterprise at https://skills.illicomedia.com/pricing to unlock all ${totalCount} skills.\n`
+          ? `\n> [!NOTE] Running on Free Foundation tier (${freeCount} MIT skills). Upgrade to Pro or Enterprise at https://www.illicomedia.com/qa-skills/pricing to unlock all ${totalCount} skills.\n`
           : '';
 
         const list = filtered
@@ -88,7 +93,7 @@ export class ToolExecutor {
         const skill = skills.find((s) => s.id === skillId);
 
         if (!skill) {
-          return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill or activate an API key, use 'set_license_key' or visit:\nhttps://skills.illicomedia.com/pricing`;
+          return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill, provide a signed license file with 'set_license_key' or visit:\nhttps://www.illicomedia.com/qa-skills/pricing`;
         }
 
         const content = loadSkillContent(skillId);

@@ -1,7 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
-import { generateCanaryWatermark, validateLicenseKey } from './license.js';
+import { generateCanaryWatermark, validateLicense } from './license.js';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
 
 export interface InstallSkillResult {
@@ -45,7 +47,7 @@ export function installSkill(
     };
   }
 
-  const license = licenseOverride || validateLicenseKey(undefined);
+  const license = licenseOverride || validateLicense(undefined, { projectRoot: projectPath });
 
   // Authentication & Entitlement Gate for Paid Skills
   if (meta.tier === 'pro' && license.tier !== 'pro' && license.tier !== 'enterprise') {
@@ -60,8 +62,8 @@ export function installSkill(
       message:
         `Authentication required: '${skillId}' (${meta.name}) is a Pro Production skill.\n` +
         `Current active tier: ${license.tier.toUpperCase()}.\n` +
-        `To install, provide a valid Pro or Enterprise license key via the 'set_license_key' tool or set FREDO_QA_LICENSE_KEY.\n` +
-        `Purchase or manage licenses at: https://skills.illicomedia.com/pricing`,
+        `To install, provide a signed Pro or Enterprise license file via the 'set_license_key' tool or FREDO_QA_LICENSE_FILE.\n` +
+        `Purchase or manage licenses at: https://www.illicomedia.com/qa-skills/pricing`,
     };
   }
 
@@ -77,8 +79,8 @@ export function installSkill(
       message:
         `Authentication required: '${skillId}' (${meta.name}) is an Enterprise Assurance skill.\n` +
         `Current active tier: ${license.tier.toUpperCase()}.\n` +
-        `To install, provide an Enterprise license key via the 'set_license_key' tool or set FREDO_QA_LICENSE_KEY.\n` +
-        `Contact enterprise licensing at: https://skills.illicomedia.com/pricing`,
+        `To install, provide a signed Enterprise license file via the 'set_license_key' tool or FREDO_QA_LICENSE_FILE.\n` +
+        `Contact enterprise licensing at: https://www.illicomedia.com/qa-skills/pricing`,
     };
   }
 
@@ -191,7 +193,7 @@ export function syncWorkspaceSkills(
   requestedSkills?: string[],
   licenseOverride?: LicenseValidationResult,
 ): SyncWorkspaceResult {
-  const license = licenseOverride || validateLicenseKey(undefined);
+  const license = licenseOverride || validateLicense(undefined, { projectRoot: projectPath });
   const skillsToInstall =
     requestedSkills && requestedSkills.length > 0
       ? requestedSkills
@@ -228,7 +230,7 @@ export function syncWorkspaceSkills(
   if (skippedUnauthorized.length > 0) {
     summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
     summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
-    summary += `> Purchase or manage licenses: https://skills.illicomedia.com/pricing\n\n`;
+    summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
   }
 
   summary += `### Next Steps for AI Agent:\n`;

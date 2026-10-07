@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 /**
  * Types for Fredo QA Skills MCP Server
  */
@@ -16,9 +18,12 @@ export interface SkillMetadata {
 export interface LicenseValidationResult {
   valid: boolean;
   tier: SkillTier;
-  keyType: 'none' | 'test' | 'live';
+  keyType: 'none' | 'signed';
   customerName?: string;
-  expiresAt?: string;
+  licenseId?: string;
+  /** Last release date covered by the license (version retention), ISO-8601 UTC. */
+  updatesUntil?: string;
+  /** True when this build was released after `updatesUntil`. */
   isExpired: boolean;
   fallbackMode: boolean;
   message: string;

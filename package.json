@@ -9,6 +9,10 @@
     "fredo-qa-mcp-server": "./dist/index.js"
   },
   "type": "module",
+  "files": [
+    "dist",
+    "!dist/test"
+  ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",

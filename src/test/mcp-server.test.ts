@@ -1,45 +1,14 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-import { generateCanaryWatermark, validateLicenseKey } from '../license.js';
+import { generateCanaryWatermark } from '../license.js';
 import { FredoQaMcpServer } from '../server.js';
 import type { JsonRpcRequest } from '../types.js';
-
-test('License Validator: No key defaults cleanly to Free Foundation tier', () => {
-  const res = validateLicenseKey(undefined);
-  assert.strictEqual(res.valid, false);
-  assert.strictEqual(res.tier, 'free');
-  assert.strictEqual(res.fallbackMode, true);
-  assert.match(res.message, /Free Foundation mode/);
-});
-
-test('License Validator: Valid Pro live key activates Pro tier', () => {
-  const res = validateLicenseKey('fqa_live_pro_acme_7fffffff_abcdef123456');
-  assert.strictEqual(res.valid, true);
-  assert.strictEqual(res.tier, 'pro');
-  assert.strictEqual(res.fallbackMode, false);
-  assert.strictEqual(res.customerName, 'acme');
-});
-
-test('License Validator: Valid Enterprise live key activates Enterprise tier', () => {
-  const res = validateLicenseKey('fqa_live_ent_bigcorp_7fffffff_abcdef123456');
-  assert.strictEqual(res.valid, true);
-  assert.strictEqual(res.tier, 'enterprise');
-  assert.strictEqual(res.fallbackMode, false);
-});
-
-test('License Validator: Expired key gracefully falls back to Free tier without throwing', () => {
-  // Epoch in the past (e.g. 100000 = year 1970)
-  const expiredKey = 'fqa_live_pro_oldcorp_000186a0_abcdef123456';
-  const res = validateLicenseKey(expiredKey);
-  assert.strictEqual(res.valid, false);
-  assert.strictEqual(res.tier, 'free');
-  assert.strictEqual(res.isExpired, true);
-  assert.strictEqual(res.fallbackMode, true);
-  assert.match(res.message, /expired/i);
-});
+import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.js';
 
 test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
   const token = generateCanaryWatermark('user_123', 'qa-security');
@@ -49,7 +18,7 @@ test('Canary Watermark: Generates non-empty deterministic cryptographic token', 
 });
 
 test('MCP Server: Handles initialize handshake', () => {
-  const server = new FredoQaMcpServer();
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 1,
@@ -63,7 +32,7 @@ test('MCP Server: Handles initialize handshake', () => {
 });
 
 test('MCP Server: tools/list returns all registered MCP tools', () => {
-  const server = new FredoQaMcpServer();
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 2,
@@ -84,7 +53,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
 });
 
 test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', () => {
-  const server = new FredoQaMcpServer(); // no key
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // no key
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 3,
@@ -107,7 +76,7 @@ test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', ()
 });
 
 test('MCP Server: list_skills under Pro tier returns 18 skills', () => {
-  const server = new FredoQaMcpServer('fqa_live_pro_team_7fffffff_hash');
+  const server = new FredoQaMcpServer(signedLicense({ licensee: 'team' }), TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 4,
@@ -126,7 +95,10 @@ test('MCP Server: list_skills under Pro tier returns 18 skills', () => {
 });
 
 test('MCP Server: list_skills under Enterprise tier returns 20 skills', () => {
-  const server = new FredoQaMcpServer('fqa_live_ent_bigcorp_7fffffff_hash');
+  const server = new FredoQaMcpServer(
+    signedLicense({ tier: 'enterprise', licensee: 'bigcorp' }),
+    TEST_LICENSE_OPTIONS,
+  );
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 7,
@@ -144,7 +116,7 @@ test('MCP Server: list_skills under Enterprise tier returns 20 skills', () => {
 });
 
 test('MCP Server: get_skill_rules returns watermark and content', () => {
-  const server = new FredoQaMcpServer('fqa_live_pro_team_7fffffff_hash');
+  const server = new FredoQaMcpServer(signedLicense({ licensee: 'team' }), TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 5,
@@ -161,7 +133,7 @@ test('MCP Server: get_skill_rules returns watermark and content', () => {
 });
 
 test('MCP Server: audit_compliance returns valid structured audit report', () => {
-  const server = new FredoQaMcpServer();
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 6,
@@ -180,7 +152,7 @@ test('MCP Server: audit_compliance returns valid structured audit report', () =>
 });
 
 test('MCP Server: install_skill allows free skills without license key', () => {
-  const server = new FredoQaMcpServer(); // no license key
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // no license key
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-free-'));
   try {
     const req: JsonRpcRequest = {
@@ -207,7 +179,7 @@ test('MCP Server: install_skill allows free skills without license key', () => {
 });
 
 test('MCP Server: install_skill blocks paid skill without auth and reports required tier', () => {
-  const server = new FredoQaMcpServer(); // no license key
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // no license key
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-block-'));
   try {
     const req: JsonRpcRequest = {
@@ -233,7 +205,7 @@ test('MCP Server: install_skill blocks paid skill without auth and reports requi
 });
 
 test('MCP Server: install_skill succeeds for paid skill with valid license key', () => {
-  const server = new FredoQaMcpServer('fqa_live_pro_acmecorp_7fffffff_hash');
+  const server = new FredoQaMcpServer(signedLicense({ licensee: 'acmecorp' }), TEST_LICENSE_OPTIONS);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-ok-'));
   try {
     const req: JsonRpcRequest = {
@@ -263,14 +235,16 @@ test('MCP Server: install_skill succeeds for paid skill with valid license key',
 });
 
 test('MCP Server: set_license_key dynamically unlocks session', () => {
-  const server = new FredoQaMcpServer(); // start free
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // start free
   const req1: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 11,
     method: 'tools/call',
     params: {
       name: 'set_license_key',
-      arguments: { license_key: 'fqa_live_ent_megaenterprise_7fffffff_hash' },
+      arguments: {
+        license_key: signedLicense({ tier: 'enterprise', licensee: 'megaenterprise' }),
+      },
     },
   };
   const res1 = server.handleRequest(req1);
@@ -293,7 +267,7 @@ test('MCP Server: set_license_key dynamically unlocks session', () => {
 });
 
 test('MCP Server: sync_workspace_skills auto-detects stack and reports auth status', () => {
-  const server = new FredoQaMcpServer(); // free
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // free
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-sync-'));
   try {
     // Create a mock Go project with Dockerfile

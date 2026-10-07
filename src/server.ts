@@ -1,5 +1,8 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as readline from 'node:readline';
 import { ToolExecutor } from './executor.js';
+import type { LicenseOptions } from './license.js';
 import { MCP_TOOLS, findToolDefinition, validateToolParams } from './tools.js';
 import type { JsonRpcRequest, JsonRpcResponse } from './types.js';
 
@@ -7,9 +10,15 @@ export { MCP_TOOLS };
 
 export class FredoQaMcpServer {
   private licenseKey?: string;
+  private readonly licenseOptions: LicenseOptions;
 
-  constructor(licenseKey?: string) {
-    this.licenseKey = licenseKey || process.env.FREDO_QA_LICENSE_KEY;
+  /**
+   * @param licenseSource Signed license JSON or a path to it. When omitted, the license file
+   *   is discovered (FREDO_QA_LICENSE_FILE, user config, then project `.qa-license.json`).
+   */
+  constructor(licenseSource?: string, licenseOptions: LicenseOptions = {}) {
+    this.licenseKey = licenseSource;
+    this.licenseOptions = licenseOptions;
   }
 
   public setLicenseKey(key: string): void {
@@ -93,6 +102,7 @@ export class FredoQaMcpServer {
             toolArgs,
             this.licenseKey,
             (k) => this.setLicenseKey(k),
+            this.licenseOptions,
           );
           return {
             jsonrpc: '2.0',

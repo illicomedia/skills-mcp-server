@@ -1,15 +1,21 @@
 #!/usr/bin/env node
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 
 /**
  * Fredo QA Skills — Model Context Protocol (MCP) Server CLI
  *
  * Runs an MCP server on stdio for Cursor, Claude Desktop, Antigravity, and Copilot.
- * License key can be passed via FREDO_QA_LICENSE_KEY environment variable.
+ * Paid tiers need a signed license file, discovered from FREDO_QA_LICENSE_FILE,
+ * ~/.config/fredo-qa/license.json, or .qa-license.json in the working directory.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FredoQaMcpServer } from './server.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Pre-flight License Security Lock (Rule 7)
 function verifyLicenseLock(): void {
@@ -29,8 +35,7 @@ function verifyLicenseLock(): void {
 
 verifyLicenseLock();
 
-const licenseKey = process.env.FREDO_QA_LICENSE_KEY;
-const server = new FredoQaMcpServer(licenseKey);
+const server = new FredoQaMcpServer();
 
 // Log diagnostic to stderr so stdout remains 100% clean for JSON-RPC MCP
 process.stderr.write(

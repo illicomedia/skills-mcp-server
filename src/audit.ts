@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -12,7 +14,9 @@ export interface AuditCheckResult {
 export interface AuditReport {
   projectPath: string;
   timestamp: string;
-  score: number; // 0-100
+  /** Share of presence checks that found their file or script, 0-100. Not a compliance score. */
+  score: number;
+  scope: string;
   totalChecks: number;
   passedChecks: number;
   failedChecks: number;
@@ -20,8 +24,11 @@ export interface AuditReport {
   recommendations: string[];
 }
 
+const AUDIT_SCOPE =
+  'File-presence checks only: gates are not executed and file contents are not validated. A full pass means the expected files exist, not that the project is compliant.';
+
 /**
- * Runs deterministic QA compliance checks against a project path
+ * Checks that the files and scripts expected by Fredo QA Skills are present in a project.
  */
 export function runComplianceAudit(projectPath: string): AuditReport {
   const resolvedPath = path.resolve(projectPath);
@@ -32,12 +39,12 @@ export function runComplianceAudit(projectPath: string): AuditReport {
   const hasAgentsMd = fs.existsSync(agentsMd);
   results.push({
     category: 'governance',
-    name: 'AGENTS.md Policy Directives',
+    name: 'AGENTS.md present',
     passed: hasAgentsMd,
     severity: 'blocker',
     details: hasAgentsMd
-      ? 'Found AGENTS.md defining automated coding agent quality directives.'
-      : 'Missing AGENTS.md. Coding agents lack explicit QA boundaries.',
+      ? 'AGENTS.md file present (content not evaluated).'
+      : 'AGENTS.md not found. Coding agents have no repository-level QA instructions.',
   });
 
   // Check 2: .qa-exceptions governance
@@ -45,12 +52,12 @@ export function runComplianceAudit(projectPath: string): AuditReport {
   const hasExceptions = fs.existsSync(exceptionsFile);
   results.push({
     category: 'governance',
-    name: 'Exception Governance (.qa-exceptions.yaml)',
+    name: '.qa-exceptions.yaml present',
     passed: hasExceptions,
     severity: 'warning',
     details: hasExceptions
-      ? 'Exception registry is established with schema governance.'
-      : 'No .qa-exceptions.yaml found. Ensure deviations from quality gates are formally tracked.',
+      ? 'Exception register file present (schema and expiry not checked).'
+      : 'No .qa-exceptions.yaml found. Deviations from quality gates should be tracked there.',
   });
 
   // Check 3: RFC 9116 security.txt
@@ -61,12 +68,12 @@ export function runComplianceAudit(projectPath: string): AuditReport {
     fs.existsSync(secTxtPublic) || fs.existsSync(secTxtDist) || fs.existsSync(secTxtRoot);
   results.push({
     category: 'security',
-    name: 'RFC 9116 security.txt Implementation',
+    name: 'security.txt present',
     passed: hasSecTxt,
     severity: 'blocker',
     details: hasSecTxt
-      ? 'Found valid security.txt for responsible vulnerability disclosure.'
-      : 'Missing security.txt in .well-known/ namespace.',
+      ? 'security.txt file present in a .well-known/ directory (RFC 9116 fields not checked).'
+      : 'No security.txt found in public/, dist/, or root .well-known/ directories.',
   });
 
   // Check 4: Safe gitignore configuration
@@ -79,13 +86,13 @@ export function runComplianceAudit(projectPath: string): AuditReport {
   }
   results.push({
     category: 'security',
-    name: 'Secret Protection (.gitignore ignores .env)',
+    name: '.gitignore mentions .env',
     passed: hasGitignore && ignoresEnv,
     severity: 'blocker',
     details:
       hasGitignore && ignoresEnv
-        ? '.gitignore correctly isolates environment variables and secrets.'
-        : 'Missing or incomplete .gitignore (ensure .env and private keys are ignored).',
+        ? '.gitignore contains the text ".env" (ignore rules and other secret files not evaluated).'
+        : '.gitignore missing or does not mention .env (also ignore private keys and credentials).',
   });
 
   // Check 5: QA scripts in package.json
@@ -103,22 +110,22 @@ export function runComplianceAudit(projectPath: string): AuditReport {
   }
   results.push({
     category: 'quality',
-    name: 'Standardized QA Gate Scripts',
+    name: 'qa:starter or qa:standard script declared',
     passed: hasQaStandard,
     severity: 'blocker',
     details: hasQaStandard
-      ? 'Found standardized inner-loop QA script (qa:starter or qa:standard).'
-      : 'Missing qa:starter / qa:standard script definitions in package.json.',
+      ? 'package.json declares qa:starter or qa:standard (script not executed).'
+      : 'No qa:starter / qa:standard script in package.json.',
   });
 
   results.push({
     category: 'quality',
-    name: 'Static Type Checking Script',
+    name: 'type-check script declared',
     passed: hasTypeCheck,
     severity: 'blocker',
     details: hasTypeCheck
-      ? 'Type-checking gate is configured in build scripts.'
-      : 'No type-check script detected. Static type soundness cannot be verified automatically.',
+      ? 'package.json declares a type-check script (script not executed).'
+      : 'No type-check or tsc script in package.json.',
   });
 
   const totalChecks = results.length;
@@ -147,6 +154,7 @@ export function runComplianceAudit(projectPath: string): AuditReport {
     projectPath: resolvedPath,
     timestamp: new Date().toISOString(),
     score,
+    scope: AUDIT_SCOPE,
     totalChecks,
     passedChecks,
     failedChecks,

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
@@ -290,7 +292,7 @@ export function loadSkillLicense(
           if (meta.tier === 'free') {
             return content;
           }
-          return `${content}\n\n---\nCOMMERCIAL ACTIVATION CERTIFICATE\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense Key Status: VERIFIED ACTIVE\nExpires: ${license.expiresAt || 'Active Subscription'}\nAuthorized by: Frédéric Charles Viallet (skills.illicomedia.com)`;
+          return `${content}\n\n---\nCOMMERCIAL ACTIVATION CERTIFICATE\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense: ${license.licenseId || 'unknown'} (Ed25519 signature verified)\nUpdates Until: ${license.updatesUntil || 'unknown'}\nAuthorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)`;
         }
       } catch {
         // Fallback to generated license
@@ -324,18 +326,25 @@ SOFTWARE.`;
   }
 
   // Commercial / Enterprise License
-  return `Commercial Skills License
+  return `Fredo QA Commercial Skills License
+SPDX identifier: LicenseRef-Fredo-QA-Commercial
 
 Copyright (c) 2026 Frédéric Charles Viallet. All rights reserved.
 
 Licensee: ${license.customerName || 'Licensed Organization'}
 License Tier: ${meta.tier.toUpperCase()}
-License Key Status: VERIFIED ACTIVE
-Expires: ${license.expiresAt || 'Active Subscription'}
-Authorized by: Frédéric Charles Viallet (skills.illicomedia.com)
+License: ${license.licenseId || 'unknown'} (Ed25519 signature verified)
+Updates Until: ${license.updatesUntil || 'unknown'}
+Authorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)
 
-The material in this directory is proprietary commercial software licensed to the licensee named above.
-No right is granted to redistribute, sublicense, publish publicly, sell, or create public derivative works.
-Use is granted exclusively for internal development within the licensee's organization.`;
+This skill is paid, proprietary material licensed to the licensee named above for its own
+internal development work, by no more people than the seats bought. Without separate written
+permission, the licensee must not copy it (other than installation and backup copies),
+distribute, publish, share, sell, rent or sublicense it, create derivative works of it for use
+outside this license, share the license file, or remove copyright and provenance notices.
+Results the licensee produces with the skill belong to the licensee. The license ends
+automatically on breach or non-payment. Provided "as is" to the extent permitted by law;
+governed by French law. Full terms: the LICENSE file of the skill and
+https://www.illicomedia.com/qa-skills/`;
 }
 

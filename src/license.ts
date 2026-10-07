@@ -1,121 +1,223 @@
+// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
+// SPDX-License-Identifier: MIT
 import * as crypto from 'node:crypto';
-import type { LicenseValidationResult, SkillTier } from './types.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './license-keys.js';
+import type { LicenseValidationResult } from './types.js';
 
 const HMAC_SALT = 'fredo-qa-skills-provenance-v1';
+const PRICING_URL = 'https://www.illicomedia.com/qa-skills/pricing';
+const MAX_LICENSE_BYTES = 64 * 1024;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+const STRING_FIELDS = [
+  'license_id',
+  'licensee',
+  'contact',
+  'issued_at',
+  'updates_until',
+  'key_id',
+  'signature',
+] as const;
+const ALLOWED_FIELDS = new Set<string>([...STRING_FIELDS, 'tier', 'seats', 'binding']);
 
-/**
- * Validates a Fredo QA Skills license key and determines active tier
- */
-export function validateLicenseKey(
-  rawKey?: string,
-  now: Date = new Date(),
-): LicenseValidationResult {
-  const key = rawKey?.trim();
+export const LICENSE_FILE_ENV = 'FREDO_QA_LICENSE_FILE';
+export const USER_LICENSE_PATH = ['.config', 'fredo-qa', 'license.json'];
+export const PROJECT_LICENSE_FILE = '.qa-license.json';
 
-  if (!key) {
-    return {
-      valid: false,
-      tier: 'free',
-      keyType: 'none',
-      isExpired: false,
-      fallbackMode: true,
-      message:
-        'No license key provided. Operating in Free Foundation mode (MIT skills available: qa-core, dev-flow, qa-python, qa-bash, qa-mcp, qa-javascript-typescript, qa-php). To activate Pro or Enterprise skills, set FREDO_QA_LICENSE_KEY.',
-    };
+export interface LicenseOptions {
+  trustedKeys?: Readonly<Record<string, string>>;
+  releaseDate?: string;
+  env?: Readonly<Record<string, string | undefined>>;
+  homeDir?: string;
+  projectRoot?: string;
+}
+
+interface LicenseDocument {
+  license_id: string;
+  licensee: string;
+  contact: string;
+  tier: 'pro' | 'enterprise';
+  seats: number;
+  issued_at: string;
+  updates_until: string;
+  binding: { kind: string };
+  key_id: string;
+  signature: string;
+}
+
+/** Canonical JSON (RFC 8785 for the value types a license uses): sorted keys, no whitespace. */
+export function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`;
   }
-
-  // Live Enterprise key format: fqa_live_ent_<id>_<expDateHex>_<hash>
-  if (key.startsWith('fqa_live_ent_')) {
-    const parts = key.split('_');
-    const expEpoch = parts[4] ? Number.parseInt(parts[4], 16) : null;
-    const isExpired = expEpoch ? now.getTime() > expEpoch * 1000 : false;
-
-    if (isExpired) {
-      return {
-        valid: false,
-        tier: 'free',
-        keyType: 'live',
-        customerName: parts[3] || 'Enterprise Client',
-        expiresAt: expEpoch ? new Date(expEpoch * 1000).toISOString() : undefined,
-        isExpired: true,
-        fallbackMode: true,
-        message:
-          'Enterprise license has expired. Gracefully reverting to Free Foundation skills. To renew, visit https://skills.illicomedia.com/pricing',
-      };
-    }
-
-    return {
-      valid: true,
-      tier: 'enterprise',
-      keyType: 'live',
-      customerName: parts[3] || 'Enterprise Client',
-      expiresAt: expEpoch ? new Date(expEpoch * 1000).toISOString() : '2027-12-31T23:59:59Z',
-      isExpired: false,
-      fallbackMode: false,
-      message: 'Active Enterprise Assurance license validated. All 16 skills unlocked.',
-    };
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const members = Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`);
+    return `{${members.join(',')}}`;
   }
+  return JSON.stringify(value);
+}
 
-  // Live Pro key format: fqa_live_pro_<id>_<expDateHex>_<hash>
-  if (key.startsWith('fqa_live_pro_') || key.startsWith('fqa_live_')) {
-    const parts = key.split('_');
-    const expEpoch = parts[4] ? Number.parseInt(parts[4], 16) : null;
-    const isExpired = expEpoch ? now.getTime() > expEpoch * 1000 : false;
-
-    if (isExpired) {
-      return {
-        valid: false,
-        tier: 'free',
-        keyType: 'live',
-        customerName: parts[3] || 'Pro Subscriber',
-        expiresAt: expEpoch ? new Date(expEpoch * 1000).toISOString() : undefined,
-        isExpired: true,
-        fallbackMode: true,
-        message:
-          'Pro subscription has expired. Gracefully reverting to Free Foundation skills under version-retention rights. To renew updates, visit https://skills.illicomedia.com/pricing',
-      };
-    }
-
-    return {
-      valid: true,
-      tier: 'pro',
-      keyType: 'live',
-      customerName: parts[3] || 'Pro Subscriber',
-      expiresAt: expEpoch ? new Date(expEpoch * 1000).toISOString() : '2027-12-31T23:59:59Z',
-      isExpired: false,
-      fallbackMode: false,
-      message: 'Active Pro Production license validated. 14 skills unlocked.',
-    };
-  }
-
-  // Test mode key
-  if (key.startsWith('fqa_test_')) {
-    return {
-      valid: true,
-      tier: 'pro',
-      keyType: 'test',
-      customerName: 'Test Sandbox User',
-      expiresAt: '2099-01-01T00:00:00Z',
-      isExpired: false,
-      fallbackMode: false,
-      message: 'Sandbox / Test license validated for development evaluation.',
-    };
-  }
-
-  // Invalid key format
+function freeTier(message: string, extra: Partial<LicenseValidationResult> = {}): LicenseValidationResult {
   return {
     valid: false,
     tier: 'free',
     keyType: 'none',
     isExpired: false,
     fallbackMode: true,
-    message:
-      'Invalid license key format. Reverting to Free Foundation tier. Check your license key in https://skills.illicomedia.com',
+    message,
+    ...extra,
+  };
+}
+
+function readLicenseFile(file: string): string {
+  const size = fs.statSync(file).size;
+  if (size > MAX_LICENSE_BYTES) {
+    throw new Error(`license file exceeds ${MAX_LICENSE_BYTES} bytes`);
+  }
+  return fs.readFileSync(file, 'utf8');
+}
+
+function discoverLicenseFile(options: LicenseOptions): string | undefined {
+  const env = options.env ?? process.env;
+  const candidates = [
+    env[LICENSE_FILE_ENV],
+    path.join(options.homeDir ?? os.homedir(), ...USER_LICENSE_PATH),
+    path.join(options.projectRoot ?? process.cwd(), PROJECT_LICENSE_FILE),
+  ];
+  return candidates.find((file): file is string => Boolean(file) && fs.existsSync(file as string));
+}
+
+function parseLicense(text: string): LicenseDocument | string {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return 'license file is not valid JSON';
+  }
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    return 'license file must contain a JSON object';
+  }
+  const record = data as Record<string, unknown>;
+  const unknownField = Object.keys(record).find((key) => !ALLOWED_FIELDS.has(key));
+  if (unknownField) {
+    return `license field '${unknownField}' is not supported`;
+  }
+  const missing = STRING_FIELDS.find(
+    (field) => typeof record[field] !== 'string' || (record[field] as string).length === 0,
+  );
+  if (missing) {
+    return `license field '${missing}' must be a non-empty string`;
+  }
+  if (record.tier !== 'pro' && record.tier !== 'enterprise') {
+    return "license tier must be 'pro' or 'enterprise'";
+  }
+  if (!Number.isInteger(record.seats) || (record.seats as number) < 1) {
+    return 'license seats must be a positive integer';
+  }
+  for (const field of ['issued_at', 'updates_until'] as const) {
+    const value = record[field] as string;
+    if (!ISO_INSTANT.test(value) || Number.isNaN(Date.parse(value))) {
+      return `license field '${field}' must be an ISO-8601 UTC timestamp`;
+    }
+  }
+  const binding = record.binding as Record<string, unknown> | undefined;
+  if (!binding || typeof binding !== 'object' || binding.kind !== 'none') {
+    return "license binding kind must be 'none' in this build";
+  }
+  return record as unknown as LicenseDocument;
+}
+
+function verifySignature(doc: LicenseDocument, trustedKeys: Readonly<Record<string, string>>): string | null {
+  const pem = Object.hasOwn(trustedKeys, doc.key_id) ? trustedKeys[doc.key_id] : undefined;
+  if (!pem) {
+    return `license key id '${doc.key_id}' is not trusted by this build`;
+  }
+  if (!BASE64.test(doc.signature)) {
+    return 'license signature is not valid base64';
+  }
+  const { signature, ...body } = doc;
+  try {
+    const publicKey = crypto.createPublicKey(pem);
+    if (publicKey.asymmetricKeyType !== 'ed25519') {
+      return 'trusted license key is not an Ed25519 key';
+    }
+    const payload = Buffer.from(canonicalJson(body), 'utf8');
+    if (crypto.verify(null, payload, publicKey, Buffer.from(signature, 'base64'))) {
+      return null;
+    }
+  } catch {
+    return 'license signature could not be verified';
+  }
+  return 'license signature does not match its content';
+}
+
+/**
+ * Verifies an Ed25519-signed license file and returns the tier it unlocks for this build.
+ * `source` is the license JSON itself or a path to it; when omitted, the license file is
+ * discovered from FREDO_QA_LICENSE_FILE, ~/.config/fredo-qa/license.json, then
+ * .qa-license.json at the project root. Any failure degrades to the free tier.
+ */
+export function validateLicense(source?: string, options: LicenseOptions = {}): LicenseValidationResult {
+  const trimmed = source?.trim();
+  let text: string;
+  try {
+    if (trimmed?.startsWith('{')) {
+      text = trimmed;
+    } else {
+      const file = trimmed ? path.resolve(trimmed) : discoverLicenseFile(options);
+      if (!file) {
+        return freeTier(
+          `No license file found. Free tier active: all MIT skills are available. To unlock Pro or Enterprise skills, provide a signed license file (${LICENSE_FILE_ENV}, ~/.config/fredo-qa/license.json, or ${PROJECT_LICENSE_FILE}).`,
+        );
+      }
+      text = readLicenseFile(file);
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return freeTier(`License file could not be read (${reason}). Free tier active.`);
+  }
+
+  const doc = parseLicense(text);
+  if (typeof doc === 'string') {
+    return freeTier(`Invalid license: ${doc}. Free tier active.`);
+  }
+  const signatureError = verifySignature(doc, options.trustedKeys ?? TRUSTED_LICENSE_KEYS);
+  if (signatureError) {
+    return freeTier(`Invalid license: ${signatureError}. Free tier active.`);
+  }
+
+  const identity = {
+    keyType: 'signed' as const,
+    customerName: doc.licensee,
+    licenseId: doc.license_id,
+    updatesUntil: doc.updates_until,
+  };
+  const releaseDate = options.releaseDate ?? SERVER_RELEASE_DATE;
+  if (Date.parse(releaseDate) > Date.parse(doc.updates_until)) {
+    return freeTier(
+      `License ${doc.license_id} covers releases up to ${doc.updates_until}; this build was released on ${releaseDate}. Free tier active. Earlier builds stay unlocked. To renew updates, visit ${PRICING_URL}`,
+      { ...identity, isExpired: true },
+    );
+  }
+  const scope = doc.tier === 'enterprise' ? 'Pro and Enterprise' : 'Pro';
+  return {
+    valid: true,
+    tier: doc.tier,
+    isExpired: false,
+    fallbackMode: false,
+    message: `Signed ${doc.tier} license ${doc.license_id} verified for ${doc.licensee}. ${scope} skills unlocked.`,
+    ...identity,
   };
 }
 
 /**
- * Generates an invisible or comment-based Canary Watermark for cryptographic provenance tracking
+ * Generates a comment-based canary watermark for provenance tracking of distributed skills.
  */
 export function generateCanaryWatermark(licenseeId: string, skillId: string): string {
   const hash = crypto
