@@ -24,7 +24,7 @@
     "claude",
     "antigravity"
   ],
-  "author": "Frédéric Charles Viallet",
+  "author": "Frédéric Charles Viallet <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.0.0",
