@@ -4,6 +4,7 @@
   "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server for Cursor, Claude Desktop, Antigravity, and Copilot",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "packageManager": "pnpm@12.10.1",
   "bin": {
     "fredo-qa-mcp-server": "./dist/index.js"
   },
