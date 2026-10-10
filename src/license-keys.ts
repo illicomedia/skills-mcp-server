@@ -5,7 +5,11 @@
  * Only public keys may appear here: signing keys stay in the license-issuing service.
  * While this map is empty, no paid license verifies and the server runs in free mode.
  */
-export const TRUSTED_LICENSE_KEYS: Readonly<Record<string, string>> = Object.freeze({});
+export const TRUSTED_LICENSE_KEYS: Readonly<Record<string, string>> = Object.freeze({
+  'fredo-qa-root-2026': `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAzNnesPRQ2KrjmbcwWw9xJRtIOLwG+1xeb7LNf7iPOUs=
+-----END PUBLIC KEY-----`,
+});
 
 /**
  * Release date of this build. A license unlocks this build only when its
