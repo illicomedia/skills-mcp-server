@@ -94,7 +94,7 @@ test('MCP Server: list_skills under Pro tier returns 18 skills', () => {
   assert.match(text, /qa-c-cpp/);
 });
 
-test('MCP Server: list_skills under Enterprise tier returns 20 skills', () => {
+test('MCP Server: list_skills under Enterprise tier returns 24 skills', () => {
   const server = new FredoQaMcpServer(
     signedLicense({ tier: 'enterprise', licensee: 'bigcorp' }),
     TEST_LICENSE_OPTIONS,
@@ -110,7 +110,7 @@ test('MCP Server: list_skills under Enterprise tier returns 20 skills', () => {
   };
   const res = server.handleRequest(req);
   const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
-  assert.match(text, /20 accessible under ENTERPRISE plan/);
+  assert.match(text, /24 accessible under ENTERPRISE plan/);
   assert.match(text, /qa-gdpr-rgpd/);
   assert.match(text, /qa-ai-infrastructure-compliance/);
 });
@@ -263,7 +263,7 @@ test('MCP Server: set_license_key dynamically unlocks session', () => {
   };
   const res2 = server.handleRequest(req2);
   const text2 = (res2.result as { content: Array<{ text: string }> }).content[0].text;
-  assert.match(text2, /20 accessible under ENTERPRISE plan/);
+  assert.match(text2, /24 accessible under ENTERPRISE plan/);
 });
 
 test('MCP Server: sync_workspace_skills auto-detects stack and reports auth status', () => {

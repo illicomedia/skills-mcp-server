@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSkillLicense } from './license-templates.js';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
 
 export const SKILLS_CATALOG: SkillMetadata[] = [
@@ -133,12 +134,17 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     rulesSummary: ['Lighthouse score >= 90', 'Strict performance budgets', 'Asset compression'],
   },
   {
-    id: 'qa-devops',
-    name: 'DevOps & CI/CD Security',
+    id: 'qa-gdpr-rgpd',
+    name: 'GDPR / RGPD Privacy Engineering',
     tier: 'pro',
     category: 'compliance',
-    description: 'GitHub Actions hardening, Dockerfile linting, container security, and IaC scanning.',
-    rulesSummary: ['Pinned Action SHAs', 'Trivy container scan clean', 'Least-privilege tokens'],
+    description:
+      'Privacy by design, CNIL public-web gates, consent parity, data subject rights (DSR), RoPA, and DPIA.',
+    rulesSummary: [
+      'Equal refuse/accept consent; no unconsented trackers',
+      'Art.13 forms + server-verified captcha + retain-until',
+      'RoPA/CSP/legal copy lockstep with processing flags',
+    ],
   },
   {
     id: 'qa-seo-website',
@@ -171,25 +177,52 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
 
   // Enterprise Assurance (Enterprise)
   {
-    id: 'qa-gdpr-rgpd',
-    name: 'GDPR / RGPD Privacy Engineering',
+    id: 'qa-devops',
+    name: 'DevOps & CI/CD Security',
     tier: 'enterprise',
-    category: 'enterprise',
-    description:
-      'Privacy by design, CNIL public-web gates, consent parity, data subject rights (DSR), RoPA, and DPIA.',
-    rulesSummary: [
-      'Equal refuse/accept consent; no unconsented trackers',
-      'Art.13 forms + server-verified captcha + retain-until',
-      'RoPA/CSP/legal copy lockstep with processing flags',
-    ],
+    category: 'compliance',
+    description: 'GitHub Actions hardening, Dockerfile linting, container security, and IaC scanning.',
+    rulesSummary: ['Pinned Action SHAs', 'Trivy container scan clean', 'Least-privilege tokens'],
   },
   {
     id: 'qa-ai-infrastructure-compliance',
     name: 'AI Infrastructure & NIS2 Compliance',
     tier: 'enterprise',
-    category: 'enterprise',
+    category: 'compliance',
     description: 'ISO 42001, NIS2 Directive mapping, EU AI Act risk classification, SOC2 Type II.',
     rulesSummary: ['AI risk tiering documented', 'NIS2 incident notification readiness', 'Auditable evidence export'],
+  },
+  {
+    id: 'qa-cra-software-supply-chain',
+    name: 'CRA & Supply Chain Assurance',
+    tier: 'enterprise',
+    category: 'compliance',
+    description: 'EU CRA compliance, CycloneDX/SPDX SBOMs, SLSA Level 3 provenance, and Sigstore signing.',
+    rulesSummary: ['CycloneDX v1.6 SBOM generated', 'SLSA Level 3 provenance verified', 'VEX statements published'],
+  },
+  {
+    id: 'qa-pci-dss',
+    name: 'PCI-DSS v4.0 Payment Security',
+    tier: 'enterprise',
+    category: 'compliance',
+    description: 'Cardholder Data Environment isolation, client-side tokenization, PAN masking, and audit trails.',
+    rulesSummary: ['Zero SAD/CVV retention', 'Client-side payment tokenization', 'Strict PAN masking'],
+  },
+  {
+    id: 'qa-health-data-compliance',
+    name: 'Health Data (HDS & HIPAA)',
+    tier: 'enterprise',
+    category: 'compliance',
+    description: 'French HDS v2.0, HIPAA Security Rule, HL7 FHIR validation, and PHI pseudonymization.',
+    rulesSummary: ['Envelope encryption with HSM', 'HL7 FHIR SMART-on-FHIR scopes', 'Immutable access audit logging'],
+  },
+  {
+    id: 'qa-enterprise-iam-sso',
+    name: 'Enterprise IAM & SSO Federation',
+    tier: 'enterprise',
+    category: 'compliance',
+    description: 'SAML 2.0 XML signatures, OIDC with PKCE, SCIM 2.0 provisioning, and multi-tenant isolation.',
+    rulesSummary: ['SAML XML signature & replay check', 'SCIM instant deprovisioning', 'Multi-tenant isolation verified'],
   },
 ];
 
@@ -272,79 +305,6 @@ export function loadSkillLicense(
   if (!meta) {
     throw new Error(`Unknown skill: ${skillId}`);
   }
-
-  // Look for existing license file
-  const candidatePaths = [
-    path.join(searchDir || process.cwd(), 'skills', 'free', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'pro', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'pro', 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'enterprise', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'enterprise', 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', skillId, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'LICENSE'),
-  ];
-
-  for (const p of candidatePaths) {
-    if (fs.existsSync(p)) {
-      try {
-        const content = fs.readFileSync(p, 'utf-8').trim();
-        if (content.length > 0) {
-          if (meta.tier === 'free') {
-            return content;
-          }
-          return `${content}\n\n---\nCOMMERCIAL ACTIVATION CERTIFICATE\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense: ${license.licenseId || 'unknown'} (Ed25519 signature verified)\nUpdates Until: ${license.updatesUntil || 'unknown'}\nAuthorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)`;
-        }
-      } catch {
-        // Fallback to generated license
-      }
-    }
-  }
-
-  // Standard MIT for free tier
-  if (meta.tier === 'free') {
-    return `MIT License
-
-Copyright (c) 2026 Frédéric Charles Viallet
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`;
-  }
-
-  // Commercial / Enterprise License
-  return `Fredo QA Commercial Skills License
-SPDX identifier: LicenseRef-Fredo-QA-Commercial
-
-Copyright (c) 2026 Frédéric Charles Viallet. All rights reserved.
-
-Licensee: ${license.customerName || 'Licensed Organization'}
-License Tier: ${meta.tier.toUpperCase()}
-License: ${license.licenseId || 'unknown'} (Ed25519 signature verified)
-Updates Until: ${license.updatesUntil || 'unknown'}
-Authorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)
-
-This skill is paid, proprietary material licensed to the licensee named above for its own
-internal development work, by no more people than the seats bought. Without separate written
-permission, the licensee must not copy it (other than installation and backup copies),
-distribute, publish, share, sell, rent or sublicense it, create derivative works of it for use
-outside this license, share the license file, or remove copyright and provenance notices.
-Results the licensee produces with the skill belong to the licensee. The license ends
-automatically on breach or non-payment. Provided "as is" to the extent permitted by law;
-governed by French law. Full terms: the LICENSE file of the skill and
-https://www.illicomedia.com/qa-skills/`;
+  return resolveSkillLicense(meta, license, searchDir);
 }
 

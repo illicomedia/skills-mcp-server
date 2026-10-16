@@ -59,7 +59,7 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
     assert.equal(status.customer, 'Example SAS');
     assert.equal(status.licenseId, 'LIC-2026-000123');
 
-    assert.match(callTool(server, 'list_skills'), /20 accessible under ENTERPRISE plan/);
+    assert.match(callTool(server, 'list_skills'), /24 accessible under ENTERPRISE plan/);
 
     const install = JSON.parse(
       callTool(server, 'install_skill', { skill_id: 'qa-gdpr-rgpd', project_path: ws.project }),
