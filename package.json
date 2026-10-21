@@ -1,13 +1,13 @@
 {
   "name": "@illicomedia/skills-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server for Cursor, Claude Desktop, Antigravity, and Copilot",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "packageManager": "pnpm@12.11.2",
   "bin": {
-    "skills-mcp-server": "./dist/index.js",
-    "fredo-qa-mcp-server": "./dist/index.js"
+    "skills-mcp-server": "dist/index.js",
+    "fredo-qa-mcp-server": "dist/index.js"
   },
   "type": "module",
   "files": [
@@ -42,7 +42,7 @@
     "claude",
     "antigravity"
   ],
-  "author": "Frédéric Charles Viallet <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
+  "author": "Frédéric Charles Viallet (illicomedia) <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^26.6.5",
