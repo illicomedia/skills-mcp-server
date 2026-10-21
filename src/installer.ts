@@ -86,32 +86,50 @@ export function installSkill(
 
   // Installation authorized
   const targetDir = path.join(projectPath, '.agents', 'skills', skillId);
-  fs.mkdirSync(targetDir, { recursive: true });
+  try {
+    try {
+      const stat = fs.lstatSync(targetDir);
+      if (stat.isSymbolicLink()) {
+        fs.unlinkSync(targetDir);
+      }
+    } catch {
+      // Not an existing file or symlink
+    }
+    fs.mkdirSync(targetDir, { recursive: true });
 
-  const rawSkillContent = loadSkillContent(skillId, projectPath);
-  const skillContent =
-    meta.tier !== 'free'
-      ? `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`
-      : rawSkillContent;
+    const rawSkillContent = loadSkillContent(skillId, projectPath);
+    const skillContent =
+      meta.tier !== 'free'
+        ? `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`
+        : rawSkillContent;
 
-  const licenseContent = loadSkillLicense(skillId, license, projectPath);
+    const licenseContent = loadSkillLicense(skillId, license, projectPath);
 
-  const skillFilePath = path.join(targetDir, 'SKILL.md');
-  const licenseFilePath = path.join(targetDir, 'LICENSE');
+    const skillFilePath = path.join(targetDir, 'SKILL.md');
+    const licenseFilePath = path.join(targetDir, 'LICENSE');
 
-  fs.writeFileSync(skillFilePath, skillContent, 'utf-8');
-  fs.writeFileSync(licenseFilePath, licenseContent, 'utf-8');
+    fs.writeFileSync(skillFilePath, skillContent, 'utf-8');
+    fs.writeFileSync(licenseFilePath, licenseContent, 'utf-8');
 
-  return {
-    success: true,
-    skillId,
-    skillName: meta.name,
-    tier: meta.tier,
-    installedFiles: [skillFilePath, licenseFilePath],
-    targetDirectory: targetDir,
-    message: `Skill '${skillId}' (${meta.name}) successfully installed under ${meta.tier.toUpperCase()} tier with valid LICENSE.`,
-    promptRecommendation: `Apply the quality gates in .agents/skills/${skillId}/SKILL.md to this codebase and verify compliance.`,
-  };
+    return {
+      success: true,
+      skillId,
+      skillName: meta.name,
+      tier: meta.tier,
+      installedFiles: [skillFilePath, licenseFilePath],
+      targetDirectory: targetDir,
+      message: `Skill '${skillId}' (${meta.name}) successfully installed under ${meta.tier.toUpperCase()} tier with valid LICENSE.`,
+      promptRecommendation: `Apply the quality gates in .agents/skills/${skillId}/SKILL.md to this codebase and verify compliance.`,
+    };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return {
+      success: false,
+      skillId,
+      installedFiles: [],
+      message: `Failed to install skill '${skillId}': ${errorMsg}`,
+    };
+  }
 }
 
 /**
@@ -161,7 +179,22 @@ export function detectProjectSkills(projectPath: string = process.cwd()): string
   ) {
     detected.add('qa-c-cpp');
   }
-  if (fileExists('composer.json')) {
+  const hasPhpFiles = (relDir: string): boolean => {
+    try {
+      const fullDir = path.join(projectPath, relDir);
+      return fs.existsSync(fullDir) && fs.readdirSync(fullDir).some((f) => f.endsWith('.php'));
+    } catch {
+      return false;
+    }
+  };
+
+  if (
+    fileExists('composer.json') ||
+    hasPhpFiles('.') ||
+    hasPhpFiles('public/api') ||
+    hasPhpFiles('api') ||
+    hasPhpFiles('src')
+  ) {
     detected.add('qa-php');
   }
 

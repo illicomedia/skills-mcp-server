@@ -26,10 +26,11 @@
   },
   "homepage": "https://www.illicomedia.com/qa-skills/mcp",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod -R u+rwX dist",
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
-    "test": "node --test dist/test/*.test.js"
+    "test": "node --test dist/test/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage dist/test/*.test.js"
   },
   "keywords": [
     "mcp",
@@ -44,7 +45,7 @@
   "author": "Frédéric Charles Viallet <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
   }
 }

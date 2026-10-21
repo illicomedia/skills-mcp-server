@@ -8,6 +8,9 @@ import type { JsonRpcRequest, JsonRpcResponse } from './types.js';
 
 export { MCP_TOOLS };
 
+export const DEFAULT_API_ENDPOINT =
+  process.env.FREDO_QA_API_URL || 'https://www.illicomedia.com/api';
+
 export class FredoQaMcpServer {
   private licenseKey?: string;
   private readonly licenseOptions: LicenseOptions;
@@ -39,7 +42,7 @@ export class FredoQaMcpServer {
               tools: {},
             },
             serverInfo: {
-              name: 'fredo-qa-mcp-server',
+              name: '@illicomedia/skills-mcp-server',
               version: '1.0.0',
               description: 'Official Fredo QA Skills Model Context Protocol Server',
             },
