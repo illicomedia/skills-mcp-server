@@ -174,6 +174,18 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
       'BIMI indicator validation',
     ],
   },
+  {
+    id: 'qa-cnil',
+    name: 'CNIL RGPD Article 30 Processing Register',
+    tier: 'pro',
+    category: 'compliance',
+    description: 'Automated CNIL Article 30 Records of Processing Activities (RoPA) extraction, JSON pivot, and ODS export.',
+    rulesSummary: [
+      'Automated personal data mapping',
+      'Article 30.1 Controller and 30.2 Processor register separation',
+      'Official CNIL OpenDocument Spreadsheet (.ods) export',
+    ],
+  },
 
   // Enterprise Assurance (Enterprise)
   {
