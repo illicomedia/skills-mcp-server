@@ -1,18 +1,30 @@
 {
-  "name": "@fredo/qa-mcp-server",
+  "name": "@illicomedia/skills-mcp-server",
   "version": "1.0.0",
   "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server for Cursor, Claude Desktop, Antigravity, and Copilot",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "packageManager": "pnpm@12.11.2",
   "bin": {
+    "skills-mcp-server": "./dist/index.js",
     "fredo-qa-mcp-server": "./dist/index.js"
   },
   "type": "module",
   "files": [
     "dist",
-    "!dist/test"
+    "!dist/test",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fcviallet/skills.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://www.illicomedia.com/qa-skills/mcp",
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",

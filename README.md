@@ -16,7 +16,7 @@ Connects AI coding assistants (**Cursor, Claude Desktop, Antigravity, Windsurf, 
 
 ---
 
-## Quick Setup
+## Quick Setup (npx or local node)
 
 ### 1. Claude Desktop
 
@@ -26,8 +26,8 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "fredo-qa": {
-      "command": "node",
-      "args": ["/absolute/path/to/skills/packages/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"],
       "env": {
         "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
       }
@@ -44,8 +44,8 @@ Add to `.cursor/mcp.json` in your workspace or user settings:
 {
   "mcpServers": {
     "fredo-qa": {
-      "command": "node",
-      "args": ["/absolute/path/to/skills/packages/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"],
       "env": {
         "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
       }
@@ -62,8 +62,8 @@ Add to your `antigravity.json` or custom MCP settings:
 {
   "mcpServers": {
     "fredo-qa": {
-      "command": "node",
-      "args": ["/absolute/path/to/skills/packages/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"],
       "env": {
         "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
       }
