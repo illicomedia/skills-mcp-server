@@ -6,7 +6,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { canonicalJson, validateLicense } from '../license.js';
+import {
+  LICENSE_SCHEMA_URL,
+  LICENSE_SCHEMA_VERSION,
+  canonicalJson,
+  validateLicense,
+} from '../license.js';
 import { TRUSTED_LICENSE_KEYS } from '../license-keys.js';
 import {
   TEST_LICENSE_OPTIONS,
@@ -28,7 +33,7 @@ test('License: a correctly signed pro license unlocks pro', () => {
   assert.equal(res.valid, true);
   assert.equal(res.tier, 'pro');
   assert.equal(res.keyType, 'signed');
-  assert.equal(res.customerName, 'Example SAS');
+  assert.equal(res.customerName, 'Fred V.');
   assert.equal(res.licenseId, 'LIC-2026-000123');
   assert.equal(res.updatesUntil, '2027-10-01T00:00:00Z');
 });
@@ -162,4 +167,57 @@ test('License: release builds embed only public keys and no test keys', () => {
   }
   const source = fs.readFileSync(new URL('../license.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /fqa_test_|fqa_live_/);
+});
+
+test('License format v1: schema_version is required and future versions ask for a newer server', () => {
+  const { schema_version: _omitted, ...withoutVersion } = licenseBody();
+  const missing = validateLicense(signLicense(withoutVersion), TEST_LICENSE_OPTIONS);
+  assert.equal(missing.valid, false);
+  assert.match(missing.message, /schema_version must be 1/);
+
+  const future = validateLicense(signedLicense({ schema_version: 2 }), TEST_LICENSE_OPTIONS);
+  assert.equal(future.valid, false);
+  assert.match(future.message, /format version 2 requires a newer MCP server/);
+
+  const wrongSchema = validateLicense(
+    signedLicense({ $schema: 'https://example.invalid/other.json' }),
+    TEST_LICENSE_OPTIONS,
+  );
+  assert.equal(wrongSchema.valid, false);
+  assert.match(wrongSchema.message, /\$schema must be/);
+
+  const { $schema: _noLink, ...withoutSchemaLink } = licenseBody();
+  assert.equal(validateLicense(signLicense(withoutSchemaLink), TEST_LICENSE_OPTIONS).valid, true);
+});
+
+test('License format v1: the published JSON Schema matches the fields enforced by the verifier', () => {
+  const schemaPath = path.resolve(
+    import.meta.dirname,
+    '../../../../website/public/schemas/qa-license-v1.schema.json',
+  );
+  const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as {
+    $id: string;
+    additionalProperties: boolean;
+    required: string[];
+    properties: Record<string, { const?: unknown }>;
+  };
+  assert.equal(schema.$id, LICENSE_SCHEMA_URL);
+  assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.properties.schema_version.const, LICENSE_SCHEMA_VERSION);
+  assert.equal(schema.properties.$schema.const, LICENSE_SCHEMA_URL);
+
+  const fixture = JSON.parse(signedLicense()) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(schema.properties).sort(), Object.keys(fixture).sort());
+  assert.deepEqual(
+    [...schema.required].sort(),
+    Object.keys(fixture).filter((key) => key !== '$schema').sort(),
+  );
+});
+
+test('canonical JSON golden vector shared with the PHP license issuer', () => {
+  // Same vector as tests/php/CoreUnitsTest.php: both implementations must sign identical bytes.
+  assert.equal(
+    canonicalJson({ z: { kind: 'none' }, seats: 2, a: [1, { b: '\u00e9/\u2028' }], $schema: 's' }),
+    '{"$schema":"s","a":[1,{"b":"\u00e9/\u2028"}],"seats":2,"z":{"kind":"none"}}',
+  );
 });

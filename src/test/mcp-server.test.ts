@@ -75,6 +75,54 @@ test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', ()
   assert.ok(!text.includes('qa-security [PRO]'));
 });
 
+const listSkillsText = (server: FredoQaMcpServer, args: Record<string, unknown> = {}): string => {
+  const res = server.handleRequest({
+    jsonrpc: '2.0',
+    id: 30,
+    method: 'tools/call',
+    params: { name: 'list_skills', arguments: args },
+  });
+  return (res.result as { content: Array<{ text: string }> }).content[0].text;
+};
+
+test('MCP Server: list_skills renders every tier in a table with Tier and Access columns', () => {
+  const text = listSkillsText(new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS));
+  assert.match(text, /\| Skill \| Tier \| Access \| Category \| Description \|/);
+  assert.match(text, /11 accessible under FREE plan, 25 listed/);
+  assert.match(text, /\| `qa-core` \| FREE \| ✅ Available \|/);
+  assert.match(text, /\| `qa-security` \| PRO \| 🔒 Requires Pro license \|/);
+  assert.match(text, /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/);
+  assert.match(text, /\.qa-license\.json/);
+});
+
+test('MCP Server: list_skills explains why a plain license key string does not unlock paid skills', () => {
+  const text = listSkillsText(
+    new FredoQaMcpServer('fqa_pro_0123abcd_deadbeef0000', TEST_LICENSE_OPTIONS),
+  );
+  assert.match(text, /11 accessible under FREE plan/);
+  assert.match(text, /could not be read|Invalid license/);
+  assert.match(text, /🔒 Requires Pro license/);
+});
+
+test('MCP Server: list_skills under Pro tier unlocks Pro rows and keeps Enterprise rows locked', () => {
+  const text = listSkillsText(
+    new FredoQaMcpServer(signedLicense({ licensee: 'Fred V.' }), TEST_LICENSE_OPTIONS),
+  );
+  assert.match(text, /\| `qa-security` \| PRO \| ✅ Available \|/);
+  assert.match(text, /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/);
+});
+
+test('MCP Server: list_skills category filter and Enterprise tier show no lock advisory', () => {
+  const server = new FredoQaMcpServer(
+    signedLicense({ tier: 'enterprise', licensee: 'Fred V.' }),
+    TEST_LICENSE_OPTIONS,
+  );
+  const text = listSkillsText(server, { category: 'compliance' });
+  assert.ok(!text.includes('🔒'));
+  assert.ok(!text.includes('[!NOTE]'));
+  assert.ok(!text.includes('`qa-core`'));
+});
+
 test('MCP Server: list_skills under Pro tier returns 18 skills', () => {
   const server = new FredoQaMcpServer(signedLicense({ licensee: 'team' }), TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {

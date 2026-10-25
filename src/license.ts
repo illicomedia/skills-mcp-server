@@ -8,7 +8,7 @@ import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './license-keys.js';
 import type { LicenseValidationResult } from './types.js';
 
 const HMAC_SALT = 'fredo-qa-skills-provenance-v1';
-const PRICING_URL = 'https://www.illicomedia.com/qa-skills/pricing';
+export const PRICING_URL = 'https://www.illicomedia.com/qa-skills/pricing';
 const MAX_LICENSE_BYTES = 64 * 1024;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -21,7 +21,18 @@ const STRING_FIELDS = [
   'key_id',
   'signature',
 ] as const;
-const ALLOWED_FIELDS = new Set<string>([...STRING_FIELDS, 'tier', 'seats', 'binding']);
+const ALLOWED_FIELDS = new Set<string>([
+  ...STRING_FIELDS,
+  'tier',
+  'seats',
+  'binding',
+  'schema_version',
+  '$schema',
+]);
+
+/** License file format version understood by this build (see LICENSE_SCHEMA_URL). */
+export const LICENSE_SCHEMA_VERSION = 1;
+export const LICENSE_SCHEMA_URL = 'https://www.illicomedia.com/schemas/qa-license-v1.schema.json';
 
 export const LICENSE_FILE_ENV = 'FREDO_QA_LICENSE_FILE';
 export const USER_LICENSE_PATH = ['.config', 'fredo-qa', 'license.json'];
@@ -36,6 +47,8 @@ export interface LicenseOptions {
 }
 
 interface LicenseDocument {
+  $schema?: string;
+  schema_version: number;
   license_id: string;
   licensee: string;
   contact: string;
@@ -104,6 +117,14 @@ function parseLicense(text: string): LicenseDocument | string {
     return 'license file must contain a JSON object';
   }
   const record = data as Record<string, unknown>;
+  if (record.schema_version !== LICENSE_SCHEMA_VERSION) {
+    return Number.isInteger(record.schema_version) && (record.schema_version as number) > LICENSE_SCHEMA_VERSION
+      ? `license format version ${String(record.schema_version)} requires a newer MCP server (this build reads version ${LICENSE_SCHEMA_VERSION}); update the MCP server`
+      : `license schema_version must be ${LICENSE_SCHEMA_VERSION}`;
+  }
+  if (record.$schema !== undefined && record.$schema !== LICENSE_SCHEMA_URL) {
+    return `license $schema must be ${LICENSE_SCHEMA_URL}`;
+  }
   const unknownField = Object.keys(record).find((key) => !ALLOWED_FIELDS.has(key));
   if (unknownField) {
     return `license field '${unknownField}' is not supported`;

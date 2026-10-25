@@ -3,7 +3,13 @@
 import { runComplianceAudit } from './audit.js';
 import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
 import { installSkill, syncWorkspaceSkills } from './installer.js';
-import { type LicenseOptions, generateCanaryWatermark, validateLicense } from './license.js';
+import {
+  type LicenseOptions,
+  PRICING_URL,
+  PROJECT_LICENSE_FILE,
+  generateCanaryWatermark,
+  validateLicense,
+} from './license.js';
 import type { LicenseValidationResult } from './types.js';
 
 export class ToolExecutor {
@@ -65,26 +71,32 @@ export class ToolExecutor {
       }
 
       case 'list_skills': {
-        const skills = getAvailableSkills(license.tier);
+        const accessibleIds = new Set(getAvailableSkills(license.tier).map((s) => s.id));
         const categoryFilter = args.category as string | undefined;
-        const filtered = categoryFilter
-          ? skills.filter((s) => s.category === categoryFilter)
-          : skills;
+        const listed = categoryFilter
+          ? SKILLS_CATALOG.filter((s) => s.category === categoryFilter)
+          : SKILLS_CATALOG;
+        const accessibleCount = listed.filter((s) => accessibleIds.has(s.id)).length;
 
-        const freeCount = SKILLS_CATALOG.filter((s) => s.tier === 'free').length;
-        const totalCount = SKILLS_CATALOG.length;
-        const advisory = license.fallbackMode
-          ? `\n> [!NOTE] Running on Free Foundation tier (${freeCount} MIT skills). Upgrade to Pro or Enterprise at https://www.illicomedia.com/qa-skills/pricing to unlock all ${totalCount} skills.\n`
-          : '';
+        const advisory =
+          accessibleCount < listed.length
+            ? `\n> [!NOTE] ${license.message}\n> Skills marked 🔒 require a signed Pro or Enterprise license file (${PROJECT_LICENSE_FILE}). Plans: ${PRICING_URL}\n`
+            : '';
 
-        const list = filtered
-          .map(
-            (s) =>
-              `- **\`${s.id}\`** [${s.tier.toUpperCase()}] (${s.name}): ${s.description}\n  *Key Gates:* ${s.rulesSummary.join(', ')}`,
-          )
-          .join('\n');
+        const cell = (value: string): string => value.replace(/\|/g, '\\|').replace(/\s+/g, ' ');
+        const rows = listed.map((s) => {
+          const access = accessibleIds.has(s.id)
+            ? '✅ Available'
+            : `🔒 Requires ${s.tier === 'enterprise' ? 'Enterprise' : 'Pro'} license`;
+          return `| \`${s.id}\` | ${s.tier.toUpperCase()} | ${access} | ${s.category} | ${cell(s.name)}: ${cell(s.description)} |`;
+        });
+        const table = [
+          '| Skill | Tier | Access | Category | Description |',
+          '| --- | --- | --- | --- | --- |',
+          ...rows,
+        ].join('\n');
 
-        return `# Available Fredo QA Skills (${filtered.length} accessible under ${license.tier.toUpperCase()} plan)\n${advisory}\n${list}`;
+        return `# Fredo QA Skills catalog (${accessibleCount} accessible under ${license.tier.toUpperCase()} plan, ${listed.length} listed)\n${advisory}\n${table}`;
       }
 
       case 'get_skill_rules': {

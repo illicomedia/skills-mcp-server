@@ -321,18 +321,19 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Unsupported field
     assert.match(
-      validateLicense('{"license_id":"1","hacked_field":"bad"}', TEST_LICENSE_OPTIONS).message,
+      validateLicense('{"schema_version":1,"license_id":"1","hacked_field":"bad"}', TEST_LICENSE_OPTIONS).message,
       /not supported/,
     );
 
     // Empty string required field
     assert.match(
-      validateLicense('{"license_id":""}', TEST_LICENSE_OPTIONS).message,
+      validateLicense('{"schema_version":1,"license_id":""}', TEST_LICENSE_OPTIONS).message,
       /must be a non-empty string/,
     );
 
     // Invalid tier
     const invalidTierJson = JSON.stringify({
+      schema_version: 1,
       license_id: '1',
       licensee: 'a',
       contact: 'b',
@@ -348,6 +349,7 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Invalid seats
     const invalidSeatsJson = JSON.stringify({
+      schema_version: 1,
       license_id: '1',
       licensee: 'a',
       contact: 'b',
@@ -363,6 +365,7 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Invalid timestamp
     const invalidDateJson = JSON.stringify({
+      schema_version: 1,
       license_id: '1',
       licensee: 'a',
       contact: 'b',
@@ -378,6 +381,7 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Invalid binding
     const invalidBindingJson = JSON.stringify({
+      schema_version: 1,
       license_id: '1',
       licensee: 'a',
       contact: 'b',
@@ -393,6 +397,7 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Invalid signature base64
     const invalidSigJson = JSON.stringify({
+      schema_version: 1,
       license_id: '1',
       licensee: 'a',
       contact: 'b',

@@ -45,7 +45,7 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
   withWorkspace((ws) => {
     fs.writeFileSync(
       path.join(ws.home, '.config', 'fredo-qa', 'license.json'),
-      signedLicense({ tier: 'enterprise', licensee: 'Example SAS' }),
+      signedLicense({ tier: 'enterprise', licensee: 'Fred V.' }),
     );
     const server = new FredoQaMcpServer(undefined, {
       ...TEST_LICENSE_OPTIONS,
@@ -56,7 +56,7 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
     const status = JSON.parse(callTool(server, 'verify_license'));
     assert.equal(status.status, 'ACTIVE');
     assert.equal(status.tier, 'ENTERPRISE');
-    assert.equal(status.customer, 'Example SAS');
+    assert.equal(status.customer, 'Fred V.');
     assert.equal(status.licenseId, 'LIC-2026-000123');
 
     assert.match(callTool(server, 'list_skills'), /25 accessible under ENTERPRISE plan/);
@@ -65,12 +65,12 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
       callTool(server, 'install_skill', { skill_id: 'qa-gdpr-rgpd', project_path: ws.project }),
     );
     assert.equal(install.success, true);
-    const certificate = fs.readFileSync(
+    const licenseText = fs.readFileSync(
       path.join(ws.project, '.agents', 'skills', 'qa-gdpr-rgpd', 'LICENSE'),
       'utf8',
     );
-    assert.match(certificate, /Example SAS/);
-    assert.match(certificate, /LIC-2026-000123/);
+    assert.match(licenseText, /Fred V./);
+    assert.match(licenseText, /LIC-2026-000123/);
   });
 });
 

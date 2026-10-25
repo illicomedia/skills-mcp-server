@@ -75,7 +75,7 @@ export function resolveSkillLicense(
           if (meta.tier === 'free') {
             return content;
           }
-          return `${content}\n\n---\nCOMMERCIAL ACTIVATION CERTIFICATE\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense: ${license.licenseId || 'unknown'} (Ed25519 signature verified)\nUpdates Until: ${license.updatesUntil || 'unknown'}\nAuthorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)`;
+          return `${content}\n\n---\nCOMMERCIAL LICENSE ACTIVATION\nLicensee: ${license.customerName || 'Licensed Organization'}\nLicense Tier: ${meta.tier.toUpperCase()}\nLicense: ${license.licenseId || 'unknown'} (Ed25519 signature verified)\nUpdates Until: ${license.updatesUntil || 'unknown'}\nAuthorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)`;
         }
       } catch {
         // Fallback

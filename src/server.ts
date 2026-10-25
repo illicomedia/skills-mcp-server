@@ -5,6 +5,7 @@ import { ToolExecutor } from './executor.js';
 import type { LicenseOptions } from './license.js';
 import { MCP_TOOLS, findToolDefinition, validateToolParams } from './tools.js';
 import type { JsonRpcRequest, JsonRpcResponse } from './types.js';
+import { SERVER_VERSION } from './version.js';
 
 export { MCP_TOOLS };
 
@@ -43,7 +44,7 @@ export class FredoQaMcpServer {
             },
             serverInfo: {
               name: '@illicomedia/skills-mcp-server',
-              version: '1.0.0',
+              version: SERVER_VERSION,
               description: 'Official Fredo QA Skills Model Context Protocol Server',
             },
           },

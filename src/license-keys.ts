@@ -6,8 +6,8 @@
  * While this map is empty, no paid license verifies and the server runs in free mode.
  */
 export const TRUSTED_LICENSE_KEYS: Readonly<Record<string, string>> = Object.freeze({
-  'fredo-qa-root-2026': `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAzNnesPRQ2KrjmbcwWw9xJRtIOLwG+1xeb7LNf7iPOUs=
+  'fredo-qa-2026-10': `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAPrQoO+oWLJAO81k/6uR0tRZGsDVmkvrc6CCHzO1YfpU=
 -----END PUBLIC KEY-----`,
 });
 
@@ -15,4 +15,4 @@ MCowBQYDK2VwAyEAzNnesPRQ2KrjmbcwWw9xJRtIOLwG+1xeb7LNf7iPOUs=
  * Release date of this build. A license unlocks this build only when its
  * `updates_until` is on or after this date (version retention).
  */
-export const SERVER_RELEASE_DATE = '2026-10-07T00:00:00Z';
+export const SERVER_RELEASE_DATE = '2026-10-23T00:00:00Z';

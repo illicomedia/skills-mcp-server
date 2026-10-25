@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
 // SPDX-License-Identifier: MIT
 import * as crypto from 'node:crypto';
-import { canonicalJson, type LicenseOptions } from '../license.js';
+import {
+  LICENSE_SCHEMA_URL,
+  LICENSE_SCHEMA_VERSION,
+  canonicalJson,
+  type LicenseOptions,
+} from '../license.js';
 
 export const TEST_KEY_ID = 'test-key-1';
 
@@ -19,9 +24,11 @@ export const TEST_LICENSE_OPTIONS: LicenseOptions = {
 
 export function licenseBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    $schema: LICENSE_SCHEMA_URL,
+    schema_version: LICENSE_SCHEMA_VERSION,
     license_id: 'LIC-2026-000123',
-    licensee: 'Example SAS',
-    contact: 'billing@example.com',
+    licensee: 'Fred V.',
+    contact: 'tests@illicomedia.com',
     tier: 'pro',
     seats: 10,
     issued_at: '2026-10-01T00:00:00Z',

@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import test from 'node:test';
 import { TEST_KEY_ID, signedLicense } from './license-fixture.js';
+import { SERVER_VERSION } from '../version.js';
 
 interface JsonRpcMessage {
   jsonrpc: string;
@@ -102,7 +103,8 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     };
     assert.strictEqual(initResult.protocolVersion, '2024-11-05');
     assert.strictEqual(initResult.serverInfo.name, '@illicomedia/skills-mcp-server');
-    assert.strictEqual(initResult.serverInfo.version, '1.0.0');
+    assert.strictEqual(initResult.serverInfo.version, SERVER_VERSION);
+    assert.match(SERVER_VERSION, /^\d+\.\d+\.\d+$/);
 
     // Send initialized notification
     client.sendNotification('notifications/initialized', {});
