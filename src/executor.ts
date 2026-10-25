@@ -11,6 +11,7 @@ import {
   validateLicense,
 } from './license.js';
 import type { LicenseValidationResult } from './types.js';
+import { SERVER_VERSION } from './version.js';
 
 export class ToolExecutor {
   public static execute(
@@ -135,6 +136,21 @@ export class ToolExecutor {
         const projectPath = (args.project_path as string) || process.cwd();
         const report = runComplianceAudit(projectPath);
         return JSON.stringify(report, null, 2);
+      }
+
+      case 'get_version': {
+        return JSON.stringify(
+          {
+            version: SERVER_VERSION,
+            package: '@illicomedia/skills-mcp-server',
+            protocolVersion: '2024-11-05',
+            nodeVersion: process.version,
+            skillsCount: SKILLS_CATALOG.length,
+            licenseTier: license.tier.toUpperCase(),
+          },
+          null,
+          2,
+        );
       }
 
       default:

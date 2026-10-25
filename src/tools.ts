@@ -129,6 +129,16 @@ export const MCP_TOOLS: McpTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'get_version',
+    description:
+      'Retrieve the active package version, protocol specification, and runtime metadata of the Fredo QA MCP Server.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function findToolDefinition(name: string): McpTool | undefined {

@@ -8,6 +8,7 @@ import test from 'node:test';
 import { generateCanaryWatermark } from '../license.js';
 import { FredoQaMcpServer } from '../server.js';
 import type { JsonRpcRequest } from '../types.js';
+import { SERVER_VERSION } from '../version.js';
 import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.js';
 
 test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
@@ -41,7 +42,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   };
   const res = server.handleRequest(req);
   const tools = (res.result as { tools: Array<{ name: string }> }).tools;
-  assert.strictEqual(tools.length, 7);
+  assert.strictEqual(tools.length, 8);
   const names = tools.map((t) => t.name);
   assert.ok(names.includes('list_skills'));
   assert.ok(names.includes('get_skill_rules'));
@@ -50,6 +51,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   assert.ok(names.includes('install_skill'));
   assert.ok(names.includes('sync_workspace_skills'));
   assert.ok(names.includes('set_license_key'));
+  assert.ok(names.includes('get_version'));
 });
 
 test('MCP Server: list_skills under Free tier returns exactly 11 MIT skills', () => {
@@ -344,4 +346,26 @@ test('MCP Server: sync_workspace_skills auto-detects stack and reports auth stat
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('MCP Server: get_version returns package version and protocol metadata', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 100,
+    method: 'tools/call',
+    params: {
+      name: 'get_version',
+      arguments: {},
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.error, undefined);
+  const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+  const parsed = JSON.parse(text);
+  assert.strictEqual(parsed.version, SERVER_VERSION);
+  assert.strictEqual(parsed.package, '@illicomedia/skills-mcp-server');
+  assert.strictEqual(parsed.protocolVersion, '2024-11-05');
+  assert.strictEqual(parsed.skillsCount, 25);
+  assert.strictEqual(parsed.licenseTier, 'FREE');
 });

@@ -121,6 +121,7 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     assert.ok(toolNames.includes('audit_compliance'));
     assert.ok(toolNames.includes('set_license_key'));
     assert.ok(toolNames.includes('verify_license'));
+    assert.ok(toolNames.includes('get_version'));
 
     // 3. Audit Compliance directly against website/
     const auditRes = await client.sendRequest('tools/call', {
