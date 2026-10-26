@@ -124,7 +124,7 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     // 3. Quick Check directly against website/
     const auditRes = await client.sendRequest('tools/call', {
       name: 'quick_check',
-      arguments: { project_path: websiteDir },
+      arguments: { project_path: websiteDir, confirm: true },
     });
     assert.strictEqual(auditRes.error, undefined);
     const auditText = (auditRes.result as { content: Array<{ text: string }> }).content[0].text;

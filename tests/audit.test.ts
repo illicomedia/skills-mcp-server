@@ -14,11 +14,25 @@ function auditOf(files: Record<string, string>): ReturnType<typeof runCompliance
       fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
       fs.writeFileSync(path.join(dir, name), content);
     }
-    return runComplianceAudit(dir);
+    return runComplianceAudit(dir, { confirm: true });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+test('Audit: requires confirmation when confirm is false or omitted', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-preview-'));
+  try {
+    const preview = runComplianceAudit(dir);
+    assert.strictEqual(preview.previewOnly, true);
+    assert.strictEqual(preview.requiresConfirmation, true);
+    assert.strictEqual(preview.score, 0);
+    assert.strictEqual(preview.totalChecks, 0);
+    assert.match(preview.message || '', /requires explicit user confirmation/i);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('Audit: passing checks only claim file presence, never validity', () => {
   const report = auditOf({

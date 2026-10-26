@@ -445,7 +445,7 @@ test('Audit: audits project with valid security.txt and gitignore', () => {
       method: 'tools/call',
       params: {
         name: 'quick_check',
-        arguments: { project_path: tmp },
+        arguments: { project_path: tmp, confirm: true },
       },
     });
     assert.strictEqual(res.id, 200);
@@ -493,7 +493,7 @@ test('Audit: malformed package.json triggers catch block', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-malformed-pkg-'));
   try {
     fs.writeFileSync(path.join(tmp, 'package.json'), '{ broken JSON');
-    const report = runComplianceAudit(tmp);
+    const report = runComplianceAudit(tmp, { confirm: true });
     const qaCheck = report.results.find((r) => r.name.includes('qa:starter'));
     assert.strictEqual(qaCheck?.passed, false);
   } finally {

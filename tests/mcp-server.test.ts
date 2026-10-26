@@ -180,7 +180,27 @@ test('MCP Server: get_skill_rules returns watermark and content', () => {
   assert.match(text, /qa-security/);
 });
 
-test('MCP Server: quick_check returns structured preflight report', () => {
+test('MCP Server: quick_check without confirm returns preview and requires confirmation', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 55,
+    method: 'tools/call',
+    params: {
+      name: 'quick_check',
+      arguments: { project_path: process.cwd() },
+    },
+  };
+  const res = server.handleRequest(req);
+  const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+  const preview = JSON.parse(text);
+  assert.strictEqual(preview.previewOnly, true);
+  assert.strictEqual(preview.requiresConfirmation, true);
+  assert.strictEqual(preview.score, 0);
+  assert.match(preview.message, /requires explicit user confirmation/i);
+});
+
+test('MCP Server: quick_check with confirm: true returns structured preflight report', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
@@ -188,7 +208,7 @@ test('MCP Server: quick_check returns structured preflight report', () => {
     method: 'tools/call',
     params: {
       name: 'quick_check',
-      arguments: { project_path: process.cwd() },
+      arguments: { project_path: process.cwd(), confirm: true },
     },
   };
   const res = server.handleRequest(req);

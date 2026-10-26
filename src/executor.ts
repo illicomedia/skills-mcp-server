@@ -134,7 +134,8 @@ export class ToolExecutor {
 
       case 'quick_check': {
         const projectPath = (args.project_path as string) || process.cwd();
-        const report = runComplianceAudit(projectPath);
+        const confirm = Boolean(args.confirm);
+        const report = runComplianceAudit(projectPath, { confirm });
         return JSON.stringify(report, null, 2);
       }
 

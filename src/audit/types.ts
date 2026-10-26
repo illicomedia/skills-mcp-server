@@ -8,6 +8,10 @@ export interface AuditCheckResult {
   details: string;
 }
 
+export interface AuditOptions {
+  confirm?: boolean;
+}
+
 export interface AuditReport {
   projectPath: string;
   timestamp: string;
@@ -21,6 +25,9 @@ export interface AuditReport {
   failedChecks: number;
   results: AuditCheckResult[];
   recommendations: string[];
+  previewOnly?: boolean;
+  requiresConfirmation?: boolean;
+  message?: string;
 }
 
 export interface StackDetection {

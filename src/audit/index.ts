@@ -1,4 +1,4 @@
-import type { AuditCheckResult, AuditReport } from './types.js';
+import type { AuditCheckResult, AuditReport, AuditOptions } from './types.js';
 import { createAuditContext } from './context.js';
 import { auditGovernance } from './domains/governance.js';
 import { auditSecurity } from './domains/security.js';
@@ -19,8 +19,30 @@ export * from './domains/devops.js';
 const AUDIT_SCOPE =
   'Fast preflight sanity check: verifies presence of scaffolding, agent directives, and baseline hygiene. Gates are not executed and compilers are not run.';
 
-export function runComplianceAudit(projectPath: string): AuditReport {
+export function runComplianceAudit(projectPath: string, options?: AuditOptions): AuditReport {
   const safePath = validateSafeProjectPath(projectPath, 'quick_check');
+
+  if (!options?.confirm) {
+    return {
+      projectPath: safePath,
+      timestamp: new Date().toISOString(),
+      status: 'needs_attention',
+      prerequisites: 'Confirmation required',
+      score: 0,
+      scope: AUDIT_SCOPE,
+      totalChecks: 0,
+      passedChecks: 0,
+      failedChecks: 0,
+      results: [],
+      recommendations: [
+        `Directory traversal inspection on "${safePath}" requires user confirmation. Re-run quick_check with confirm: true to scan project files.`,
+      ],
+      previewOnly: true,
+      requiresConfirmation: true,
+      message: `Preview: preflight audit is ready to inspect "${safePath}". Directory traversal requires explicit user confirmation. Set confirm: true to proceed.`,
+    };
+  }
+
   const ctx = createAuditContext(safePath);
 
   // Run audits by domain (preserving exact canonical check order 1-11)

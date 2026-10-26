@@ -19,62 +19,66 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
 
 ---
 
-## Tool Safety Model: Read-Only vs. Mutating Actions
+## Tool Safety Model: Read-Only Queries, Directory Traversal, and Write Actions
 
-MCP tools in this server are divided into two distinct security categories:
+MCP tools in this server are divided into three distinct security tiers:
 
-### 1. Read-Only & Inspection Tools (Safe, Idempotent, No Approval Needed)
-These tools perform pure queries and calculations. They never write to disk or mutate project state:
-- `list_skills`: Browse available skills and policy tiers.
+### 1. Pure In-Memory Queries (Safe, Idempotent, Zero Disk Access)
+These tools perform pure in-memory lookups. They never read project directories or modify state:
+- `list_skills`: Browse available skills, policy tiers, and descriptions.
 - `get_skill_rules`: Retrieve full prompt directives and quality rules for a specific skill.
-- `quick_check`: Perform a static read-only compliance audit of a project directory.
-- `verify_license`: Inspect the active license signature, licensee, tier, and validity.
+- `verify_license`: Inspect active license signature, licensee, tier, and validity.
 - `get_version`: Read runtime server version, protocol metadata, and engine capabilities.
+- `set_license_key`: In-memory configuration of signed license for the active session.
 
-### 2. Mutating & Write Tools (Filesystem Modifications — Requires User Approval)
+### 2. Directory Traversal & Inspection (Filesystem Read — Requires User Confirmation)
+Because this tool accesses the filesystem and traverses project directory trees up to 2 subfolder levels (scanning configs, `.env`, `.gitignore`, and certificates):
+- `quick_check`: **Requires `confirm: true`** to traverse and inspect project files. When `confirm: false` (default), returns a safe preview describing the audit scope and target path without scanning the filesystem.
+
+### 3. Mutating & Write Tools (Filesystem Modifications — Requires User Confirmation)
 These tools write files into the target project's `.agents/skills/<skill_id>/` directory:
-- `install_skill`: Installs a specific skill's `SKILL.md` and `LICENSE`.
-- `sync_workspace_skills`: Scans project tech stacks and installs all matching skills.
+- `install_skill`: Installs a specific skill's `SKILL.md` and `LICENSE`. **Requires `confirm: true`**.
+- `sync_workspace_skills`: Scans project tech stacks and installs all matching skills. **Requires `confirm: true`**.
 
 ### How the Human-in-the-Loop Guard Works:
 
 ```
-[AI Assistant] ──> Calls install_skill / sync_workspace_skills (confirm: false)
-                                 │
-                                 ▼
-                     [MCP Server returns PREVIEW]
-           (Lists proposed files, target folder, tier validation)
-                                 │
-                                 ▼
-[AI Assistant] ──> "I propose to install these QA skills. Proceed? [Y/n]"
-                                 │
-                            User Approves
-                                 │
-                                 ▼
-[AI Assistant] ──> Calls install_skill / sync_workspace_skills (confirm: true)
-                                 │
-                                 ▼
-                   [MCP Client Authorization Prompt]
-           ("Allow fredo-qa to write files in /path/to/project?")
-                                 │
-                            User Confirms
-                                 │
-                                 ▼
-                  [Files written safely to disk]
+[AI Assistant] ──> Calls quick_check / install_skill / sync_workspace_skills (confirm: false)
+                                         │
+                                         ▼
+                             [MCP Server returns PREVIEW]
+           (Lists proposed action, target folder, audit scope, or files to create)
+                                         │
+                                         ▼
+[AI Assistant] ──> "I propose to inspect/modify your project. Proceed? [Y/n]"
+                                         │
+                                    User Approves
+                                         │
+                                         ▼
+[AI Assistant] ──> Calls tool with (confirm: true)
+                                         │
+                                         ▼
+                           [MCP Client Authorization Prompt]
+                   ("Allow fredo-qa to access/write in /path/to/project?")
+                                         │
+                                    User Confirms
+                                         │
+                                         ▼
+                      [Operation executed safely within boundaries]
 ```
 
 1. **Default Safe Preview (`confirm: false`)**:  
-   If an assistant invokes `install_skill` or `sync_workspace_skills` without `confirm: true`, **no files are written**. The server returns a structured dry-run response outlining the target directory, files to be created, and detected stack, prompting the agent to ask the human developer for approval.
+   If an assistant invokes `quick_check`, `install_skill`, or `sync_workspace_skills` without `confirm: true`, **no filesystem traversal or file writing occurs**. The server returns a structured dry-run response outlining the target directory and scope, prompting the agent to ask the human developer for approval.
 2. **Explicit Confirmation (`confirm: true`)**:  
-   Files are only written to disk when `confirm: true` is explicitly provided after user agreement.
+   Directory traversal or file modifications only execute when `confirm: true` is explicitly provided after user agreement.
 3. **Host Client Confirmation Prompts**:  
    Most MCP clients (Claude Desktop, Cursor, Antigravity) will also display a visual confirmation prompt in the chat UI before allowing tool execution.
 4. **Security Containment Boundaries**:  
    Even with `confirm: true`, the server's security guard strictly rejects:
-   - Writing outside the workspace boundary (prevents directory traversal `../`).
-   - Writing to system roots (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`).
-   - Writing to sensitive credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
-   - Writing through symlinks that escape the project directory.
+   - Accessing or writing outside the workspace boundary (prevents directory traversal `../`).
+   - Operating on system roots (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`).
+   - Operating on sensitive credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+   - Following symlinks that escape the project directory.
 
 ---
 
@@ -84,12 +88,12 @@ These tools write files into the target project's `.agents/skills/<skill_id>/` d
 |---|---|---|---|
 | `list_skills` | 🔍 Read-Only | `{ category?: string }` | Lists all skills accessible under your current plan with tiers, tags, and summary gates. |
 | `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string }` | Returns complete prompt instructions and QA directives for a skill (e.g. `qa-security`, `qa-accessibility`). |
-| `quick_check` | 🔍 Read-Only | `{ project_path: string }` | Fast intake audit for AI agents. Evaluates 5 domains across 9 languages and returns a score (0-100) and readiness status. |
-| `install_skill` | ✏️ **Mutating** | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
-| `sync_workspace_skills` | ✏️ **Mutating** | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |
-| `verify_license` | 🔍 Read-Only | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
-| `set_license_key` | ⚙️ Config | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
-| `get_version` | 🔍 Read-Only | `{}` | Returns the active package version (`1.3.1`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
+| `quick_check` | 🔍 Traversal | `{ project_path: string, confirm?: boolean }` | Preflight audit for AI agents. Evaluates 5 domains across 9 languages. **Requires `confirm: true`** to scan directory files; otherwise returns scope preview. |
+| `install_skill` | ✏️ Mutating | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
+| `sync_workspace_skills` | ✏️ Mutating | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |
+| `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
+| `set_license_key` | ⚙️ In-Memory | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
+| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (`1.3.2`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
 
 ---
 
