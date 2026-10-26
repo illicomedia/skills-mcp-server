@@ -9,11 +9,11 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
 
 - **Standard MCP Protocol**: 100% compliant with the MCP JSON-RPC 2.0 specification over standard I/O (`stdio`).
 - **Zero Runtime Dependencies (`dependencies: {}`)**: Built exclusively with Node.js built-in modules (`node:crypto`, `node:fs`, `node:path`, `node:readline`). Runs fully offline and air-gapped with zero supply-chain attack surface.
-- **Two-Tier Safety & Human-in-the-Loop Approval**:
-  - Mutating tools require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
-  - Native MCP client authorization dialogs protect against unintended workspace modifications.
+- **Three-Tier Safety & Human-in-the-Loop Approval**:
+  - Directory traversal inspection (`quick_check`) and mutating tools (`install_skill`, `sync_workspace_skills`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
+  - Native MCP client authorization dialogs protect against unintended workspace access or modifications.
   - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
-- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 9 language stacks—without executing arbitrary code or compiling tests.
+- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 9 language stacks—with user-confirmed directory traversal and zero arbitrary code execution.
 - **Cryptographic Ed25519 License Verification**: Offline signature checks unlock Pro and Enterprise skills with lifetime version retention. Open-source MIT skills remain free and unlocked forever.
 - **Provenance & Canary Watermarking**: Embeds cryptographic watermark headers into skill rules for licensing integrity and leak tracing.
 
@@ -118,6 +118,25 @@ The `quick_check` tool provides a sub-second, non-destructive audit engine for A
 - **PHP**: `composer.json`, `composer.lock`, PHPStan, PHPUnit.
 - **Shell / Bash**: `*.sh` scripts, ShellCheck, Bats, shfmt.
 - **Polyglot & Fallback**: Intelligent credit allocation for mixed and multi-language repositories.
+
+### Traversal & Confirmation Protocol:
+Because `quick_check` traverses repository directories and inspects configuration files, secret patterns, and certificate folders up to 2 levels deep, it implements the same strict Human-in-the-Loop agreement as mutating tools:
+
+1. **Step 1: Scope Preview (`confirm: false` or omitted)**:
+   ```json
+   {
+     "previewOnly": true,
+     "requiresConfirmation": true,
+     "projectPath": "/path/to/project",
+     "message": "Preview: preflight audit is ready to inspect \"/path/to/project\". Directory traversal requires explicit user confirmation. Set confirm: true to proceed.",
+     "scope": "Fast preflight sanity check: verifies presence of scaffolding, agent directives...",
+     "status": "needs_attention",
+     "score": 0,
+     "prerequisites": "Confirmation required"
+   }
+   ```
+2. **Step 2: Traversal Execution (`confirm: true`)**:
+   Once user agreement is confirmed, the assistant passes `confirm: true` to perform the multi-domain static audit and return the complete score and findings.
 
 ### Safety Guarantee:
 `quick_check` performs **pure static inspection** of file paths, headers, and directory structures. It never spawns subprocesses, never compiles code, and never accesses the network. It is 100% safe to run on untrusted repositories.
