@@ -266,6 +266,8 @@ export function detectProjectSkills(projectPath: string = process.cwd()): string
     fileExists('composer.json') ||
     hasPhpFiles('.') ||
     hasPhpFiles('public/api') ||
+    hasPhpFiles('website/public/api') ||
+    hasPhpFiles('tests/php') ||
     hasPhpFiles('api') ||
     hasPhpFiles('src')
   ) {
@@ -484,8 +486,15 @@ export function pruneSkills(
     for (const name of fs.readdirSync(skillsDir)) {
       const fullPath = path.join(skillsDir, name);
       try {
-        const stat = fs.lstatSync(fullPath);
-        if (stat.isDirectory() && !stat.isSymbolicLink()) {
+        const lstat = fs.lstatSync(fullPath);
+        const isDirOrSymlinkDir =
+          lstat.isDirectory() ||
+          (lstat.isSymbolicLink() && fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory());
+        if (isDirOrSymlinkDir) {
+          if (lstat.isSymbolicLink()) {
+            const real = fs.realpathSync(fullPath);
+            validateSafeProjectPath(real, 'prune_skills symlink target');
+          }
           if (fs.existsSync(path.join(fullPath, 'SKILL.md')) || findSkill(name)) {
             installedEntries.push(name);
           }
