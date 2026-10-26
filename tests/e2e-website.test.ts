@@ -116,6 +116,7 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     assert.ok(toolNames.includes('get_skill_rules'));
     assert.ok(toolNames.includes('install_skill'));
     assert.ok(toolNames.includes('sync_workspace_skills'));
+    assert.ok(toolNames.includes('prune_skills'));
     assert.ok(toolNames.includes('quick_check'));
     assert.ok(toolNames.includes('set_license_key'));
     assert.ok(toolNames.includes('verify_license'));

@@ -40,7 +40,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   };
   const res = server.handleRequest(req);
   const tools = (res.result as { tools: Array<{ name: string }> }).tools;
-  assert.strictEqual(tools.length, 8);
+  assert.strictEqual(tools.length, 9);
   const names = tools.map((t) => t.name);
   assert.ok(names.includes('list_skills'));
   assert.ok(names.includes('get_skill_rules'));
@@ -48,6 +48,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   assert.ok(names.includes('verify_license'));
   assert.ok(names.includes('install_skill'));
   assert.ok(names.includes('sync_workspace_skills'));
+  assert.ok(names.includes('prune_skills'));
   assert.ok(names.includes('set_license_key'));
   assert.ok(names.includes('get_version'));
 });
@@ -415,6 +416,108 @@ test('MCP Server: sync_workspace_skills without confirm returns preview and writ
     assert.match(text, /0 files written to disk/);
     assert.match(text, /User agreement is required/i);
     assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: prune_skills without confirm returns preview and moves 0 files', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-prune-preview-'));
+  try {
+    // Mock Go project
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/test\ngo 1.22\n');
+    // Pre-install qa-go and an unneeded skill qa-rust
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-go'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md'), '# qa-go');
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md'), '# qa-rust');
+
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 91,
+      method: 'tools/call',
+      params: {
+        name: 'prune_skills',
+        arguments: { project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /\[DRY-RUN PREVIEW\]/);
+    assert.match(text, /Non-Destructive Archiving/);
+    assert.match(text, /qa-rust/);
+    assert.match(text, /qa-go/);
+    // Verified 0 files moved
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md')));
+    assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', '.archive')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: prune_skills with confirm: true safely archives unneeded skills to .agents/.archive/', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-prune-exec-'));
+  try {
+    // Mock Go project
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/test\ngo 1.22\n');
+    // Pre-install qa-go and unneeded qa-rust
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-go'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md'), '# qa-go');
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md'), '# qa-rust custom');
+
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 92,
+      method: 'tools/call',
+      params: {
+        name: 'prune_skills',
+        arguments: { project_path: tmpDir, confirm: true },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /Successfully Archived/);
+    assert.match(text, /qa-rust/);
+    // qa-rust is safely in .agents/.archive/ and not deleted
+    assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust')));
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', '.archive', 'qa-rust', 'SKILL.md')));
+    assert.strictEqual(
+      fs.readFileSync(path.join(tmpDir, '.agents', '.archive', 'qa-rust', 'SKILL.md'), 'utf8'),
+      '# qa-rust custom',
+    );
+    // qa-go remains active in .agents/skills/
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: prune_skills respects keep_skills whitelist', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-prune-keep-'));
+  try {
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/test\ngo 1.22\n');
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-go'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md'), '# qa-go');
+    fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md'), '# qa-rust');
+
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 93,
+      method: 'tools/call',
+      params: {
+        name: 'prune_skills',
+        arguments: { project_path: tmpDir, keep_skills: ['qa-rust'], confirm: true },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /Workspace Skills Up to Date/);
+    assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md')));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

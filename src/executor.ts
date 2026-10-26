@@ -1,6 +1,6 @@
 import { runComplianceAudit } from './audit.js';
 import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
-import { installSkill, syncWorkspaceSkills } from './installer.js';
+import { installSkill, syncWorkspaceSkills, pruneSkills } from './installer.js';
 import {
   type LicenseOptions,
   PRICING_URL,
@@ -129,6 +129,14 @@ export class ToolExecutor {
         const requestedSkills = args.skills as string[] | undefined;
         const confirm = Boolean(args.confirm);
         const res = syncWorkspaceSkills(projectPath, requestedSkills, license, { confirm });
+        return res.summaryMessage;
+      }
+
+      case 'prune_skills': {
+        const projectPath = (args.project_path as string) || process.cwd();
+        const keepSkills = args.keep_skills as string[] | undefined;
+        const confirm = Boolean(args.confirm);
+        const res = pruneSkills(projectPath, { confirm, keepSkills });
         return res.summaryMessage;
       }
 

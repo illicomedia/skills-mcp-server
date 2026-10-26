@@ -35,10 +35,11 @@ These tools perform pure in-memory lookups. They never read project directories 
 Because this tool accesses the filesystem and traverses project directory trees up to 2 subfolder levels (scanning configs, `.env`, `.gitignore`, and certificates):
 - `quick_check`: **Requires `confirm: true`** to traverse and inspect project files. When `confirm: false` (default), returns a safe preview describing the audit scope and target path without scanning the filesystem.
 
-### 3. Mutating & Write Tools (Filesystem Modifications — Requires User Confirmation)
-These tools write files into the target project's `.agents/skills/<skill_id>/` directory:
+### 3. Mutating & Write Tools (Filesystem Modifications & Archiving — Requires User Confirmation)
+These tools modify files or directory structures in the target project's `.agents/` directory:
 - `install_skill`: Installs a specific skill's `SKILL.md` and `LICENSE`. **Requires `confirm: true`**.
 - `sync_workspace_skills`: Scans project tech stacks and installs all matching skills. **Requires `confirm: true`**.
+- `prune_skills`: Safely prunes unneeded skills by moving them to `.agents/.archive/`. **Non-destructive**: files are archived, not deleted, keeping them fully recoverable while removing noise from the AI agent context. **Requires `confirm: true`**.
 
 ### How the Human-in-the-Loop Guard Works:
 
@@ -91,9 +92,10 @@ These tools write files into the target project's `.agents/skills/<skill_id>/` d
 | `quick_check` | 🔍 Traversal | `{ project_path: string, confirm?: boolean }` | Preflight audit for AI agents. Evaluates 5 domains across 9 languages. **Requires `confirm: true`** to scan directory files; otherwise returns scope preview. |
 | `install_skill` | ✏️ Mutating | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
 | `sync_workspace_skills` | ✏️ Mutating | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |
+| `prune_skills` | 📦 Archiving | `{ project_path?: string, keep_skills?: string[], confirm?: boolean }` | Safely archives unneeded skills from `.agents/skills/` to `.agents/.archive/` based on project stacks. **Non-destructive** (moves files). **Requires `confirm: true`**; otherwise returns safe preview. |
 | `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
 | `set_license_key` | ⚙️ In-Memory | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
-| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (`1.3.2`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
+| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (`1.4.0`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
 
 ---
 

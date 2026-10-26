@@ -91,6 +91,31 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
   {
+    name: 'prune_skills',
+    description:
+      'Safely prunes unneeded QA skills from .agents/skills/ by archiving them to .agents/.archive/ based on detected project tech stacks. Non-destructive: files are moved rather than permanently deleted, keeping them fully recoverable while removing noise from the AI agent context. Requires user agreement: set confirm: true to archive skills; when false (default), returns a safe preview listing candidate skills without moving files.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_path: {
+          type: 'string',
+          description: 'Target project root directory (defaults to current working directory)',
+        },
+        keep_skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional list of skill IDs to keep active even if not auto-detected from project files',
+        },
+        confirm: {
+          type: 'boolean',
+          description:
+            'Explicit user confirmation to archive unneeded skill directories to .agents/.archive/. When false (default), returns a preview without moving files.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'set_license_key',
     description:
       'Set the signed Fredo QA Skills license file for the active session to unlock Pro or Enterprise skills.',
