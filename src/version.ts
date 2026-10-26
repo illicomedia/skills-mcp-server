@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import { readFileSync } from 'node:fs';
 
 /** Version of this package, read from the package.json shipped next to dist/ (single source of truth). */

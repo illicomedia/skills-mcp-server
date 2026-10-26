@@ -1,15 +1,13 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-import { generateCanaryWatermark } from '../license.js';
-import { FredoQaMcpServer } from '../server.js';
-import type { JsonRpcRequest } from '../types.js';
-import { SERVER_VERSION } from '../version.js';
-import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.js';
+import { generateCanaryWatermark } from '../dist/license.js';
+import { FredoQaMcpServer } from '../dist/server.js';
+import type { JsonRpcRequest } from '../dist/types.js';
+import { SERVER_VERSION } from '../dist/version.js';
+import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
 
 test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
   const token = generateCanaryWatermark('user_123', 'qa-security');

@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert/strict';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
@@ -11,14 +9,14 @@ import {
   LICENSE_SCHEMA_VERSION,
   canonicalJson,
   validateLicense,
-} from '../license.js';
-import { TRUSTED_LICENSE_KEYS } from '../license-keys.js';
+} from '../dist/license.js';
+import { TRUSTED_LICENSE_KEYS } from '../dist/license-keys.js';
 import {
   TEST_LICENSE_OPTIONS,
   licenseBody,
   signLicense,
   signedLicense,
-} from './license-fixture.js';
+} from './license-fixture.ts';
 
 test('License: no license source runs in free mode', () => {
   const res = validateLicense(undefined, TEST_LICENSE_OPTIONS);
@@ -165,7 +163,7 @@ test('License: release builds embed only public keys and no test keys', () => {
     assert.equal(crypto.createPublicKey(pem).asymmetricKeyType, 'ed25519');
     assert.doesNotMatch(pem, /PRIVATE/);
   }
-  const source = fs.readFileSync(new URL('../license.js', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../dist/license.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /fqa_test_|fqa_live_/);
 });
 
@@ -193,7 +191,7 @@ test('License format v1: schema_version is required and future versions ask for 
 test('License format v1: the published JSON Schema matches the fields enforced by the verifier', () => {
   const schemaPath = path.resolve(
     import.meta.dirname,
-    '../../../../website/public/schemas/qa-license-v1.schema.json',
+    '../../../website/public/schemas/qa-license-v1.schema.json',
   );
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as {
     $id: string;

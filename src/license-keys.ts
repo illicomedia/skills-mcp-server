@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 /**
  * Ed25519 public keys (SPKI PEM) accepted for license files, indexed by key id.
  * Only public keys may appear here: signing keys stay in the license-issuing service.

@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
 import { generateCanaryWatermark, validateLicense } from './license.js';
+import { validateSafeProjectPath, validateSafeWriteTarget } from './security-guard.js';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
 
 export interface InstallSkillResult {
@@ -49,6 +48,18 @@ export function installSkill(
   licenseOverride?: LicenseValidationResult,
   options?: InstallSkillOptions,
 ): InstallSkillResult {
+  let safeProjectPath: string;
+  try {
+    safeProjectPath = validateSafeProjectPath(projectPath, 'install_skill');
+  } catch (err) {
+    return {
+      success: false,
+      skillId,
+      installedFiles: [],
+      message: `Failed to install skill '${skillId}': ${(err as Error).message}`,
+    };
+  }
+
   const meta = findSkill(skillId);
   if (!meta) {
     return {
@@ -59,7 +70,7 @@ export function installSkill(
     };
   }
 
-  const license = licenseOverride || validateLicense(undefined, { projectRoot: projectPath });
+  const license = licenseOverride || validateLicense(undefined, { projectRoot: safeProjectPath });
 
   // Authentication & Entitlement Gate for Paid Skills
   if (meta.tier === 'pro' && license.tier !== 'pro' && license.tier !== 'enterprise') {
@@ -97,7 +108,17 @@ export function installSkill(
   }
 
   // Installation authorized
-  const targetDir = path.join(projectPath, '.agents', 'skills', skillId);
+  const targetDir = path.join(safeProjectPath, '.agents', 'skills', skillId);
+  try {
+    validateSafeWriteTarget(safeProjectPath, targetDir);
+  } catch (err) {
+    return {
+      success: false,
+      skillId,
+      installedFiles: [],
+      message: `Failed to install skill '${skillId}': ${(err as Error).message}`,
+    };
+  }
   const skillFilePath = path.join(targetDir, 'SKILL.md');
   const licenseFilePath = path.join(targetDir, 'LICENSE');
 
@@ -263,18 +284,19 @@ export function syncWorkspaceSkills(
   licenseOverride?: LicenseValidationResult,
   options?: SyncWorkspaceOptions,
 ): SyncWorkspaceResult {
-  const license = licenseOverride || validateLicense(undefined, { projectRoot: projectPath });
+  const safeProjectPath = validateSafeProjectPath(projectPath, 'sync_workspace_skills');
+  const license = licenseOverride || validateLicense(undefined, { projectRoot: safeProjectPath });
   const isConfirmed = Boolean(options?.confirm);
   const skillsToInstall =
     requestedSkills && requestedSkills.length > 0
       ? requestedSkills
-      : detectProjectSkills(projectPath);
+      : detectProjectSkills(safeProjectPath);
 
   const installed: InstallSkillResult[] = [];
   const skippedUnauthorized: InstallSkillResult[] = [];
 
   for (const id of skillsToInstall) {
-    const res = installSkill(id, projectPath, license, { confirm: isConfirmed });
+    const res = installSkill(id, safeProjectPath, license, { confirm: isConfirmed });
     if (res.success) {
       installed.push(res);
     } else {
@@ -299,7 +321,7 @@ export function syncWorkspaceSkills(
   if (!isConfirmed) {
     summary = `# [DRY-RUN PREVIEW] Fredo QA Skills Workspace Sync\n\n`;
     summary += `> [!IMPORTANT] **0 files written to disk**. User agreement is required before modifying workspace files.\n\n`;
-    summary += `Target: \`${projectPath}\`\n`;
+    summary += `Target: \`${safeProjectPath}\`\n`;
     summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
 
     if (installed.length > 0) {
@@ -317,7 +339,7 @@ export function syncWorkspaceSkills(
     summary += `2. Re-run \`sync_workspace_skills\` with \`confirm: true\` only after receiving user approval.\n`;
   } else {
     summary = `# Fredo QA Skills Workspace Sync\n\n`;
-    summary += `Target: \`${projectPath}\`\n`;
+    summary += `Target: \`${safeProjectPath}\`\n`;
     summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
 
     if (installed.length > 0) {
@@ -336,7 +358,7 @@ export function syncWorkspaceSkills(
   }
 
   return {
-    projectPath,
+    projectPath: safeProjectPath,
     activeTier: license.tier,
     installed,
     skippedUnauthorized,

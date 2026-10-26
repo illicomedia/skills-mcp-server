@@ -1,6 +1,6 @@
 {
   "name": "@illicomedia/skills-mcp-server",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,6 @@
   "type": "module",
   "files": [
     "dist",
-    "!dist/test",
     "README.md",
     "LICENSE"
   ],
@@ -24,12 +23,19 @@
     "directory": "packages/mcp-server"
   },
   "homepage": "https://www.illicomedia.com/qa-skills/mcp",
+  "bugs": {
+    "url": "https://github.com/fcviallet/skills/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc && chmod -R u+rwX dist",
     "prepublishOnly": "npm run build",
+    "release": "node scripts/release.mjs",
     "start": "node dist/index.js",
-    "test": "node --test dist/test/*.test.js",
-    "test:coverage": "node --test --experimental-test-coverage dist/test/*.test.js"
+    "test": "node --test tests/*.test.ts",
+    "test:coverage": "node --test --experimental-test-coverage tests/*.test.ts"
   },
   "keywords": [
     "mcp",
@@ -37,7 +43,7 @@
     "qa",
     "skills"
   ],
-  "author": "illicomedia <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
+  "author": "Frédéric Ch. V. <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^26.6.5",

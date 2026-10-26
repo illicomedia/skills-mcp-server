@@ -1,0 +1,230 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { AuditContext, StackDetection } from './types.js';
+
+const IGNORED_SCAN_DIRS = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  'target',
+  'vendor',
+  '.venv',
+  'venv',
+  'coverage',
+  '.next',
+  '.nuxt',
+  '.output',
+  '.turbo',
+  '.cache',
+]);
+
+export function createAuditContext(projectPath: string): AuditContext {
+  const resolvedPath = path.resolve(projectPath);
+  const parentPath = path.dirname(resolvedPath);
+
+  const fileExists = (rel: string): boolean => fs.existsSync(path.join(resolvedPath, rel));
+
+  const findUp = (rel: string): string | null => {
+    let curr = resolvedPath;
+    while (true) {
+      const candidate = path.join(curr, rel);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+      const parent = path.dirname(curr);
+      if (parent === curr) break;
+      if (fs.existsSync(path.join(curr, '.git'))) break;
+      curr = parent;
+    }
+    return null;
+  };
+
+  const parentFileExists = (rel: string): boolean => {
+    const found = findUp(rel);
+    return found !== null && path.dirname(found) !== resolvedPath;
+  };
+
+  const hasDir = (rel: string): boolean => {
+    try {
+      const p = path.join(resolvedPath, rel);
+      return fs.existsSync(p) && fs.statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+
+  const readFile = (rel: string): string | null => {
+    try {
+      const p = path.join(resolvedPath, rel);
+      if (!fs.existsSync(p)) return null;
+      return fs.readFileSync(p, 'utf-8');
+    } catch {
+      return null;
+    }
+  };
+
+  const readParentFile = (rel: string): string | null => {
+    const found = findUp(rel);
+    if (!found || path.dirname(found) === resolvedPath) return null;
+    try {
+      return fs.readFileSync(found, 'utf-8');
+    } catch {
+      return null;
+    }
+  };
+
+  const readDir = (rel: string): string[] => {
+    try {
+      const p = path.join(resolvedPath, rel);
+      if (!fs.existsSync(p)) return [];
+      return fs.readdirSync(p);
+    } catch {
+      return [];
+    }
+  };
+
+  const findFiles = (
+    maxDepth: number,
+    predicate: (relPath: string, fileName: string) => boolean,
+  ): string[] => {
+    const matches: string[] = [];
+
+    const walk = (currentDir: string, currentRel: string, depth: number) => {
+      if (depth > maxDepth) return;
+      let entries: fs.Dirent[] = [];
+      try {
+        entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      for (const entry of entries) {
+        const relPath = currentRel ? `${currentRel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          if (!IGNORED_SCAN_DIRS.has(entry.name)) {
+            walk(path.join(currentDir, entry.name), relPath, depth + 1);
+          }
+        } else if (entry.isFile()) {
+          if (predicate(relPath, entry.name)) {
+            matches.push(relPath);
+          }
+        }
+      }
+    };
+
+    walk(resolvedPath, '', 1);
+    return matches;
+  };
+
+  const hasPhpFiles = (relDir: string): boolean => {
+    try {
+      const fullDir = path.join(resolvedPath, relDir);
+      return fs.existsSync(fullDir) && fs.readdirSync(fullDir).some((f) => f.endsWith('.php'));
+    } catch {
+      return false;
+    }
+  };
+
+  const hasShellScripts = (): boolean => {
+    try {
+      const rootFiles = fs.readdirSync(resolvedPath);
+      if (rootFiles.some((f) => f.endsWith('.sh'))) return true;
+      const scriptsDir = path.join(resolvedPath, 'scripts');
+      return (
+        fs.existsSync(scriptsDir) &&
+        fs.statSync(scriptsDir).isDirectory() &&
+        fs.readdirSync(scriptsDir).some((f) => f.endsWith('.sh'))
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  // Stack detection across all 8 Fredo QA language skills
+  const isRust = fileExists('Cargo.toml');
+  const isGo = fileExists('go.mod');
+  const isNode = fileExists('package.json');
+  const isPython =
+    fileExists('pyproject.toml') ||
+    fileExists('requirements.txt') ||
+    fileExists('setup.py') ||
+    fileExists('Pipfile');
+  const isJava =
+    fileExists('pom.xml') ||
+    fileExists('build.gradle') ||
+    fileExists('build.gradle.kts') ||
+    fileExists('mvnw') ||
+    fileExists('gradlew');
+  const isCpp =
+    fileExists('CMakeLists.txt') ||
+    fileExists('compile_commands.json') ||
+    fileExists('meson.build') ||
+    fileExists('configure.ac');
+  const isPhp =
+    fileExists('composer.json') ||
+    hasPhpFiles('.') ||
+    hasPhpFiles('public/api') ||
+    hasPhpFiles('api') ||
+    hasPhpFiles('src');
+  const isBash =
+    !isNode &&
+    !isRust &&
+    !isGo &&
+    !isPython &&
+    !isJava &&
+    !isCpp &&
+    !isPhp &&
+    (hasShellScripts() || fileExists('.shellcheckrc') || hasDir('tests/bats'));
+  const hasMakefile =
+    fileExists('Makefile') || fileExists('justfile') || fileExists('scripts/qa.sh');
+  const isWebProject =
+    hasDir('public') ||
+    fileExists('index.html') ||
+    fileExists('src/index.html') ||
+    hasDir('dist') ||
+    hasDir('www');
+  const hasEnvFiles =
+    fileExists('.env') ||
+    fileExists('.env.local') ||
+    fileExists('.env.prod') ||
+    fileExists('.env.example');
+  const hasManifest =
+    isNode ||
+    isRust ||
+    isGo ||
+    isPython ||
+    isJava ||
+    isCpp ||
+    fileExists('composer.json');
+
+  const stack: StackDetection = {
+    isRust,
+    isGo,
+    isNode,
+    isPython,
+    isJava,
+    isCpp,
+    isPhp,
+    isBash,
+    hasMakefile,
+    isWebProject,
+    hasEnvFiles,
+    hasManifest,
+  };
+
+  return {
+    projectPath,
+    resolvedPath,
+    parentPath,
+    stack,
+    fileExists,
+    parentFileExists,
+    findUp,
+    findFiles,
+    hasDir,
+    readFile,
+    readParentFile,
+    readDir,
+  };
+}

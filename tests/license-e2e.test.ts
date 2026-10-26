@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -7,10 +5,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { FredoQaMcpServer } from '../server.js';
-import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.js';
+import { FredoQaMcpServer } from '../dist/server.js';
+import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
 
-const CLI = fileURLToPath(new URL('../index.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
 interface Workspace {
   root: string;

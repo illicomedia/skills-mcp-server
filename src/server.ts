@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as readline from 'node:readline';
 import { ToolExecutor } from './executor.js';
 import type { LicenseOptions } from './license.js';
@@ -11,6 +9,8 @@ export { MCP_TOOLS };
 
 export const DEFAULT_API_ENDPOINT =
   process.env.FREDO_QA_API_URL || 'https://www.illicomedia.com/api';
+
+export const MAX_REQUEST_BYTES = 1024 * 1024; // 1MB DoS guard per JSON-RPC frame
 
 export class FredoQaMcpServer {
   private licenseKey?: string;
@@ -158,6 +158,19 @@ export class FredoQaMcpServer {
     });
 
     rl.on('line', (line: string) => {
+      if (line.length > MAX_REQUEST_BYTES) {
+        const errorResponse: JsonRpcResponse = {
+          jsonrpc: '2.0',
+          id: null as unknown as string,
+          error: {
+            code: -32700,
+            message: `Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes`,
+          },
+        };
+        process.stdout.write(`${JSON.stringify(errorResponse)}\n`);
+        return;
+      }
+
       const trimmed = line.trim();
       if (!trimmed) return;
 

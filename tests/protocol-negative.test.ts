@@ -1,9 +1,7 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert';
 import test from 'node:test';
-import { FredoQaMcpServer } from '../server.js';
-import type { JsonRpcRequest } from '../types.js';
+import { FredoQaMcpServer } from '../dist/server.js';
+import type { JsonRpcRequest } from '../dist/types.js';
 
 test('MCP Protocol Negative: Unknown JSON-RPC method returns code -32601', () => {
   const server = new FredoQaMcpServer();

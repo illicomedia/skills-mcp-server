@@ -1,12 +1,10 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as crypto from 'node:crypto';
 import {
   LICENSE_SCHEMA_URL,
   LICENSE_SCHEMA_VERSION,
   canonicalJson,
   type LicenseOptions,
-} from '../license.js';
+} from '../dist/license.js';
 
 export const TEST_KEY_ID = 'test-key-1';
 

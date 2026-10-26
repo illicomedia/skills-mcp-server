@@ -16,12 +16,64 @@ Connects AI coding assistants (**Cursor, Claude Desktop, Antigravity, Windsurf, 
 
 ---
 
-## Quick Setup (npx or local node)
+## Installation & Setup
 
-### 1. Claude Desktop
+### A. Local / Offline Global Installation (No remote npmjs.org)
 
-Add to your `claude_desktop_config.json`:
+For offline environments, air-gapped workstations, or active local development without hitting `registry.npmjs.org`:
 
+1. **Build the server:**
+   ```bash
+   cd packages/mcp-server
+   npm run build
+   ```
+
+2. **Install globally offline (`-g`):**
+   ```bash
+   # Option 1: Direct offline global install
+   npm install -g ./packages/mcp-server/ --offline
+
+   # Option 2: Active development symlink (instant updates on rebuild)
+   cd packages/mcp-server && npm link
+
+   # Option 3: From packed tarball
+   cd packages/mcp-server && npm pack
+   npm install -g ./illicomedia-skills-mcp-server-*.tgz --offline
+   ```
+
+   *(Note: `@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing 100% offline installation.)*
+
+3. **Verify global command:**
+   ```bash
+   which fredo-qa-mcp-server
+   ```
+
+4. **Detailed runbook:** See [docs/operations/mcp-local-offline-installation.md](../../docs/operations/mcp-local-offline-installation.md).
+
+---
+
+### B. Client Configuration
+
+Configure your AI assistant using either the local binary (`fredo-qa-mcp-server`), direct node script, or remote `npx`.
+
+#### 1. Claude Desktop (`claude_desktop_config.json`)
+
+**Using local global installation:**
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "fredo-qa-mcp-server",
+      "args": [],
+      "env": {
+        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
+      }
+    }
+  }
+}
+```
+
+**Using remote npx:**
 ```json
 {
   "mcpServers": {
@@ -36,10 +88,24 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### 2. Cursor IDE
+#### 2. Cursor IDE (`.cursor/mcp.json`)
 
-Add to `.cursor/mcp.json` in your workspace or user settings:
+**Using local global installation:**
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "fredo-qa-mcp-server",
+      "args": [],
+      "env": {
+        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
+      }
+    }
+  }
+}
+```
 
+**Using remote npx:**
 ```json
 {
   "mcpServers": {
@@ -54,16 +120,30 @@ Add to `.cursor/mcp.json` in your workspace or user settings:
 }
 ```
 
-### 3. Google Antigravity
+#### 3. Google Antigravity (`mcp_config.json`)
 
-Add to your `antigravity.json` or custom MCP settings:
-
+**Using local global installation:**
 ```json
 {
   "mcpServers": {
     "fredo-qa": {
-      "command": "npx",
-      "args": ["-y", "@illicomedia/skills-mcp-server"],
+      "command": "fredo-qa-mcp-server",
+      "args": [],
+      "env": {
+        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
+      }
+    }
+  }
+}
+```
+
+**Using direct node execution (no global install needed):**
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "node",
+      "args": ["/absolute/path/to/packages/mcp-server/dist/index.js"],
       "env": {
         "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
       }

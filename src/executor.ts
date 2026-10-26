@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import { runComplianceAudit } from './audit.js';
 import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
 import { installSkill, syncWorkspaceSkills } from './installer.js';

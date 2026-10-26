@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 
 import * as assert from 'node:assert';
 import { spawn } from 'node:child_process';
@@ -8,8 +6,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import test from 'node:test';
-import { TEST_KEY_ID, signedLicense } from './license-fixture.js';
-import { SERVER_VERSION } from '../version.js';
+import { TEST_KEY_ID, signedLicense } from './license-fixture.ts';
+import { SERVER_VERSION } from '../dist/version.js';
 
 interface JsonRpcMessage {
   jsonrpc: string;

@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 
 /**
  * Fredo QA Skills — Model Context Protocol (MCP) Server CLI

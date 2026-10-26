@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveSkillLicense } from './license-templates.js';

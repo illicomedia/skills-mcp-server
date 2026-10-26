@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert';
 import { spawn } from 'node:child_process';
 import * as crypto from 'node:crypto';
@@ -13,19 +11,19 @@ import {
   getAvailableSkills,
   loadSkillContent,
   loadSkillLicense,
-} from '../catalog.js';
-import { runComplianceAudit } from '../audit.js';
-import { ToolExecutor } from '../executor.js';
+} from '../dist/catalog.js';
+import { runComplianceAudit } from '../dist/audit.js';
+import { ToolExecutor } from '../dist/executor.js';
 import {
   detectProjectSkills,
   installSkill,
   syncWorkspaceSkills,
-} from '../installer.js';
-import { resolveSkillLicense } from '../license-templates.js';
-import { canonicalJson, validateLicense } from '../license.js';
-import { FredoQaMcpServer } from '../server.js';
-import type { JsonRpcRequest } from '../types.js';
-import { TEST_KEY_ID, TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.js';
+} from '../dist/installer.js';
+import { resolveSkillLicense } from '../dist/license-templates.js';
+import { canonicalJson, validateLicense } from '../dist/license.js';
+import { FredoQaMcpServer } from '../dist/server.js';
+import type { JsonRpcRequest } from '../dist/types.js';
+import { TEST_KEY_ID, TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
 
 test('Server: handleRequest ping and initialized notifications', () => {
   const server = new FredoQaMcpServer();
@@ -552,6 +550,45 @@ test('CLI: Pre-flight lock triggers fatal exit when LICENSE is missing', async (
     if (renamed && fs.existsSync(backupLicense)) {
       fs.renameSync(backupLicense, licensePath);
     }
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('Security Guard: validateSafeProjectPath blocks root and sensitive system directories', async () => {
+  const { validateSafeProjectPath, validateSafeWriteTarget } = await import('../dist/security-guard.js');
+
+  assert.throws(
+    () => validateSafeProjectPath('/', 'test_root'),
+    /cannot target system directory/,
+  );
+
+  assert.throws(
+    () => validateSafeProjectPath('/etc', 'test_etc'),
+    /cannot target system directory/,
+  );
+
+  const sshDir = path.join(os.homedir(), '.ssh');
+  if (fs.existsSync(sshDir)) {
+    assert.throws(
+      () => validateSafeProjectPath(sshDir, 'test_ssh'),
+      /cannot target credential directory/,
+    );
+  }
+
+  // Path escaping in write target
+  assert.throws(
+    () => validateSafeWriteTarget('/tmp/project', '/tmp/other/secret'),
+    /escapes project root/,
+  );
+});
+
+test('Security Guard: installSkill rejects attempts to write outside project root', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-jail-'));
+  try {
+    const res = installSkill('qa-core', '/etc', undefined, { confirm: true });
+    assert.strictEqual(res.success, false);
+    assert.match(res.message, /Security restriction/);
+  } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

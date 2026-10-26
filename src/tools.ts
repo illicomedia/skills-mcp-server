@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import type { McpTool } from './types.js';
 
 export const MCP_TOOLS: McpTool[] = [

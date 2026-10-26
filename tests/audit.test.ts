@@ -1,11 +1,9 @@
-// SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
-// SPDX-License-Identifier: MIT
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { runComplianceAudit } from '../audit.js';
+import { runComplianceAudit } from '../dist/audit.js';
 
 const OVERCLAIMS = /\b(valid|correctly|compliant|ensures?|verified|soundness)\b/i;
 
@@ -248,5 +246,63 @@ test('Audit: missing AGENTS.md flags warning (not a blocker) and reports prerequ
   assert.equal(report.status, 'needs_attention');
   assert.match(report.prerequisites, /\d+\/\d+ met/);
 });
+
+test('Audit Robustness: commented .gitignore line (# .env) does not pass as ignoring .env', () => {
+  const report = auditOf({
+    'AGENTS.md': '',
+    '.gitignore': '# .env\n# *.key\n',
+    '.env': 'SECRET=123',
+  });
+  const envCheck = report.results.find((r) => r.name === '.gitignore mentions .env');
+  assert.equal(envCheck?.passed, false);
+  assert.equal(envCheck?.severity, 'blocker');
+});
+
+test('Audit Robustness: negated .gitignore line (!.env) does not pass as ignoring .env', () => {
+  const report = auditOf({
+    'AGENTS.md': '',
+    '.gitignore': '.env\n!.env\n',
+    '.env': 'SECRET=123',
+  });
+  const envCheck = report.results.find((r) => r.name === '.gitignore mentions .env');
+  assert.equal(envCheck?.passed, false);
+  assert.equal(envCheck?.severity, 'blocker');
+});
+
+test('Audit Robustness: private key in subfolder (certs/server.key) flags blocker', () => {
+  const report = auditOf({
+    'AGENTS.md': '',
+    '.gitignore': '.env\n',
+    'certs/server.key': '-----BEGIN PRIVATE KEY-----\nMIIE...\n',
+  });
+  const keyCheck = report.results.find((r) => r.name === 'private key and secret hygiene in .gitignore');
+  assert.equal(keyCheck?.passed, false);
+  assert.equal(keyCheck?.severity, 'blocker');
+  assert.match(keyCheck?.details || '', /certs\/server\.key/);
+});
+
+test('Audit Robustness: alternative expiration syntax (valid_until / expiry) in .qa-exceptions.yaml flags blocker', () => {
+  const report = auditOf({
+    'AGENTS.md': '',
+    'Cargo.toml': '[package]\nname = "test"\n',
+    '.qa-exceptions.yaml': 'exceptions:\n  - id: EXC-999\n    valid_until: "2021-01-01"\n    reason: "Legacy waiver"\n',
+  });
+  const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
+  assert.equal(excCheck?.passed, false);
+  assert.equal(excCheck?.severity, 'blocker');
+  assert.match(excCheck?.details || '', /expired entry/i);
+});
+
+test('Audit Robustness: polyglot project credits secondary stack test suite', () => {
+  const report = auditOf({
+    'AGENTS.md': '',
+    'package.json': JSON.stringify({ name: 'frontend-and-backend', scripts: {} }),
+    'Cargo.toml': '[package]\nname = "backend"\n',
+  });
+  const testCheck = report.results.find((r) => r.name === 'automated test suite declared');
+  assert.equal(testCheck?.passed, true);
+  assert.match(testCheck?.details || '', /Rust test framework/i);
+});
+
 
 
