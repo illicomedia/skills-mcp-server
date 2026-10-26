@@ -1,64 +1,157 @@
-# Fredo QA Skills - Model Context Protocol (MCP) Server
+# Fredo QA Skills — Model Context Protocol (MCP) Server
 
-Official **Model Context Protocol (MCP)** server for **Fredo QA Skills**.
-Connects AI coding assistants (**Cursor, Claude Desktop, Antigravity, Windsurf, Copilot**) to the Fredo QA Skills quality policy engine and compliance framework.
+Official **Model Context Protocol (MCP)** server for **Fredo QA Skills**.  
+Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Windsurf, Copilot, VS Code**) to the Fredo QA engineering standards, compliance framework, and real-time preflight audit engine.
 
 ---
 
-## Features
+## Key Highlights
 
-- **Standard MCP Protocol**: 100% compliant with the MCP specification (JSON-RPC 2.0 over `stdio`).
-- **Dynamic Skill Injection**: Automatically supplies AI agents with authoritative QA rules, test commands, and quality gates (`qa:starter`, `qa:standard`, `qa:strict`).
-- **Signed License Files**: Verifies an Ed25519-signed `license.json` offline and unlocks Pro or Enterprise skills accordingly. Without a valid license, all MIT skills stay available.
-- **Version Retention**: A license unlocks every server release published on or before its `updates_until` date, permanently. Later releases run in free mode until the license is renewed. No clock check is involved.
-- **Canary Cryptographic Watermarking**: Embeds non-intrusive provenance tokens into skill outputs for copyright protection and leak detection.
-- **Preflight Sensor**: The `quick_check` tool provides sub-second intake checks for AI agents to discover repository stack, governance policies, and baseline scaffolding (AGENTS.md, `.qa-exceptions.yaml`, security.txt, `.gitignore`, lockfiles, test runners). It does not execute compilers or test suites.
+- **Standard MCP Protocol**: 100% compliant with the MCP JSON-RPC 2.0 specification over standard I/O (`stdio`).
+- **Zero Runtime Dependencies (`dependencies: {}`)**: Built exclusively with Node.js built-in modules (`node:crypto`, `node:fs`, `node:path`, `node:readline`). Runs fully offline and air-gapped with zero supply-chain attack surface.
+- **Two-Tier Safety & Human-in-the-Loop Approval**:
+  - Mutating tools require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
+  - Native MCP client authorization dialogs protect against unintended workspace modifications.
+  - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
+- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 9 language stacks—without executing arbitrary code or compiling tests.
+- **Cryptographic Ed25519 License Verification**: Offline signature checks unlock Pro and Enterprise skills with lifetime version retention. Open-source MIT skills remain free and unlocked forever.
+- **Provenance & Canary Watermarking**: Embeds cryptographic watermark headers into skill rules for licensing integrity and leak tracing.
+
+---
+
+## Tool Safety Model: Read-Only vs. Mutating Actions
+
+MCP tools in this server are divided into two distinct security categories:
+
+### 1. Read-Only & Inspection Tools (Safe, Idempotent, No Approval Needed)
+These tools perform pure queries and calculations. They never write to disk or mutate project state:
+- `list_skills`: Browse available skills and policy tiers.
+- `get_skill_rules`: Retrieve full prompt directives and quality rules for a specific skill.
+- `quick_check`: Perform a static read-only compliance audit of a project directory.
+- `verify_license`: Inspect the active license signature, licensee, tier, and validity.
+- `get_version`: Read runtime server version, protocol metadata, and engine capabilities.
+
+### 2. Mutating & Write Tools (Filesystem Modifications — Requires User Approval)
+These tools write files into the target project's `.agents/skills/<skill_id>/` directory:
+- `install_skill`: Installs a specific skill's `SKILL.md` and `LICENSE`.
+- `sync_workspace_skills`: Scans project tech stacks and installs all matching skills.
+
+### How the Human-in-the-Loop Guard Works:
+
+```
+[AI Assistant] ──> Calls install_skill / sync_workspace_skills (confirm: false)
+                                 │
+                                 ▼
+                     [MCP Server returns PREVIEW]
+           (Lists proposed files, target folder, tier validation)
+                                 │
+                                 ▼
+[AI Assistant] ──> "I propose to install these QA skills. Proceed? [Y/n]"
+                                 │
+                            User Approves
+                                 │
+                                 ▼
+[AI Assistant] ──> Calls install_skill / sync_workspace_skills (confirm: true)
+                                 │
+                                 ▼
+                   [MCP Client Authorization Prompt]
+           ("Allow fredo-qa to write files in /path/to/project?")
+                                 │
+                            User Confirms
+                                 │
+                                 ▼
+                  [Files written safely to disk]
+```
+
+1. **Default Safe Preview (`confirm: false`)**:  
+   If an assistant invokes `install_skill` or `sync_workspace_skills` without `confirm: true`, **no files are written**. The server returns a structured dry-run response outlining the target directory, files to be created, and detected stack, prompting the agent to ask the human developer for approval.
+2. **Explicit Confirmation (`confirm: true`)**:  
+   Files are only written to disk when `confirm: true` is explicitly provided after user agreement.
+3. **Host Client Confirmation Prompts**:  
+   Most MCP clients (Claude Desktop, Cursor, Antigravity) will also display a visual confirmation prompt in the chat UI before allowing tool execution.
+4. **Security Containment Boundaries**:  
+   Even with `confirm: true`, the server's security guard strictly rejects:
+   - Writing outside the workspace boundary (prevents directory traversal `../`).
+   - Writing to system roots (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`).
+   - Writing to sensitive credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+   - Writing through symlinks that escape the project directory.
+
+---
+
+## Available MCP Tools Reference
+
+| Tool Name | Type | Parameters | Description |
+|---|---|---|---|
+| `list_skills` | 🔍 Read-Only | `{ category?: string }` | Lists all skills accessible under your current plan with tiers, tags, and summary gates. |
+| `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string }` | Returns complete prompt instructions and QA directives for a skill (e.g. `qa-security`, `qa-accessibility`). |
+| `quick_check` | 🔍 Read-Only | `{ project_path: string }` | Fast intake audit for AI agents. Evaluates 5 domains across 9 languages and returns a score (0-100) and readiness status. |
+| `install_skill` | ✏️ **Mutating** | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
+| `sync_workspace_skills` | ✏️ **Mutating** | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |
+| `verify_license` | 🔍 Read-Only | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
+| `set_license_key` | ⚙️ Config | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
+| `get_version` | 🔍 Read-Only | `{}` | Returns the active package version (`1.3.1`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
+
+---
+
+## Deep Dive: Modular Preflight Sensor (`quick_check`)
+
+The `quick_check` tool provides a sub-second, non-destructive audit engine for AI coding assistants. It assesses codebases before executing tasks or quality gates.
+
+### Audit Domains Evaluated:
+1. **Governance & Guidelines**: Detects `AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, and agent policy definitions.
+2. **Security & Secrets Hygiene**: Verifies `.gitignore` ignores `.env` files, detects exposed private keys (`id_rsa`, `*.pem`, `*.key`), and checks for RFC 9116 `.well-known/security.txt`.
+3. **Quality Gates & Exceptions**: Verifies quality gate scripts (`qa:starter`, `qa:standard`, `qa:strict`), test runners, and `.qa-exceptions.yaml` governance.
+4. **Supply Chain Integrity**: Validates lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `Cargo.lock`, `go.sum`, `poetry.lock`), SBOM configurations, and dependency verification.
+5. **DevOps & Continuous Integration**: Scans `.github/workflows/`, GitLab CI, and Docker security configurations.
+
+### Supported Language Analyzers:
+- **Node.js / TypeScript**: `package.json`, TypeScript configs, ESLint/Biome, Vitest/Jest, Knip, lockfiles.
+- **Rust**: `Cargo.toml`, `Cargo.lock`, Clippy, cargo-audit, rustfmt.
+- **Go**: `go.mod`, `go.sum`, golangci-lint, govulncheck.
+- **Python**: `pyproject.toml`, Ruff, Mypy, Poetry/uv/Pipenv lockfiles, pytest.
+- **Java**: `pom.xml`, `build.gradle`, Spotless, Checkstyle, JaCoCo.
+- **C / C++**: `CMakeLists.txt`, `Makefile`, clang-format, clang-tidy.
+- **PHP**: `composer.json`, `composer.lock`, PHPStan, PHPUnit.
+- **Shell / Bash**: `*.sh` scripts, ShellCheck, Bats, shfmt.
+- **Polyglot & Fallback**: Intelligent credit allocation for mixed and multi-language repositories.
+
+### Safety Guarantee:
+`quick_check` performs **pure static inspection** of file paths, headers, and directory structures. It never spawns subprocesses, never compiles code, and never accesses the network. It is 100% safe to run on untrusted repositories.
 
 ---
 
 ## Installation & Setup
 
-### A. Local / Offline Global Installation (No remote npmjs.org)
+### Option 1: Local / Offline Global Installation (Recommended for air-gapped development)
 
-For offline environments, air-gapped workstations, or active local development without hitting `registry.npmjs.org`:
+`@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing completely offline operation:
 
-1. **Build the server:**
-   ```bash
-   cd packages/mcp-server
-   npm run build
-   ```
+```bash
+# 1. Build the package
+cd packages/mcp-server
+npm run build
 
-2. **Install globally offline (`-g`):**
-   ```bash
-   # Option 1: Direct offline global install
-   npm install -g ./packages/mcp-server/ --offline
+# 2. Install globally offline
+npm install -g ./packages/mcp-server/ --offline
 
-   # Option 2: Active development symlink (instant updates on rebuild)
-   cd packages/mcp-server && npm link
+# Or link for active development:
+cd packages/mcp-server && npm link
+```
 
-   # Option 3: From packed tarball
-   cd packages/mcp-server && npm pack
-   npm install -g ./illicomedia-skills-mcp-server-*.tgz --offline
-   ```
+### Option 2: Remote / NPX (Zero-install)
 
-   *(Note: `@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing 100% offline installation.)*
-
-3. **Verify global command:**
-   ```bash
-   which fredo-qa-mcp-server
-   ```
-
-4. **Detailed runbook:** See [docs/operations/mcp-local-offline-installation.md](../../docs/operations/mcp-local-offline-installation.md).
+Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuration.
 
 ---
 
-### B. Client Configuration
+## Client Configuration
 
-Configure your AI assistant using either the local binary (`fredo-qa-mcp-server`), direct node script, or remote `npx`.
+### 1. Claude Desktop (`claude_desktop_config.json`)
 
-#### 1. Claude Desktop (`claude_desktop_config.json`)
+**MacOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`  
+**Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-**Using local global installation:**
 ```json
 {
   "mcpServers": {
@@ -73,24 +166,12 @@ Configure your AI assistant using either the local binary (`fredo-qa-mcp-server`
 }
 ```
 
-**Using remote npx:**
-```json
-{
-  "mcpServers": {
-    "fredo-qa": {
-      "command": "npx",
-      "args": ["-y", "@illicomedia/skills-mcp-server"],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
-    }
-  }
-}
-```
+*(Or replace `command` with `"npx"` and `args` with `["-y", "@illicomedia/skills-mcp-server"]`)*
 
-#### 2. Cursor IDE (`.cursor/mcp.json`)
+### 2. Cursor IDE (`.cursor/mcp.json`)
 
-**Using local global installation:**
+Add to your project's `.cursor/mcp.json` or global Cursor settings:
+
 ```json
 {
   "mcpServers": {
@@ -105,97 +186,77 @@ Configure your AI assistant using either the local binary (`fredo-qa-mcp-server`
 }
 ```
 
-**Using remote npx:**
-```json
-{
-  "mcpServers": {
-    "fredo-qa": {
-      "command": "npx",
-      "args": ["-y", "@illicomedia/skills-mcp-server"],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
-    }
-  }
-}
-```
+### 3. Google Antigravity (`~/.gemini/config/mcp_config.json`)
 
-#### 3. Google Antigravity (`mcp_config.json`)
+Add to `~/.gemini/config/mcp_config.json`:
 
-**Using local global installation:**
 ```json
 {
   "mcpServers": {
     "fredo-qa": {
       "command": "fredo-qa-mcp-server",
-      "args": [],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
+      "args": []
     }
   }
 }
 ```
 
-**Using direct node execution (no global install needed):**
+Or run directly from the compiled JavaScript bundle without global binaries:
+
 ```json
 {
   "mcpServers": {
     "fredo-qa": {
       "command": "node",
-      "args": ["/absolute/path/to/packages/mcp-server/dist/index.js"],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
+      "args": ["/absolute/path/to/skills/packages/mcp-server/dist/index.js"]
     }
   }
 }
 ```
 
-## License Files
+---
 
-Pro and Enterprise skills require a license file signed by the vendor with Ed25519. The server
-looks for it in this order:
+## License Verification & Tiered Access
 
-1. The path in `FREDO_QA_LICENSE_FILE`.
-2. `~/.config/fredo-qa/license.json`.
-3. `.qa-license.json` at the project root (keep it out of git).
+Pro and Enterprise skills require an Ed25519-signed license file (`license.json`).
 
-The server verifies the signature offline against the public keys compiled into the release.
-A missing, malformed, tampered, or untrusted license leaves the server in free mode and says why.
-The format is defined in `docs/plans/2026-10-07-enforcement-kit/distribution-licensing.md`,
-section 3.
+### License Resolution Order:
+1. Environment variable: `FREDO_QA_LICENSE_FILE=/path/to/license.json`
+2. User config path: `~/.config/fredo-qa/license.json`
+3. Project root: `.qa-license.json` (ensure this is added to `.gitignore`)
+4. Dynamic session key: Set dynamically via the `set_license_key` tool.
+
+### Lifetime Version Retention:
+A license unlocks all releases published on or before its `updates_until` date **permanently**. Later server releases gracefully run in free community mode (all MIT skills accessible) without breaking, and without any remote clock or telemetry checks.
 
 ---
 
-## Available MCP Tools
+## Security & Sandboxing Architecture
 
-| Tool Name | Parameters | Description |
-|---|---|---|
-| `list_skills` | `{ category?: string }` | Lists all skills accessible under your current plan with their descriptions and key gates. |
-| `get_skill_rules` | `{ skill_id: string }` | Returns complete prompt instructions and QA directives for a skill (e.g. `qa-security`, `qa-accessibility`). |
-| `install_skill` | `{ skill_id: string, project_path?: string, license_key?: string }` | Installs a skill into `.agents/skills/<skill_id>/` with `SKILL.md` and `LICENSE`. Enforces auth for paid Pro & Enterprise skills. |
-| `sync_workspace_skills` | `{ project_path?: string, skills?: string[], license_key?: string }` | Auto-detects project stack and provisions matching QA skills and licenses. Respects license tiers and reports auth status. |
-| `set_license_key` | `{ license_key: string }` | Sets the signed license file (path or JSON content) for the active session, without a server restart. |
-| `quick_check` | `{ project_path: string }` | Sub-second intake preflight for AI agents. Reports stack discovery, baseline scaffolding, and prerequisites readiness (`ready` / `needs_attention`). |
-| `verify_license` | `{ license_key?: string }` | Returns signature validity, tier, licensee, license ID, `updates_until`, and fallback status. |
+- **Buffer Overflow & DoS Protection**: Incoming `stdio` stream enforces a strict `1 MB` maximum JSON-RPC frame limit to prevent memory exhaustion attacks.
+- **Path Escape Prevention**: All project paths are validated against real filesystem paths (`fs.realpathSync`) to block symlink redirections and directory traversal attempts (`../../../`).
+- **Forbidden Path Blacklist**: Rejects destructive operations targeting system directories (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`) or credential vaults (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+- **No Remote Telemetry**: Zero background network requests, zero metric phoning home. All audits, verifications, and tool executions occur strictly on your local machine.
 
 ---
 
 ## Development & Testing
 
 ```bash
-# Build the TypeScript MCP server
+# Compile TypeScript to dist/
 npm run build
 
-# Run automated tests
+# Run full test suite (Node.js native test runner)
 npm test
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
 ---
 
 ## License & Copyright
 
-Copyright (c) 2026 Frédéric Charles Viallet.  
-Open-source foundation tools released under the MIT License.  
-Commercial skills and enterprise packs are proprietary and subject to the Fredo QA Skills Commercial License.
+- **Engine & Free Skills**: Released under the [MIT License](LICENSE).  
+- **Pro & Enterprise Skills**: Proprietary, subject to the Fredo QA Commercial License.  
+- Copyright (c) 2026 Frédéric Charles Viallet.
