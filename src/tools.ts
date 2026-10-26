@@ -37,7 +37,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'install_skill',
     description:
-      'Install a Fredo QA skill into .agents/skills/<skill_id>/ with SKILL.md and LICENSE. Enforces authentication for paid Pro and Enterprise skills.',
+      'Install a Fredo QA skill into .agents/skills/<skill_id>/ with SKILL.md and LICENSE. Requires user agreement: set confirm: true to write files to disk; when false (default), returns a safe preview without modifying the filesystem.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -53,6 +53,11 @@ export const MCP_TOOLS: McpTool[] = [
           type: 'string',
           description: 'Optional signed license file (path or JSON content) to use for this session before installing',
         },
+        confirm: {
+          type: 'boolean',
+          description:
+            'Explicit user confirmation to write files to disk. When false (default), returns a preview of files to be created without modifying the filesystem.',
+        },
       },
       required: ['skill_id'],
       additionalProperties: false,
@@ -61,7 +66,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'sync_workspace_skills',
     description:
-      'Auto-detects project stack and provisions matching QA skills and licenses into .agents/skills/. Respects license tiers and reports auth requirements.',
+      'Auto-detects project stack and provisions matching QA skills and licenses into .agents/skills/. Requires user agreement: set confirm: true to write files; when false (default), returns a dry-run preview.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -77,6 +82,11 @@ export const MCP_TOOLS: McpTool[] = [
         license_key: {
           type: 'string',
           description: 'Optional signed license file (path or JSON content) to use for this session before syncing',
+        },
+        confirm: {
+          type: 'boolean',
+          description:
+            'Explicit user confirmation to write files to disk. When false (default), returns a dry-run preview without modifying the filesystem.',
         },
       },
       additionalProperties: false,
@@ -114,15 +124,15 @@ export const MCP_TOOLS: McpTool[] = [
     },
   },
   {
-    name: 'audit_compliance',
+    name: 'quick_check',
     description:
-      'Check that the files and scripts Fredo QA Skills expects are present in a project (AGENTS.md, .qa-exceptions.yaml, security.txt, .gitignore, QA scripts). Presence only: gates are not run and contents are not validated.',
+      'Sub-second preflight check for AI agents to discover repository stack, governance policies, and baseline scaffolding before modifying code. Verifies presence and configuration of agent instructions (AGENTS.md), licensing, secret hygiene (.gitignore), dependency lockfile, and test runner declaration.',
     inputSchema: {
       type: 'object',
       properties: {
         project_path: {
           type: 'string',
-          description: 'Path to the root directory of the project to audit',
+          description: 'Path to the root directory of the project to check',
         },
       },
       required: ['project_path'],

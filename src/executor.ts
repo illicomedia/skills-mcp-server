@@ -121,18 +121,20 @@ export class ToolExecutor {
       case 'install_skill': {
         const skillId = args.skill_id as string;
         const projectPath = (args.project_path as string) || process.cwd();
-        const res = installSkill(skillId, projectPath, license);
+        const confirm = Boolean(args.confirm);
+        const res = installSkill(skillId, projectPath, license, { confirm });
         return JSON.stringify(res, null, 2);
       }
 
       case 'sync_workspace_skills': {
         const projectPath = (args.project_path as string) || process.cwd();
         const requestedSkills = args.skills as string[] | undefined;
-        const res = syncWorkspaceSkills(projectPath, requestedSkills, license);
+        const confirm = Boolean(args.confirm);
+        const res = syncWorkspaceSkills(projectPath, requestedSkills, license, { confirm });
         return res.summaryMessage;
       }
 
-      case 'audit_compliance': {
+      case 'quick_check': {
         const projectPath = (args.project_path as string) || process.cwd();
         const report = runComplianceAudit(projectPath);
         return JSON.stringify(report, null, 2);

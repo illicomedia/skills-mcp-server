@@ -62,7 +62,11 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
     assert.match(callTool(server, 'list_skills'), /25 accessible under ENTERPRISE plan/);
 
     const install = JSON.parse(
-      callTool(server, 'install_skill', { skill_id: 'qa-gdpr-rgpd', project_path: ws.project }),
+      callTool(server, 'install_skill', {
+        skill_id: 'qa-gdpr-rgpd',
+        project_path: ws.project,
+        confirm: true,
+      }),
     );
     assert.equal(install.success, true);
     const licenseText = fs.readFileSync(
@@ -89,7 +93,11 @@ test('E2E: a license whose updates ended before this release keeps the session f
     assert.equal(status.status, 'UPDATES_ENDED');
     assert.equal(status.tier, 'FREE');
     const install = JSON.parse(
-      callTool(server, 'install_skill', { skill_id: 'qa-security', project_path: ws.project }),
+      callTool(server, 'install_skill', {
+        skill_id: 'qa-security',
+        project_path: ws.project,
+        confirm: true,
+      }),
     );
     assert.equal(install.success, false);
   });

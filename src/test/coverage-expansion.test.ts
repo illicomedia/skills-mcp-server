@@ -248,7 +248,7 @@ test('Installer: installSkill blocks enterprise skill for pro tier', () => {
     assert.match(res.message, /Enterprise Assurance skill/);
 
     // Filesystem error handling in installSkill
-    const fsErrRes = installSkill('qa-core', '/dev/null/forbidden-dir', proLicense);
+    const fsErrRes = installSkill('qa-core', '/dev/null/forbidden-dir', proLicense, { confirm: true });
     assert.strictEqual(fsErrRes.success, false);
     assert.match(fsErrRes.message, /Failed to install skill 'qa-core'/);
 
@@ -256,7 +256,7 @@ test('Installer: installSkill blocks enterprise skill for pro tier', () => {
     const symlinkTargetDir = path.join(tmp, '.agents', 'skills', 'qa-core');
     fs.mkdirSync(path.dirname(symlinkTargetDir), { recursive: true });
     fs.symlinkSync(path.join(tmp, 'non-existent-target'), symlinkTargetDir);
-    const symlinkRes = installSkill('qa-core', tmp);
+    const symlinkRes = installSkill('qa-core', tmp, undefined, { confirm: true });
     assert.strictEqual(symlinkRes.success, true);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -446,7 +446,7 @@ test('Audit: audits project with valid security.txt and gitignore', () => {
       id: 200,
       method: 'tools/call',
       params: {
-        name: 'audit_compliance',
+        name: 'quick_check',
         arguments: { project_path: tmp },
       },
     });

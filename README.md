@@ -12,7 +12,7 @@ Connects AI coding assistants (**Cursor, Claude Desktop, Antigravity, Windsurf, 
 - **Signed License Files**: Verifies an Ed25519-signed `license.json` offline and unlocks Pro or Enterprise skills accordingly. Without a valid license, all MIT skills stay available.
 - **Version Retention**: A license unlocks every server release published on or before its `updates_until` date, permanently. Later releases run in free mode until the license is renewed. No clock check is involved.
 - **Canary Cryptographic Watermarking**: Embeds non-intrusive provenance tokens into skill outputs for copyright protection and leak detection.
-- **Presence Audit**: The `audit_compliance` tool checks that expected files and scripts exist (AGENTS.md, `.qa-exceptions.yaml`, security.txt, `.gitignore`, QA scripts). It does not run gates or validate contents.
+- **Preflight Sensor**: The `quick_check` tool provides sub-second intake checks for AI agents to discover repository stack, governance policies, and baseline scaffolding (AGENTS.md, `.qa-exceptions.yaml`, security.txt, `.gitignore`, lockfiles, test runners). It does not execute compilers or test suites.
 
 ---
 
@@ -97,7 +97,7 @@ section 3.
 | `install_skill` | `{ skill_id: string, project_path?: string, license_key?: string }` | Installs a skill into `.agents/skills/<skill_id>/` with `SKILL.md` and `LICENSE`. Enforces auth for paid Pro & Enterprise skills. |
 | `sync_workspace_skills` | `{ project_path?: string, skills?: string[], license_key?: string }` | Auto-detects project stack and provisions matching QA skills and licenses. Respects license tiers and reports auth status. |
 | `set_license_key` | `{ license_key: string }` | Sets the signed license file (path or JSON content) for the active session, without a server restart. |
-| `audit_compliance` | `{ project_path: string }` | Reports which expected files and scripts are present. Presence only: no gate is executed and no content is validated. |
+| `quick_check` | `{ project_path: string }` | Sub-second intake preflight for AI agents. Reports stack discovery, baseline scaffolding, and prerequisites readiness (`ready` / `needs_attention`). |
 | `verify_license` | `{ license_key?: string }` | Returns signature validity, tier, licensee, license ID, `updates_until`, and fallback status. |
 
 ---

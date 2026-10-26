@@ -46,7 +46,7 @@ test('MCP Server: tools/list returns all registered MCP tools', () => {
   const names = tools.map((t) => t.name);
   assert.ok(names.includes('list_skills'));
   assert.ok(names.includes('get_skill_rules'));
-  assert.ok(names.includes('audit_compliance'));
+  assert.ok(names.includes('quick_check'));
   assert.ok(names.includes('verify_license'));
   assert.ok(names.includes('install_skill'));
   assert.ok(names.includes('sync_workspace_skills'));
@@ -182,20 +182,22 @@ test('MCP Server: get_skill_rules returns watermark and content', () => {
   assert.match(text, /qa-security/);
 });
 
-test('MCP Server: audit_compliance returns valid structured audit report', () => {
+test('MCP Server: quick_check returns structured preflight report', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const req: JsonRpcRequest = {
     jsonrpc: '2.0',
     id: 6,
     method: 'tools/call',
     params: {
-      name: 'audit_compliance',
+      name: 'quick_check',
       arguments: { project_path: process.cwd() },
     },
   };
   const res = server.handleRequest(req);
   const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
   const report = JSON.parse(text);
+  assert.ok(report.status === 'ready' || report.status === 'needs_attention');
+  assert.match(report.prerequisites, /^\d+\/\d+ met$/);
   assert.ok(typeof report.score === 'number');
   assert.ok(report.totalChecks > 0);
   assert.ok(Array.isArray(report.results));
@@ -211,7 +213,7 @@ test('MCP Server: install_skill allows free skills without license key', () => {
       method: 'tools/call',
       params: {
         name: 'install_skill',
-        arguments: { skill_id: 'qa-go', project_path: tmpDir },
+        arguments: { skill_id: 'qa-go', project_path: tmpDir, confirm: true },
       },
     };
     const res = server.handleRequest(req);
@@ -223,6 +225,33 @@ test('MCP Server: install_skill allows free skills without license key', () => {
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE')));
     const licenseContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE'), 'utf-8');
     assert.ok(licenseContent.includes('MIT License'));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: install_skill without confirm returns preview and writes 0 files to disk', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-preview-'));
+  try {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 88,
+      method: 'tools/call',
+      params: {
+        name: 'install_skill',
+        arguments: { skill_id: 'qa-go', project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    const result = JSON.parse(text);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.previewOnly, true);
+    assert.strictEqual(result.requiresConfirmation, true);
+    assert.match(result.message, /PREVIEW ONLY - 0 files written to disk/);
+    assert.match(result.message, /USER CONFIRMATION REQUIRED/);
+    assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go')));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -264,7 +293,7 @@ test('MCP Server: install_skill succeeds for paid skill with valid license key',
       method: 'tools/call',
       params: {
         name: 'install_skill',
-        arguments: { skill_id: 'qa-security', project_path: tmpDir },
+        arguments: { skill_id: 'qa-security', project_path: tmpDir, confirm: true },
       },
     };
     const res = server.handleRequest(req);
@@ -330,7 +359,7 @@ test('MCP Server: sync_workspace_skills auto-detects stack and reports auth stat
       method: 'tools/call',
       params: {
         name: 'sync_workspace_skills',
-        arguments: { project_path: tmpDir },
+        arguments: { project_path: tmpDir, confirm: true },
       },
     };
     const res = server.handleRequest(req);
@@ -343,6 +372,31 @@ test('MCP Server: sync_workspace_skills auto-detects stack and reports auth stat
     assert.match(text, /qa-security/);
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')));
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-core', 'SKILL.md')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: sync_workspace_skills without confirm returns preview and writes 0 files', () => {
+  const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-sync-preview-'));
+  try {
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/app\ngo 1.22\n');
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: 89,
+      method: 'tools/call',
+      params: {
+        name: 'sync_workspace_skills',
+        arguments: { project_path: tmpDir },
+      },
+    };
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /\[DRY-RUN PREVIEW\]/);
+    assert.match(text, /0 files written to disk/);
+    assert.match(text, /User agreement is required/i);
+    assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go')));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

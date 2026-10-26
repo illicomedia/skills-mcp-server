@@ -17,6 +17,16 @@ export interface InstallSkillResult {
   requiresAuth?: boolean;
   requiredTier?: SkillTier;
   promptRecommendation?: string;
+  previewOnly?: boolean;
+  requiresConfirmation?: boolean;
+}
+
+export interface InstallSkillOptions {
+  confirm?: boolean;
+}
+
+export interface SyncWorkspaceOptions {
+  confirm?: boolean;
 }
 
 export interface SyncWorkspaceResult {
@@ -31,11 +41,13 @@ export interface SyncWorkspaceResult {
 /**
  * Installs a specific skill into the workspace .agents/skills/<id>/ folder.
  * Enforces authentication and active entitlement for Pro and Enterprise skills.
+ * Requires explicit confirm: true to perform disk writes (safe preview by default).
  */
 export function installSkill(
   skillId: string,
   projectPath: string = process.cwd(),
   licenseOverride?: LicenseValidationResult,
+  options?: InstallSkillOptions,
 ): InstallSkillResult {
   const meta = findSkill(skillId);
   if (!meta) {
@@ -86,6 +98,32 @@ export function installSkill(
 
   // Installation authorized
   const targetDir = path.join(projectPath, '.agents', 'skills', skillId);
+  const skillFilePath = path.join(targetDir, 'SKILL.md');
+  const licenseFilePath = path.join(targetDir, 'LICENSE');
+
+  if (!options?.confirm) {
+    return {
+      success: true,
+      skillId,
+      skillName: meta.name,
+      tier: meta.tier,
+      installedFiles: [],
+      targetDirectory: targetDir,
+      previewOnly: true,
+      requiresConfirmation: true,
+      message:
+        `[PREVIEW ONLY - 0 files written to disk]\n` +
+        `Skill '${skillId}' (${meta.name}) is prepared for installation under ${meta.tier.toUpperCase()} tier.\n` +
+        `Target directory: ${targetDir}\n` +
+        `Files planned:\n` +
+        `  - ${skillFilePath} (declarative quality directives & HMAC provenance watermark)\n` +
+        `  - ${licenseFilePath} (${meta.tier.toUpperCase()} legal notice)\n\n` +
+        `⚠️ USER CONFIRMATION REQUIRED: Ask the developer for explicit confirmation in chat before modifying workspace files.\n` +
+        `Call 'install_skill' with 'confirm: true' only after the developer explicitly approves.`,
+      promptRecommendation: `Ask developer: "Would you like me to install '${meta.name}' (${skillId}) into .agents/skills/${skillId}/?"`,
+    };
+  }
+
   try {
     try {
       const stat = fs.lstatSync(targetDir);
@@ -104,9 +142,6 @@ export function installSkill(
         : rawSkillContent;
 
     const licenseContent = loadSkillLicense(skillId, license, projectPath);
-
-    const skillFilePath = path.join(targetDir, 'SKILL.md');
-    const licenseFilePath = path.join(targetDir, 'LICENSE');
 
     fs.writeFileSync(skillFilePath, skillContent, 'utf-8');
     fs.writeFileSync(licenseFilePath, licenseContent, 'utf-8');
@@ -220,13 +255,16 @@ export function detectProjectSkills(projectPath: string = process.cwd()): string
 /**
  * Synchronizes workspace skills: either auto-detects or installs an explicit list.
  * Respects license tiers and reports auth requirements clearly.
+ * Requires explicit confirm: true to perform disk writes (safe preview by default).
  */
 export function syncWorkspaceSkills(
   projectPath: string = process.cwd(),
   requestedSkills?: string[],
   licenseOverride?: LicenseValidationResult,
+  options?: SyncWorkspaceOptions,
 ): SyncWorkspaceResult {
   const license = licenseOverride || validateLicense(undefined, { projectRoot: projectPath });
+  const isConfirmed = Boolean(options?.confirm);
   const skillsToInstall =
     requestedSkills && requestedSkills.length > 0
       ? requestedSkills
@@ -236,7 +274,7 @@ export function syncWorkspaceSkills(
   const skippedUnauthorized: InstallSkillResult[] = [];
 
   for (const id of skillsToInstall) {
-    const res = installSkill(id, projectPath, license);
+    const res = installSkill(id, projectPath, license, { confirm: isConfirmed });
     if (res.success) {
       installed.push(res);
     } else {
@@ -244,7 +282,12 @@ export function syncWorkspaceSkills(
     }
   }
 
-  const installedList = installed.map((r) => `  - ✓ **\`${r.skillId}\`** [${r.tier?.toUpperCase()}]: ${r.skillName}`).join('\n');
+  const installedList = installed
+    .map(
+      (r) =>
+        `  - ${isConfirmed ? '✓' : '📋'} **\`${r.skillId}\`** [${r.tier?.toUpperCase()}]: ${r.skillName}`,
+    )
+    .join('\n');
   const skippedList = skippedUnauthorized
     .map(
       (r) =>
@@ -252,23 +295,45 @@ export function syncWorkspaceSkills(
     )
     .join('\n');
 
-  let summary = `# Fredo QA Skills Workspace Sync\n\n`;
-  summary += `Target: \`${projectPath}\`\n`;
-  summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
+  let summary = '';
+  if (!isConfirmed) {
+    summary = `# [DRY-RUN PREVIEW] Fredo QA Skills Workspace Sync\n\n`;
+    summary += `> [!IMPORTANT] **0 files written to disk**. User agreement is required before modifying workspace files.\n\n`;
+    summary += `Target: \`${projectPath}\`\n`;
+    summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
 
-  if (installed.length > 0) {
-    summary += `### Successfully Installed (${installed.length}):\n${installedList}\n\n`;
+    if (installed.length > 0) {
+      summary += `### Skills Ready to Install (${installed.length}):\n${installedList}\n\n`;
+    }
+
+    if (skippedUnauthorized.length > 0) {
+      summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
+      summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
+      summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
+    }
+
+    summary += `### Next Steps for AI Agent:\n`;
+    summary += `1. Ask the developer for explicit confirmation in the chat: "I detected the following QA skills for this repository (${installed.map((s) => s.skillId).join(', ')}). Would you like me to install them into .agents/skills/?"\n`;
+    summary += `2. Re-run \`sync_workspace_skills\` with \`confirm: true\` only after receiving user approval.\n`;
+  } else {
+    summary = `# Fredo QA Skills Workspace Sync\n\n`;
+    summary += `Target: \`${projectPath}\`\n`;
+    summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
+
+    if (installed.length > 0) {
+      summary += `### Successfully Installed (${installed.length}):\n${installedList}\n\n`;
+    }
+
+    if (skippedUnauthorized.length > 0) {
+      summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
+      summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
+      summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
+    }
+
+    summary += `### Next Steps for AI Agent:\n`;
+    summary += `- Reference installed skills from \`.agents/skills/<skill_id>/SKILL.md\`\n`;
+    summary += `- Run relevant inner loop checks before commits\n`;
   }
-
-  if (skippedUnauthorized.length > 0) {
-    summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
-    summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
-    summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
-  }
-
-  summary += `### Next Steps for AI Agent:\n`;
-  summary += `- Reference installed skills from \`.agents/skills/<skill_id>/SKILL.md\`\n`;
-  summary += `- Run relevant inner loop checks before commits\n`;
 
   return {
     projectPath,

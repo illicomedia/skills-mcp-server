@@ -118,14 +118,14 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     assert.ok(toolNames.includes('get_skill_rules'));
     assert.ok(toolNames.includes('install_skill'));
     assert.ok(toolNames.includes('sync_workspace_skills'));
-    assert.ok(toolNames.includes('audit_compliance'));
+    assert.ok(toolNames.includes('quick_check'));
     assert.ok(toolNames.includes('set_license_key'));
     assert.ok(toolNames.includes('verify_license'));
     assert.ok(toolNames.includes('get_version'));
 
-    // 3. Audit Compliance directly against website/
+    // 3. Quick Check directly against website/
     const auditRes = await client.sendRequest('tools/call', {
-      name: 'audit_compliance',
+      name: 'quick_check',
       arguments: { project_path: websiteDir },
     });
     assert.strictEqual(auditRes.error, undefined);
@@ -134,19 +134,27 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
       throw new Error(`Tool execution error: ${auditText}`);
     }
     const auditReport = JSON.parse(auditText);
+    assert.strictEqual(auditReport.status, 'ready');
+    assert.strictEqual(auditReport.prerequisites, '11/11 met');
     assert.strictEqual(auditReport.score, 100);
     assert.strictEqual(auditReport.failedChecks, 0);
-    assert.strictEqual(auditReport.passedChecks, 6);
+    assert.strictEqual(auditReport.passedChecks, 11);
+    assert.strictEqual(auditReport.totalChecks, 11);
     assert.strictEqual(auditReport.recommendations.length, 0);
 
-    // Verify all 6 checks passed on website/
+    // Verify all 11 checks passed on website/
     const checkNames = auditReport.results.map((r: { name: string }) => r.name);
     assert.ok(checkNames.includes('AGENTS.md present'));
     assert.ok(checkNames.includes('.qa-exceptions.yaml present'));
+    assert.ok(checkNames.includes('LICENSE file present'));
     assert.ok(checkNames.includes('security.txt present'));
     assert.ok(checkNames.includes('.gitignore mentions .env'));
+    assert.ok(checkNames.includes('private key and secret hygiene in .gitignore'));
     assert.ok(checkNames.includes('qa:starter or qa:standard script declared'));
     assert.ok(checkNames.includes('type-check script declared'));
+    assert.ok(checkNames.includes('automated test suite declared'));
+    assert.ok(checkNames.includes('dependency lockfile present'));
+    assert.ok(checkNames.includes('CI workflow definition present'));
 
     // 4. Auto-detect & Inspect Skills for website/ stack in an isolated sandbox
     const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'website-mcp-e2e-'));
@@ -160,7 +168,7 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
 
       const syncRes = await client.sendRequest('tools/call', {
         name: 'sync_workspace_skills',
-        arguments: { project_path: sandboxDir },
+        arguments: { project_path: sandboxDir, confirm: true },
       });
       assert.strictEqual(syncRes.error, undefined);
       const syncText = (syncRes.result as { content: Array<{ text: string }> }).content[0].text;
