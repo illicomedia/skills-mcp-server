@@ -8,7 +8,7 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
 ## Key Highlights
 
 - **Standard MCP Protocol**: 100% compliant with the MCP JSON-RPC 2.0 specification over standard I/O (`stdio`).
-- **Zero Runtime Dependencies (`dependencies: {}`)**: Built exclusively with Node.js built-in modules (`node:crypto`, `node:fs`, `node:path`, `node:readline`). Runs fully offline and air-gapped with zero supply-chain attack surface.
+- **No Runtime Dependencies**: `package.json` declares no `dependencies`; the server only imports Node.js built-in modules (`node:crypto`, `node:fs`, `node:os`, `node:path`, `node:readline`, `node:url`). It works without a network connection. The remaining supply-chain surface is this package itself and Node.js.
 - **Three-Tier Safety & Human-in-the-Loop Approval**:
   - Directory traversal inspection (`quick_check`) and mutating tools (`install_skill`, `sync_workspace_skills`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
   - Native MCP client authorization dialogs protect against unintended workspace access or modifications.
@@ -149,7 +149,7 @@ Because `quick_check` traverses repository directories and inspects configuratio
 
 ## Installation & Setup
 
-### Option 1: Local / Offline Global Installation (Recommended for air-gapped development)
+### Option 1: Local / Offline Global Installation (for machines without network access)
 
 `@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing completely offline operation:
 
