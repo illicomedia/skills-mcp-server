@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { FredoQaMcpServer } from '../dist/server.js';
 import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { writeSkillSources } from './skill-fixture.ts';
 
 const CLI = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
@@ -21,6 +22,7 @@ function withWorkspace(run: (ws: Workspace) => void): void {
   const ws = { root, home: path.join(root, 'home'), project: path.join(root, 'project') };
   fs.mkdirSync(path.join(ws.home, '.config', 'fredo-qa'), { recursive: true });
   fs.mkdirSync(ws.project);
+  writeSkillSources(ws.project, ['qa-gdpr-rgpd']);
   fs.writeFileSync(path.join(ws.project, 'LICENSE'), 'MIT License\n');
   try {
     run(ws);

@@ -285,22 +285,31 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
     }
   }
 
-  // Generate synthetic structured directives if file not directly on disk
-  return `# Skill: ${meta.name} (${meta.id})
-Category: ${meta.category}
-Tier: ${meta.tier.toUpperCase()}
+  // The package ships no skill files. Never synthesize rules: an agent would follow
+  // invented directives (e.g. scripts the project does not have).
+  throw new SkillNotInstalledError(skillId, candidatePaths);
+}
 
-## Description
-${meta.description}
+export const SKILL_PAGE_BASE_URL = 'https://www.illicomedia.com/qa-skills/skills';
 
-## Mandatory QA Rules & Quality Gates
-${meta.rulesSummary.map((r, i) => `${i + 1}. **${r}**`).join('\n')}
-
-## Inner Loop Commands
-- Run \`pnpm run qa:starter\` or equivalent inner-loop test before committing.
-- Run \`pnpm run qa:standard\` before submitting merge requests.
-- Adhere strictly to zero-hidden-debt principles. Suppressions without documented justification in \`.qa-exceptions.yaml\` are rejected.
-`;
+/**
+ * Raised when a known skill has no SKILL.md on disk. The message tells the agent to stop
+ * and how the developer can install the skill, instead of letting it improvise rules.
+ */
+export class SkillNotInstalledError extends Error {
+  constructor(
+    public readonly skillId: string,
+    public readonly searchedPaths: string[],
+  ) {
+    super(
+      `Skill '${skillId}' is not installed in this project: no SKILL.md found ` +
+        `(searched: ${searchedPaths.join(', ')}). This MCP server does not ship skill files. ` +
+        `Ask the developer to download the skill from ${SKILL_PAGE_BASE_URL}/${skillId} ` +
+        `and extract it into .agents/skills/${skillId}/, then retry. ` +
+        `Do not apply or invent rules for this skill until it is installed.`,
+    );
+    this.name = 'SkillNotInstalledError';
+  }
 }
 
 /**

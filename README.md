@@ -23,10 +23,12 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
 
 MCP tools in this server are divided into three distinct security tiers:
 
-### 1. Pure In-Memory Queries (Safe, Idempotent, Zero Disk Access)
-These tools perform pure in-memory lookups. They never read project directories or modify state:
+> **Skill files are not bundled.** This package contains the catalog metadata, the license checks and the audit engine, but no `SKILL.md`. Skills are read from the project: `skills/<id>/SKILL.md`, `skills/{free,pro,enterprise}/<id>/SKILL.md` or `.agents/skills/<id>/SKILL.md`. Download a skill from `https://www.illicomedia.com/qa-skills/skills/<id>` and extract it there. When a skill is missing, `get_skill_rules` and `install_skill` fail with these instructions instead of generating content.
+
+### 1. Read-Only Queries (No Writes)
+These tools never modify state. `get_skill_rules` reads the installed `SKILL.md` from the working directory; the others are in-memory lookups:
 - `list_skills`: Browse available skills, policy tiers, and descriptions.
-- `get_skill_rules`: Retrieve full prompt directives and quality rules for a specific skill.
+- `get_skill_rules`: Return the `SKILL.md` of an installed skill (fails explicitly if the skill is not installed).
 - `verify_license`: Inspect active license signature, licensee, tier, and validity.
 - `get_version`: Read runtime server version, protocol metadata, and engine capabilities.
 - `set_license_key`: In-memory configuration of signed license for the active session.

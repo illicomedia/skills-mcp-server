@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import test from 'node:test';
 import { TEST_KEY_ID, signedLicense } from './license-fixture.ts';
+import { writeSkillSources } from './skill-fixture.ts';
 import { SERVER_VERSION } from '../dist/version.js';
 
 interface JsonRpcMessage {
@@ -85,7 +86,8 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
   const cliPath = path.resolve('dist/index.js');
   const websiteDir = path.resolve('../../website');
 
-  const client = new McpTestClient(cliPath, process.cwd());
+  // Run from the repository root, where real skill sources live under skills/ (the package ships none)
+  const client = new McpTestClient(cliPath, path.resolve('../..'));
 
   try {
     // 1. Handshake (initialize)
@@ -157,6 +159,7 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
 
     // 4. Auto-detect & Inspect Skills for website/ stack in an isolated sandbox
     const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'website-mcp-e2e-'));
+    writeSkillSources(sandboxDir);
     try {
       fs.copyFileSync(path.join(websiteDir, 'package.json'), path.join(sandboxDir, 'package.json'));
       fs.copyFileSync(path.join(websiteDir, 'tsconfig.json'), path.join(sandboxDir, 'tsconfig.json'));

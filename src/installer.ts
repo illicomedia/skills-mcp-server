@@ -51,6 +51,8 @@ export interface SyncWorkspaceResult {
   activeTier: SkillTier;
   installed: InstallSkillResult[];
   skippedUnauthorized: InstallSkillResult[];
+  /** Skills that could not be installed for another reason (e.g. no SKILL.md available). */
+  failed: InstallSkillResult[];
   detectedSkills: string[];
   summaryMessage: string;
 }
@@ -140,6 +142,20 @@ export function installSkill(
   const skillFilePath = path.join(targetDir, 'SKILL.md');
   const licenseFilePath = path.join(targetDir, 'LICENSE');
 
+  // Resolve the skill source before any preview or write, so a missing skill never
+  // leaves an empty directory or a synthesized SKILL.md behind.
+  let rawSkillContent: string;
+  try {
+    rawSkillContent = loadSkillContent(skillId, projectPath);
+  } catch (err) {
+    return {
+      success: false,
+      skillId,
+      installedFiles: [],
+      message: `Failed to install skill '${skillId}': ${(err as Error).message}`,
+    };
+  }
+
   if (!options?.confirm) {
     return {
       success: true,
@@ -174,7 +190,6 @@ export function installSkill(
     }
     fs.mkdirSync(targetDir, { recursive: true });
 
-    const rawSkillContent = loadSkillContent(skillId, projectPath);
     const skillContent =
       meta.tier !== 'free'
         ? `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`
@@ -362,13 +377,16 @@ export function syncWorkspaceSkills(
 
   const installed: InstallSkillResult[] = [];
   const skippedUnauthorized: InstallSkillResult[] = [];
+  const failed: InstallSkillResult[] = [];
 
   for (const id of skillsToInstall) {
     const res = installSkill(id, safeProjectPath, license, { confirm: isConfirmed });
     if (res.success) {
       installed.push(res);
-    } else {
+    } else if (res.requiresAuth) {
       skippedUnauthorized.push(res);
+    } else {
+      failed.push(res);
     }
   }
 
@@ -384,6 +402,9 @@ export function syncWorkspaceSkills(
         `  - 🔒 **\`${r.skillId}\`** [${r.requiredTier?.toUpperCase()}]: Authentication required (Use 'set_license_key')`,
     )
     .join('\n');
+  const failedList = failed.map((r) => `  - ✗ **\`${r.skillId}\`**: ${r.message}`).join('\n');
+  const failedSection =
+    failed.length > 0 ? `### Not Installed (${failed.length}):\n${failedList}\n\n` : '';
 
   let summary = '';
   if (!isConfirmed) {
@@ -402,6 +423,7 @@ export function syncWorkspaceSkills(
       summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
     }
 
+    summary += failedSection;
     summary += `### Next Steps for AI Agent:\n`;
     summary += `1. Ask the developer for explicit confirmation in the chat: "I detected the following QA skills for this repository (${installed.map((s) => s.skillId).join(', ')}). Would you like me to install them into .agents/skills/?"\n`;
     summary += `2. Re-run \`sync_workspace_skills\` with \`confirm: true\` only after receiving user approval.\n`;
@@ -420,6 +442,7 @@ export function syncWorkspaceSkills(
       summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
     }
 
+    summary += failedSection;
     summary += `### Next Steps for AI Agent:\n`;
     summary += `- Reference installed skills from \`.agents/skills/<skill_id>/SKILL.md\`\n`;
     summary += `- Run relevant inner loop checks before commits\n`;
@@ -430,6 +453,7 @@ export function syncWorkspaceSkills(
     activeTier: license.tier,
     installed,
     skippedUnauthorized,
+    failed,
     detectedSkills: skillsToInstall,
     summaryMessage: summary,
   };

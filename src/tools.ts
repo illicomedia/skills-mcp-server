@@ -19,7 +19,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'get_skill_rules',
     description:
-      'Retrieve detailed instructions, mandatory quality rules, and inner-loop commands for a specific Fredo QA skill.',
+      'Return the SKILL.md of a Fredo QA skill installed in the working directory (skills/<id>/ or .agents/skills/<id>/). This server ships no skill files: if the skill is not installed, the call fails with installation instructions; do not invent rules for it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -35,7 +35,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'install_skill',
     description:
-      'Install a Fredo QA skill into .agents/skills/<skill_id>/ with SKILL.md and LICENSE. Requires user agreement: set confirm: true to write files to disk; when false (default), returns a safe preview without modifying the filesystem.',
+      'Install a Fredo QA skill into .agents/skills/<skill_id>/ with SKILL.md and LICENSE, copying SKILL.md from a skill source already present in the project (skills/<id>/ or .agents/skills/<id>/); fails if none exists. Requires user agreement: set confirm: true to write files to disk; when false (default), returns a safe preview without modifying the filesystem.',
     inputSchema: {
       type: 'object',
       properties: {

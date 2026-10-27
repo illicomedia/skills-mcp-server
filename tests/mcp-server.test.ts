@@ -8,6 +8,7 @@ import { FredoQaMcpServer } from '../dist/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 import { SERVER_VERSION } from '../dist/version.js';
 import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { writeSkillSources } from './skill-fixture.ts';
 
 test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
   const token = generateCanaryWatermark('user_123', 'qa-security');
@@ -175,10 +176,42 @@ test('MCP Server: get_skill_rules returns watermark and content', () => {
       arguments: { skill_id: 'qa-security' },
     },
   };
-  const res = server.handleRequest(req);
-  const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
-  assert.match(text, /Fredo QA Skills Provenance/);
-  assert.match(text, /qa-security/);
+  // get_skill_rules reads SKILL.md relative to the working directory
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-rules-'));
+  writeSkillSources(tmpDir, ['qa-security']);
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(tmpDir);
+    const res = server.handleRequest(req);
+    const text = (res.result as { content: Array<{ text: string }> }).content[0].text;
+    assert.match(text, /Fredo QA Skills Provenance/);
+    assert.match(text, /qa-security/);
+  } finally {
+    process.chdir(previousCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('MCP Server: get_skill_rules fails explicitly when the skill is not installed', () => {
+  const server = new FredoQaMcpServer(signedLicense({ licensee: 'team' }), TEST_LICENSE_OPTIONS);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-rules-missing-'));
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(tmpDir);
+    const res = server.handleRequest({
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: { name: 'get_skill_rules', arguments: { skill_id: 'qa-security' } },
+    });
+    const result = res.result as { content: Array<{ text: string }>; isError?: boolean };
+    assert.strictEqual(result.isError, true);
+    assert.match(result.content[0].text, /not installed/);
+    assert.doesNotMatch(result.content[0].text, /qa:starter|qa:standard/);
+  } finally {
+    process.chdir(previousCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test('MCP Server: quick_check without confirm returns preview and requires confirmation', () => {
@@ -225,6 +258,7 @@ test('MCP Server: quick_check with confirm: true returns structured preflight re
 test('MCP Server: install_skill allows free skills without license key', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // no license key
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-free-'));
+  writeSkillSources(tmpDir, ['qa-go']);
   try {
     const req: JsonRpcRequest = {
       jsonrpc: '2.0',
@@ -252,6 +286,7 @@ test('MCP Server: install_skill allows free skills without license key', () => {
 test('MCP Server: install_skill without confirm returns preview and writes 0 files to disk', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-preview-'));
+  writeSkillSources(tmpDir, ['qa-go']);
   try {
     const req: JsonRpcRequest = {
       jsonrpc: '2.0',
@@ -305,6 +340,7 @@ test('MCP Server: install_skill blocks paid skill without auth and reports requi
 test('MCP Server: install_skill succeeds for paid skill with valid license key', () => {
   const server = new FredoQaMcpServer(signedLicense({ licensee: 'acmecorp' }), TEST_LICENSE_OPTIONS);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-ok-'));
+  writeSkillSources(tmpDir, ['qa-security']);
   try {
     const req: JsonRpcRequest = {
       jsonrpc: '2.0',
@@ -367,6 +403,7 @@ test('MCP Server: set_license_key dynamically unlocks session', () => {
 test('MCP Server: sync_workspace_skills auto-detects stack and reports auth status', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS); // free
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-sync-'));
+  writeSkillSources(tmpDir, ['qa-core', 'dev-flow', 'qa-go']);
   try {
     // Create a mock Go project with Dockerfile
     fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/app\ngo 1.22\n');

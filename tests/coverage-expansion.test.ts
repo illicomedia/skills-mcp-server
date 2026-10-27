@@ -24,6 +24,7 @@ import { canonicalJson, validateLicense } from '../dist/license.js';
 import { FredoQaMcpServer } from '../dist/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 import { TEST_KEY_ID, TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { writeSkillSources } from './skill-fixture.ts';
 
 test('Server: handleRequest ping and initialized notifications', () => {
   const server = new FredoQaMcpServer();
@@ -134,12 +135,24 @@ test('Catalog: findSkill, loadSkillContent and loadSkillLicense error branches',
     /Unknown skill: non-existent-skill/,
   );
 
-  // Test synthetic content generation when no file is present on disk
+  // No SKILL.md on disk: fail explicitly instead of synthesizing rules
   const tmpEmptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-empty-'));
   try {
-    const syntheticContent = loadSkillContent('qa-core', tmpEmptyDir);
-    assert.match(syntheticContent, /# Skill: Core Quality Policy/);
-    assert.match(syntheticContent, /Mandatory QA Rules/);
+    assert.throws(
+      () => loadSkillContent('qa-core', tmpEmptyDir),
+      (err: unknown) =>
+        err instanceof Error &&
+        err.name === 'SkillNotInstalledError' &&
+        /not installed/.test(err.message) &&
+        /\.agents\/skills\/qa-core\//.test(err.message) &&
+        !/qa:starter|qa:standard/.test(err.message),
+    );
+
+    const res = installSkill('qa-core', tmpEmptyDir, license, { confirm: true });
+    assert.strictEqual(res.success, false);
+    assert.deepStrictEqual(res.installedFiles, []);
+    assert.match(res.message, /not installed/);
+    assert.strictEqual(fs.existsSync(path.join(tmpEmptyDir, '.agents')), false);
   } finally {
     fs.rmSync(tmpEmptyDir, { recursive: true, force: true });
   }
@@ -251,6 +264,7 @@ test('Installer: installSkill blocks enterprise skill for pro tier', () => {
     assert.match(fsErrRes.message, /Failed to install skill 'qa-core'/);
 
     // Symlink cleanup in installSkill
+    writeSkillSources(tmp, ['qa-core']);
     const symlinkTargetDir = path.join(tmp, '.agents', 'skills', 'qa-core');
     fs.mkdirSync(path.dirname(symlinkTargetDir), { recursive: true });
     fs.symlinkSync(path.join(tmp, 'non-existent-target'), symlinkTargetDir);
