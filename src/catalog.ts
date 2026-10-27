@@ -181,7 +181,7 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     rulesSummary: [
       'Automated personal data mapping',
       'Article 30.1 Controller and 30.2 Processor register separation',
-      'Official CNIL OpenDocument Spreadsheet (.ods) export',
+      'OpenDocument Spreadsheet (.ods) export following the CNIL template',
     ],
   },
 
