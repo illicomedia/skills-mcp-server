@@ -67,7 +67,7 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description: 'Strict JSON Schema validation, JSON-RPC 2.0 contract tests, stdio isolation.',
-    rulesSummary: ['JSON-RPC 2.0 compliance', 'Stdio pollution prevention', 'Graceful error handling'],
+    rulesSummary: ['JSON-RPC 2.0 contract tests', 'Stdio pollution prevention', 'Graceful error handling'],
   },
   {
     id: 'qa-c-cpp',
@@ -185,7 +185,7 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     ],
   },
 
-  // Enterprise Assurance (Enterprise)
+  // Enterprise
   {
     id: 'qa-devops',
     name: 'DevOps & CI/CD Security',
@@ -196,7 +196,7 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
   },
   {
     id: 'qa-ai-infrastructure-compliance',
-    name: 'AI Infrastructure & NIS2 Compliance',
+    name: 'AI Infrastructure & NIS2 Governance',
     tier: 'enterprise',
     category: 'compliance',
     description: 'ISO 42001, NIS2 Directive mapping, EU AI Act risk classification, SOC2 Type II.',
@@ -204,10 +204,10 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
   },
   {
     id: 'qa-cra-software-supply-chain',
-    name: 'CRA & Supply Chain Assurance',
+    name: 'CRA & Supply Chain Security',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'EU CRA compliance, CycloneDX/SPDX SBOMs, SLSA Level 3 provenance, and Sigstore signing.',
+    description: 'EU CRA requirements, CycloneDX/SPDX SBOMs, SLSA Level 3 provenance, and Sigstore signing.',
     rulesSummary: ['CycloneDX v1.6 SBOM generated', 'SLSA Level 3 provenance verified', 'VEX statements published'],
   },
   {

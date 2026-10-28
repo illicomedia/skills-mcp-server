@@ -1,13 +1,13 @@
 # Fredo QA Skills — Model Context Protocol (MCP) Server
 
 Official **Model Context Protocol (MCP)** server for **Fredo QA Skills**.  
-Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Windsurf, Copilot, VS Code**) to the Fredo QA engineering standards, compliance framework, and real-time preflight audit engine.
+Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Windsurf, Copilot, VS Code**) to the Fredo QA engineering standards, regulatory checklists, and preflight audit engine.
 
 ---
 
 ## Key Highlights
 
-- **Standard MCP Protocol**: 100% compliant with the MCP JSON-RPC 2.0 specification over standard I/O (`stdio`).
+- **Standard MCP Protocol**: implements MCP revision 2024-11-05 over JSON-RPC 2.0 and standard I/O (`stdio`).
 - **No Runtime Dependencies**: `package.json` declares no `dependencies`; the server only imports Node.js built-in modules (`node:crypto`, `node:fs`, `node:os`, `node:path`, `node:readline`, `node:url`). It works without a network connection. The remaining supply-chain surface is this package itself and Node.js.
 - **Three-Tier Safety & Human-in-the-Loop Approval**:
   - Directory traversal inspection (`quick_check`) and mutating tools (`install_skill`, `sync_workspace_skills`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
@@ -142,8 +142,8 @@ Because `quick_check` traverses repository directories and inspects configuratio
 2. **Step 2: Traversal Execution (`confirm: true`)**:
    Once user agreement is confirmed, the assistant passes `confirm: true` to perform the multi-domain static audit and return the complete score and findings.
 
-### Safety Guarantee:
-`quick_check` performs **pure static inspection** of file paths, headers, and directory structures. It never spawns subprocesses, never compiles code, and never accesses the network. It is 100% safe to run on untrusted repositories.
+### Safety design:
+`quick_check` performs **static inspection** of file paths, headers, and directory structures. It does not spawn subprocesses, compile code, or access the network. Review its output like any tool result, especially on untrusted repositories.
 
 ---
 
