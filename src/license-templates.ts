@@ -37,7 +37,7 @@ Updates Until: ${license.updatesUntil || 'unknown'}
 Authorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)
 
 This skill is paid, proprietary material licensed to the licensee named above for its own
-internal development work, by no more people than the seats bought. Without separate written
+development work, by the people working for it on its projects. Without separate written
 permission, the licensee must not copy it (other than installation and backup copies),
 distribute, publish, share, sell, rent or sublicense it, create derivative works of it for use
 outside this license, share the license file, or remove copyright and provenance notices.
