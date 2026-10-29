@@ -114,10 +114,10 @@ async function main() {
   // 2. Pre-flight authentication check
   log('Checking npm authentication...');
   try {
-    const whoami = run('npm whoami');
+    const whoami = run('pnpm whoami');
     logSuccess(`Logged into npm as: \x1b[1m${whoami}\x1b[0m`);
   } catch (err) {
-    logError('Not logged in to npm. Run `npm login` first.');
+    logError('Not logged in to npm. Run `pnpm login` first.');
     process.exit(1);
   }
 
@@ -125,7 +125,7 @@ async function main() {
   log(`Checking published versions for ${packageName} on npm registry...`);
   let publishedVersions = [];
   try {
-    const raw = run(`npm view "${packageName}" versions --json`);
+    const raw = run(`pnpm view "${packageName}" versions --json`);
     publishedVersions = JSON.parse(raw);
     if (!Array.isArray(publishedVersions)) {
       publishedVersions = [publishedVersions];
@@ -147,11 +147,11 @@ async function main() {
 
     // 5. Build & Test verification
     log('Building package (tsc)...');
-    run('npm run build');
+    run('pnpm run build');
     logSuccess('Build completed successfully.');
 
     log('Running test suite...');
-    run('npm test');
+    run('pnpm test');
     logSuccess('All tests passed.');
 
     // 6. Publish to npm
@@ -163,10 +163,10 @@ async function main() {
 
     log(`Publishing \x1b[1m${packageName}@${version}\x1b[0m to npm...`);
     if (isDryRun) {
-      log(`[dry-run] Would execute: npm ${publishArgs.join(' ')}`);
+      log(`[dry-run] Would execute: pnpm ${publishArgs.join(' ')}`);
     } else {
-      console.log('\n--- npm publish output (follow 2FA security key prompt if requested) ---');
-      runInteractive('npm', publishArgs);
+      console.log('\n--- pnpm publish output (follow 2FA security key prompt if requested) ---');
+      runInteractive('pnpm', publishArgs);
       console.log('--- end of publish output ---\n');
       logSuccess(`Successfully published ${packageName}@${version}!`);
     }
@@ -181,10 +181,10 @@ async function main() {
     for (const oldVer of olderVersions) {
       log(`Unpublishing ${packageName}@${oldVer} --force...`);
       if (isDryRun) {
-        log(`[dry-run] Would execute: npm unpublish "${packageName}@${oldVer}" --force`);
+        log(`[dry-run] Would execute: pnpm unpublish "${packageName}@${oldVer}" --force`);
       } else {
         try {
-          runInteractive('npm', ['unpublish', `${packageName}@${oldVer}`, '--force']);
+          runInteractive('pnpm', ['unpublish', `${packageName}@${oldVer}`, '--force']);
           logSuccess(`Unpublished (deleted) ${packageName}@${oldVer}`);
         } catch (err) {
           logWarn(`Could not unpublish ${packageName}@${oldVer} (likely >72h old): falling back to deprecation.`);
@@ -199,19 +199,19 @@ async function main() {
 
   log(`Deprecating older versions: \x1b[33m${deprecateSpec}\x1b[0m...`);
   if (isDryRun) {
-    log(`[dry-run] Would execute: npm deprecate "${deprecateSpec}" "${deprecateMessage}"`);
-    log(`[dry-run] Would execute: npm deprecate "${packageName}@${version}" "" (ensure latest is clean)`);
+    log(`[dry-run] Would execute: pnpm deprecate "${deprecateSpec}" "${deprecateMessage}"`);
+    log(`[dry-run] Would execute: pnpm deprecate "${packageName}@${version}" "" (ensure latest is clean)`);
   } else {
     try {
-      runInteractive('npm', ['deprecate', deprecateSpec, deprecateMessage]);
+      runInteractive('pnpm', ['deprecate', deprecateSpec, deprecateMessage]);
       logSuccess(`Deprecated all versions strictly below v${version}.`);
     } catch (err) {
-      logWarn(`npm deprecate warning: ${err.message}`);
+      logWarn(`pnpm deprecate warning: ${err.message}`);
     }
 
     // Guard: guarantee that the new release is never marked deprecated
     try {
-      runInteractive('npm', ['deprecate', `${packageName}@${version}`, '']);
+      runInteractive('pnpm', ['deprecate', `${packageName}@${version}`, '']);
       logSuccess(`Guaranteed that ${packageName}@${version} is active and not deprecated.`);
     } catch (err) {
       // Ignored if already clean
@@ -221,10 +221,10 @@ async function main() {
   // 9. Post-release audit & verification
   log('Auditing registry state...');
   try {
-    const latestTag = run(`npm view "${packageName}" dist-tags.latest`);
-    const allVersionsRaw = run(`npm view "${packageName}" versions --json`);
+    const latestTag = run(`pnpm view "${packageName}" dist-tags.latest`);
+    const allVersionsRaw = run(`pnpm view "${packageName}" versions --json`);
     const allVersions = JSON.parse(allVersionsRaw);
-    const latestDeprecate = run(`npm view "${packageName}@${version}" deprecated 2>/dev/null || true`);
+    const latestDeprecate = run(`pnpm view "${packageName}@${version}" deprecated 2>/dev/null || true`);
 
     console.log('\n--------------------------------------------------------');
     console.log(`  Registry Audit for ${packageName}`);
