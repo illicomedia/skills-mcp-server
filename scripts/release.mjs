@@ -20,6 +20,7 @@
 
 import { execSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,6 +64,18 @@ function runInteractive(cmd, cmdArgs) {
   });
   if (res.status !== 0) {
     throw new Error(`Command failed with exit code ${res.status}: ${cmd} ${cmdArgs.join(' ')}`);
+  }
+}
+
+/**
+ * Registry lifecycle commands (deprecate, unpublish) go through the npm client: pnpm deprecate does not
+ * support security-key 2FA ("Upgrade your client to npm@latest") and rejects the empty message that
+ * clears a deprecation. npm runs from the home directory: devEngines rejects npm inside this repository.
+ */
+function runNpmInteractive(cmdArgs) {
+  const res = spawnSync('npm', cmdArgs, { cwd: homedir(), stdio: 'inherit', env: process.env });
+  if (res.status !== 0) {
+    throw new Error(`Command failed with exit code ${res.status}: npm ${cmdArgs.join(' ')}`);
   }
 }
 
@@ -181,10 +194,10 @@ async function main() {
     for (const oldVer of olderVersions) {
       log(`Unpublishing ${packageName}@${oldVer} --force...`);
       if (isDryRun) {
-        log(`[dry-run] Would execute: pnpm unpublish "${packageName}@${oldVer}" --force`);
+        log(`[dry-run] Would execute: npm unpublish "${packageName}@${oldVer}" --force`);
       } else {
         try {
-          runInteractive('pnpm', ['unpublish', `${packageName}@${oldVer}`, '--force']);
+          runNpmInteractive(['unpublish', `${packageName}@${oldVer}`, '--force']);
           logSuccess(`Unpublished (deleted) ${packageName}@${oldVer}`);
         } catch (err) {
           logWarn(`Could not unpublish ${packageName}@${oldVer} (likely >72h old): falling back to deprecation.`);
@@ -199,19 +212,19 @@ async function main() {
 
   log(`Deprecating older versions: \x1b[33m${deprecateSpec}\x1b[0m...`);
   if (isDryRun) {
-    log(`[dry-run] Would execute: pnpm deprecate "${deprecateSpec}" "${deprecateMessage}"`);
-    log(`[dry-run] Would execute: pnpm deprecate "${packageName}@${version}" "" (ensure latest is clean)`);
+    log(`[dry-run] Would execute: npm deprecate "${deprecateSpec}" "${deprecateMessage}"`);
+    log(`[dry-run] Would execute: npm deprecate "${packageName}@${version}" "" (ensure latest is clean)`);
   } else {
     try {
-      runInteractive('pnpm', ['deprecate', deprecateSpec, deprecateMessage]);
+      runNpmInteractive(['deprecate', deprecateSpec, deprecateMessage]);
       logSuccess(`Deprecated all versions strictly below v${version}.`);
     } catch (err) {
-      logWarn(`pnpm deprecate warning: ${err.message}`);
+      logWarn(`npm deprecate warning: ${err.message}`);
     }
 
     // Guard: guarantee that the new release is never marked deprecated
     try {
-      runInteractive('pnpm', ['deprecate', `${packageName}@${version}`, '']);
+      runNpmInteractive(['deprecate', `${packageName}@${version}`, '']);
       logSuccess(`Guaranteed that ${packageName}@${version} is active and not deprecated.`);
     } catch (err) {
       // Ignored if already clean
