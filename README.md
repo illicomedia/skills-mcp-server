@@ -277,6 +277,7 @@ A license unlocks all releases published on or before its `updates_until` date *
 - **Buffer Overflow & DoS Protection**: Incoming `stdio` stream enforces a strict `1 MB` maximum JSON-RPC frame limit to prevent memory exhaustion attacks.
 - **Path Escape Prevention**: All project paths are validated against real filesystem paths (`fs.realpathSync`) to block symlink redirections and directory traversal attempts (`../../../`).
 - **Forbidden Path Blacklist**: Rejects destructive operations targeting system directories (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`) or credential vaults (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+- **Works When Our Services Are Down**: Tools run locally and never call our website, API or database, so an outage there does not affect them. Licenses are verified offline. If your agent starts the server with `npx`, that step still needs the npm registry unless the package is already cached or installed.
 - **No Remote Telemetry**: Zero background network requests, zero metric phoning home. All audits, verifications, and tool executions occur strictly on your local machine.
 
 ---
