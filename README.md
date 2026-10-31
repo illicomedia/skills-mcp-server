@@ -169,6 +169,20 @@ cd packages/mcp-server && npm link
 
 Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuration.
 
+### Versions and upgrades
+
+An unpinned `npx` configuration can pick up a new release on its own. For teams and CI, pin an exact version so that it only changes when you choose:
+
+```bash
+npx -y @illicomedia/skills-mcp-server@1.4.1
+```
+
+- **`latest`** is the default and the recommended stable version.
+- **`next`** is a release being tried before it reaches `latest`. Do not use it in production.
+- Version numbers follow [Semantic Versioning](https://semver.org/): a major version can break an existing setup, while minor and patch versions do not. See the [changelog](CHANGELOG.md).
+- A deprecation warning means that version has a known problem, and the message names its replacement.
+- The latest major version gets all fixes. The previous major version gets security and critical fixes for 6 months after the next major version ships.
+
 ---
 
 ## Client Configuration
