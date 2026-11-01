@@ -31,7 +31,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description: 'Strict typing (mypy), deterministic formatting (ruff), and branch coverage.',
-    rulesSummary: ['100% type coverage without Any', 'Ruff check & format', 'Pytest branch coverage >= 90%'],
+    rulesSummary: [
+      '100% type coverage without Any',
+      'Ruff check & format',
+      'Pytest branch coverage >= 90%',
+    ],
   },
   {
     id: 'qa-javascript-typescript',
@@ -39,7 +43,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description: 'Strict type checking, Biome formatting, Vitest coverage, and Core Web Vitals.',
-    rulesSummary: ['tsc --noEmit clean', 'Biome check with zero debt', 'Coverage threshold enforcement'],
+    rulesSummary: [
+      'tsc --noEmit clean',
+      'Biome check with zero debt',
+      'Coverage threshold enforcement',
+    ],
   },
   {
     id: 'qa-php',
@@ -67,23 +75,37 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description: 'Strict JSON Schema validation, JSON-RPC 2.0 contract tests, stdio isolation.',
-    rulesSummary: ['JSON-RPC 2.0 contract tests', 'Stdio pollution prevention', 'Graceful error handling'],
+    rulesSummary: [
+      'JSON-RPC 2.0 contract tests',
+      'Stdio pollution prevention',
+      'Graceful error handling',
+    ],
   },
   {
     id: 'qa-c-cpp',
     name: 'C & C++ Systems Engineering',
     tier: 'free',
     category: 'language',
-    description: 'clangd LSP diagnostics, clang-tidy, cppcheck, sanitizers (ASan/UBSan/TSan), and memory safety.',
-    rulesSummary: ['clangd semantic validation', 'ASan/UBSan clean execution', 'Strict compiler warnings (-Werror)'],
+    description:
+      'clangd LSP diagnostics, clang-tidy, cppcheck, sanitizers (ASan/UBSan/TSan), and memory safety.',
+    rulesSummary: [
+      'clangd semantic validation',
+      'ASan/UBSan clean execution',
+      'Strict compiler warnings (-Werror)',
+    ],
   },
   {
     id: 'qa-rust',
     name: 'Rust Systems Engineering',
     tier: 'free',
     category: 'language',
-    description: 'Cargo check, Clippy with -D warnings, rustfmt, cargo-deny, cargo-audit, and Miri safety.',
-    rulesSummary: ['cargo clippy --all-targets -- -D warnings', 'cargo fmt --check', 'cargo deny check and cargo audit'],
+    description:
+      'Cargo check, Clippy with -D warnings, rustfmt, cargo-deny, cargo-audit, and Miri safety.',
+    rulesSummary: [
+      'cargo clippy --all-targets -- -D warnings',
+      'cargo fmt --check',
+      'cargo deny check and cargo audit',
+    ],
   },
   {
     id: 'qa-go',
@@ -98,8 +120,13 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     name: 'Java Enterprise Engineering',
     tier: 'free',
     category: 'language',
-    description: 'Checkstyle, SpotBugs, PMD, Error Prone, JaCoCo branch coverage >= 80%, and ArchUnit boundaries.',
-    rulesSummary: ['javac -Werror clean compile', 'SpotBugs & PMD zero violations', 'JaCoCo line & branch coverage >= 80%'],
+    description:
+      'Checkstyle, SpotBugs, PMD, Error Prone, JaCoCo branch coverage >= 80%, and ArchUnit boundaries.',
+    rulesSummary: [
+      'javac -Werror clean compile',
+      'SpotBugs & PMD zero violations',
+      'JaCoCo line & branch coverage >= 80%',
+    ],
   },
 
   // Pro Production (Commercial)
@@ -149,15 +176,21 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     name: 'Technical SEO & Search Visibility',
     tier: 'pro',
     category: 'quality',
-    description: 'Pre-rendered metadata, JSON-LD structured data, canonical tags, GEO/AEO optimization.',
-    rulesSummary: ['Unique title and description per route', 'Valid Schema.org JSON-LD', 'Canonical tag parity'],
+    description:
+      'Pre-rendered metadata, JSON-LD structured data, canonical tags, GEO/AEO optimization.',
+    rulesSummary: [
+      'Unique title and description per route',
+      'Valid Schema.org JSON-LD',
+      'Canonical tag parity',
+    ],
   },
   {
     id: 'qa-well-known',
     name: 'Well-Known URI Standards',
     tier: 'pro',
     category: 'compliance',
-    description: 'RFC 9116 security.txt validation, robots.txt, sitemap.xml, and IANA registry conformance.',
+    description:
+      'RFC 9116 security.txt validation, robots.txt, sitemap.xml, and IANA registry conformance.',
     rulesSummary: ['Valid security.txt syntax', 'Canonical link directive', 'Future expiry date'],
   },
   {
@@ -177,7 +210,8 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     name: 'CNIL RGPD Article 30 Processing Register',
     tier: 'pro',
     category: 'compliance',
-    description: 'Automated CNIL Article 30 Records of Processing Activities (RoPA) extraction, JSON pivot, and ODS export.',
+    description:
+      'Automated CNIL Article 30 Records of Processing Activities (RoPA) extraction, JSON pivot, and ODS export.',
     rulesSummary: [
       'Automated personal data mapping',
       'Article 30.1 Controller and 30.2 Processor register separation',
@@ -191,7 +225,8 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     name: 'DevOps & CI/CD Security',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'GitHub Actions hardening, Dockerfile linting, container security, and IaC scanning.',
+    description:
+      'GitHub Actions hardening, Dockerfile linting, container security, and IaC scanning.',
     rulesSummary: ['Pinned Action SHAs', 'Trivy container scan clean', 'Least-privilege tokens'],
   },
   {
@@ -200,39 +235,63 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'enterprise',
     category: 'compliance',
     description: 'ISO 42001, NIS2 Directive mapping, EU AI Act risk classification, SOC2 Type II.',
-    rulesSummary: ['AI risk tiering documented', 'NIS2 incident notification readiness', 'Auditable evidence export'],
+    rulesSummary: [
+      'AI risk tiering documented',
+      'NIS2 incident notification readiness',
+      'Auditable evidence export',
+    ],
   },
   {
     id: 'qa-cra-software-supply-chain',
     name: 'CRA & Supply Chain Security',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'EU CRA requirements, CycloneDX/SPDX SBOMs, SLSA Level 3 provenance, and Sigstore signing.',
-    rulesSummary: ['CycloneDX v1.6 SBOM generated', 'SLSA Level 3 provenance verified', 'VEX statements published'],
+    description:
+      'EU CRA requirements, CycloneDX/SPDX SBOMs, SLSA Level 3 provenance, and Sigstore signing.',
+    rulesSummary: [
+      'CycloneDX v1.6 SBOM generated',
+      'SLSA Level 3 provenance verified',
+      'VEX statements published',
+    ],
   },
   {
     id: 'qa-pci-dss',
     name: 'PCI-DSS v4.0 Payment Security',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'Cardholder Data Environment isolation, client-side tokenization, PAN masking, and audit trails.',
-    rulesSummary: ['Zero SAD/CVV retention', 'Client-side payment tokenization', 'Strict PAN masking'],
+    description:
+      'Cardholder Data Environment isolation, client-side tokenization, PAN masking, and audit trails.',
+    rulesSummary: [
+      'Zero SAD/CVV retention',
+      'Client-side payment tokenization',
+      'Strict PAN masking',
+    ],
   },
   {
     id: 'qa-health-data-compliance',
     name: 'Health Data (HDS & HIPAA)',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'French HDS v2.0, HIPAA Security Rule, HL7 FHIR validation, and PHI pseudonymization.',
-    rulesSummary: ['Envelope encryption with HSM', 'HL7 FHIR SMART-on-FHIR scopes', 'Immutable access audit logging'],
+    description:
+      'French HDS v2.0, HIPAA Security Rule, HL7 FHIR validation, and PHI pseudonymization.',
+    rulesSummary: [
+      'Envelope encryption with HSM',
+      'HL7 FHIR SMART-on-FHIR scopes',
+      'Immutable access audit logging',
+    ],
   },
   {
     id: 'qa-enterprise-iam-sso',
     name: 'Enterprise IAM & SSO Federation',
     tier: 'enterprise',
     category: 'compliance',
-    description: 'SAML 2.0 XML signatures, OIDC with PKCE, SCIM 2.0 provisioning, and multi-tenant isolation.',
-    rulesSummary: ['SAML XML signature & replay check', 'SCIM instant deprovisioning', 'Multi-tenant isolation verified'],
+    description:
+      'SAML 2.0 XML signatures, OIDC with PKCE, SCIM 2.0 provisioning, and multi-tenant isolation.',
+    rulesSummary: [
+      'SAML XML signature & replay check',
+      'SCIM instant deprovisioning',
+      'Multi-tenant isolation verified',
+    ],
   },
 ];
 
@@ -327,4 +386,3 @@ export function loadSkillLicense(
   }
   return resolveSkillLicense(meta, license, searchDir);
 }
-

@@ -20,7 +20,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bumpVersion, nextDistTagAfterPromotion, parseReleaseArgs, smokeTestServer } from './release-lib.mjs';
+import {
+  bumpVersion,
+  nextDistTagAfterPromotion,
+  parseReleaseArgs,
+  smokeTestServer,
+} from './release-lib.mjs';
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG_JSON_PATH = resolve(PKG_DIR, 'package.json');
@@ -78,7 +83,9 @@ function requireLogin() {
 function requirePublished(packageName, version) {
   const { versions, distTags } = registryState(packageName);
   if (!versions.includes(version)) {
-    throw new Error(`${packageName}@${version} is not published. Published: ${versions.join(', ')}`);
+    throw new Error(
+      `${packageName}@${version} is not published. Published: ${versions.join(', ')}`,
+    );
   }
   return distTags;
 }
@@ -88,11 +95,17 @@ async function smokeTestTarball(pkg) {
   run('pnpm run build');
   const workDir = mkdtempSync(join(tmpdir(), 'fqa-release-'));
   try {
-    const tarball = join(workDir, run(`pnpm pack --pack-destination "${workDir}" --json`).match(/[^/"]+\.tgz/)[0]);
+    const tarball = join(
+      workDir,
+      run(`pnpm pack --pack-destination "${workDir}" --json`).match(/[^/"]+\.tgz/)[0],
+    );
     writeFileSync(join(workDir, 'package.json'), '{"private":true}\n', 'utf8');
     run(`npm install --no-audit --no-fund --ignore-scripts "${tarball}"`, { cwd: workDir });
     const binName = Object.keys(pkg.bin)[0];
-    const { tools } = await smokeTestServer(join(workDir, 'node_modules', '.bin', binName), pkg.version);
+    const { tools } = await smokeTestServer(
+      join(workDir, 'node_modules', '.bin', binName),
+      pkg.version,
+    );
     logSuccess(`Packed tarball v${pkg.version} starts and exposes ${tools} tools.`);
   } finally {
     rmSync(workDir, { recursive: true, force: true });
@@ -131,7 +144,9 @@ async function publish(pkg, { dryRun, bump }) {
     return;
   }
   runInteractive('pnpm', publishArgs);
-  logSuccess(`Published ${packageName}@${version} under the \`next\` tag. \`latest\` did not move.`);
+  logSuccess(
+    `Published ${packageName}@${version} under the \`next\` tag. \`latest\` did not move.`,
+  );
   log(`Try it: npx -y ${packageName}@next`);
   log(`Then promote it: pnpm run mcp:release -- --promote ${version}`);
 }

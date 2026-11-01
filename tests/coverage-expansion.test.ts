@@ -6,24 +6,19 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
+import { runComplianceAudit } from '../dist/audit/index.js';
+import { canonicalJson, validateLicense } from '../dist/license/license.js';
+import { resolveSkillLicense } from '../dist/license/templates.js';
+import { ToolExecutor } from '../dist/server/executor.js';
+import { FredoQaMcpServer } from '../dist/server/server.js';
 import {
   findSkill,
   getAvailableSkills,
   loadSkillContent,
   loadSkillLicense,
 } from '../dist/skills/catalog.js';
-import { runComplianceAudit } from '../dist/audit/index.js';
-import { ToolExecutor } from '../dist/server/executor.js';
-import {
-  detectProjectSkills,
-  installSkill,
-  syncWorkspaceSkills,
-} from '../dist/skills/installer.js';
-import { resolveSkillLicense } from '../dist/license/templates.js';
-import { canonicalJson, validateLicense } from '../dist/license/license.js';
-import { FredoQaMcpServer } from '../dist/server/server.js';
-import type { JsonRpcRequest } from '../dist/types.js';
-import { TEST_KEY_ID, TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { detectProjectSkills, installSkill } from '../dist/skills/installer.js';
+import { signedLicense, TEST_KEY_ID, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 
 test('Server: handleRequest ping and initialized notifications', () => {
@@ -105,7 +100,10 @@ test('Server: startStdio handles valid lines, empty lines, and parse errors', as
     // Allow event loop ticks for readline processing
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const lines = outputText.trim().split('\n').map((l) => JSON.parse(l));
+    const lines = outputText
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
     assert.strictEqual(lines.length, 2); // 1 ping response + 1 parse error response
 
     // Check ping response
@@ -124,10 +122,7 @@ test('Server: startStdio handles valid lines, empty lines, and parse errors', as
 test('Catalog: findSkill, loadSkillContent and loadSkillLicense error branches', () => {
   assert.strictEqual(findSkill('non-existent-skill'), undefined);
 
-  assert.throws(
-    () => loadSkillContent('non-existent-skill'),
-    /Unknown skill: non-existent-skill/,
-  );
+  assert.throws(() => loadSkillContent('non-existent-skill'), /Unknown skill: non-existent-skill/);
 
   const license = validateLicense(undefined, TEST_LICENSE_OPTIONS);
   assert.throws(
@@ -228,7 +223,10 @@ test('Installer: detectProjectSkills for Python, Rust, Go, Java, C/C++, PHP, Dev
     fs.writeFileSync(path.join(tmp, 'composer.json'), '');
     fs.writeFileSync(path.join(tmp, 'script.sh'), '#!/bin/bash');
     fs.mkdirSync(path.join(tmp, '.github', 'workflows'), { recursive: true });
-    fs.writeFileSync(path.join(tmp, 'package.json'), '{"dependencies": {"@modelcontextprotocol/sdk": "1.0"}}');
+    fs.writeFileSync(
+      path.join(tmp, 'package.json'),
+      '{"dependencies": {"@modelcontextprotocol/sdk": "1.0"}}',
+    );
 
     const detected = detectProjectSkills(tmp);
     assert.ok(detected.includes('qa-python'));
@@ -259,7 +257,9 @@ test('Installer: installSkill blocks enterprise skill for pro tier', () => {
     assert.match(res.message, /Enterprise Assurance skill/);
 
     // Filesystem error handling in installSkill
-    const fsErrRes = installSkill('qa-core', '/dev/null/forbidden-dir', proLicense, { confirm: true });
+    const fsErrRes = installSkill('qa-core', '/dev/null/forbidden-dir', proLicense, {
+      confirm: true,
+    });
     assert.strictEqual(fsErrRes.success, false);
     assert.match(fsErrRes.message, /Failed to install skill 'qa-core'/);
 
@@ -280,10 +280,7 @@ test('License: canonicalJson with primitives and arrays', () => {
   assert.strictEqual(canonicalJson('text'), '"text"');
   assert.strictEqual(canonicalJson(null), 'null');
   assert.strictEqual(canonicalJson([3, 1, 2]), '[3,1,2]');
-  assert.strictEqual(
-    canonicalJson([{ b: 1, a: 2 }]),
-    '[{"a":2,"b":1}]',
-  );
+  assert.strictEqual(canonicalJson([{ b: 1, a: 2 }]), '[{"a":2,"b":1}]');
 });
 
 test('License: validation edge cases and malformed payloads', () => {
@@ -333,7 +330,10 @@ test('License: validation edge cases and malformed payloads', () => {
 
     // Unsupported field
     assert.match(
-      validateLicense('{"schema_version":1,"license_id":"1","hacked_field":"bad"}', TEST_LICENSE_OPTIONS).message,
+      validateLicense(
+        '{"schema_version":1,"license_id":"1","hacked_field":"bad"}',
+        TEST_LICENSE_OPTIONS,
+      ).message,
       /not supported/,
     );
 
@@ -357,7 +357,10 @@ test('License: validation edge cases and malformed payloads', () => {
       key_id: 'k',
       signature: 's',
     });
-    assert.match(validateLicense(invalidTierJson, TEST_LICENSE_OPTIONS).message, /must be 'pro' or 'enterprise'/);
+    assert.match(
+      validateLicense(invalidTierJson, TEST_LICENSE_OPTIONS).message,
+      /must be 'pro' or 'enterprise'/,
+    );
 
     // Invalid seats
     const invalidSeatsJson = JSON.stringify({
@@ -373,7 +376,10 @@ test('License: validation edge cases and malformed payloads', () => {
       key_id: 'k',
       signature: 's',
     });
-    assert.match(validateLicense(invalidSeatsJson, TEST_LICENSE_OPTIONS).message, /positive integer/);
+    assert.match(
+      validateLicense(invalidSeatsJson, TEST_LICENSE_OPTIONS).message,
+      /positive integer/,
+    );
 
     // Invalid timestamp
     const invalidDateJson = JSON.stringify({
@@ -389,7 +395,10 @@ test('License: validation edge cases and malformed payloads', () => {
       key_id: 'k',
       signature: 's',
     });
-    assert.match(validateLicense(invalidDateJson, TEST_LICENSE_OPTIONS).message, /ISO-8601 UTC timestamp/);
+    assert.match(
+      validateLicense(invalidDateJson, TEST_LICENSE_OPTIONS).message,
+      /ISO-8601 UTC timestamp/,
+    );
 
     // Invalid binding
     const invalidBindingJson = JSON.stringify({
@@ -405,7 +414,10 @@ test('License: validation edge cases and malformed payloads', () => {
       key_id: 'k',
       signature: 's',
     });
-    assert.match(validateLicense(invalidBindingJson, TEST_LICENSE_OPTIONS).message, /binding kind must be 'none'/);
+    assert.match(
+      validateLicense(invalidBindingJson, TEST_LICENSE_OPTIONS).message,
+      /binding kind must be 'none'/,
+    );
 
     // Invalid signature base64
     const invalidSigJson = JSON.stringify({
@@ -449,7 +461,10 @@ test('Audit: audits project with valid security.txt and gitignore', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-sec-audit-'));
   try {
     fs.mkdirSync(path.join(tmp, '.well-known'), { recursive: true });
-    fs.writeFileSync(path.join(tmp, '.well-known', 'security.txt'), 'Contact: security@example.com\n');
+    fs.writeFileSync(
+      path.join(tmp, '.well-known', 'security.txt'),
+      'Contact: security@example.com\n',
+    );
     fs.writeFileSync(path.join(tmp, '.gitignore'), '# no secret ignored here\n');
 
     const server = new FredoQaMcpServer();
@@ -465,11 +480,15 @@ test('Audit: audits project with valid security.txt and gitignore', () => {
     assert.strictEqual(res.id, 200);
     const content = (res.result as { content: Array<{ text: string }> }).content[0].text;
     const report = JSON.parse(content);
-    const secCheck = report.results.find((r: { name: string }) => r.name === 'security.txt present');
+    const secCheck = report.results.find(
+      (r: { name: string }) => r.name === 'security.txt present',
+    );
     assert.strictEqual(secCheck.passed, true);
     assert.match(secCheck.details, /security\.txt file present/);
 
-    const envCheck = report.results.find((r: { name: string }) => r.name === '.gitignore mentions .env');
+    const envCheck = report.results.find(
+      (r: { name: string }) => r.name === '.gitignore mentions .env',
+    );
     assert.strictEqual(envCheck.passed, false);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -487,11 +506,6 @@ test('CLI: Pre-flight lock and clean exit on stdin close', async () => {
 
     // Close stdin immediately so the server terminates gracefully if started
     child.stdin.end();
-
-    let stderrOutput = '';
-    child.stderr.on('data', (d) => {
-      stderrOutput += d.toString();
-    });
 
     const exitCode = await new Promise((resolve) => {
       child.on('close', resolve);
@@ -553,7 +567,6 @@ test('CLI: Pre-flight lock triggers fatal exit when LICENSE is missing', async (
     child.stderr.on('data', (d) => {
       stderrOutput += d.toString();
     });
-
     const exitCode = await new Promise((resolve) => {
       child.on('close', resolve);
     });
@@ -569,12 +582,11 @@ test('CLI: Pre-flight lock triggers fatal exit when LICENSE is missing', async (
 });
 
 test('Security Guard: validateSafeProjectPath blocks root and sensitive system directories', async () => {
-  const { validateSafeProjectPath, validateSafeWriteTarget } = await import('../dist/security/path-guard.js');
-
-  assert.throws(
-    () => validateSafeProjectPath('/', 'test_root'),
-    /cannot target system directory/,
+  const { validateSafeProjectPath, validateSafeWriteTarget } = await import(
+    '../dist/security/path-guard.js'
   );
+
+  assert.throws(() => validateSafeProjectPath('/', 'test_root'), /cannot target system directory/);
 
   assert.throws(
     () => validateSafeProjectPath('/etc', 'test_etc'),

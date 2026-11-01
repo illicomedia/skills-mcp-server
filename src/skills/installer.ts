@@ -1,9 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
 import { generateCanaryWatermark, validateLicense } from '../license/license.js';
 import { validateSafeProjectPath, validateSafeWriteTarget } from '../security/path-guard.js';
-import type { LicenseValidationResult, SkillMetadata, SkillTier } from '../types.js';
+import type { LicenseValidationResult, SkillTier } from '../types.js';
+import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
 
 export interface InstallSkillResult {
   success: boolean;
@@ -191,9 +191,9 @@ export function installSkill(
     fs.mkdirSync(targetDir, { recursive: true });
 
     const skillContent =
-      meta.tier !== 'free'
-        ? `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`
-        : rawSkillContent;
+      meta.tier === 'free'
+        ? rawSkillContent
+        : `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`;
 
     const licenseContent = loadSkillLicense(skillId, license, projectPath);
 
@@ -220,136 +220,76 @@ export function installSkill(
   }
 }
 
+/** Any of these paths in a project selects these skills. */
+const FILE_INDICATORS: ReadonlyArray<{ files: string[]; skills: string[] }> = [
+  { files: ['package.json', 'tsconfig.json'], skills: ['qa-javascript-typescript'] },
+  { files: ['pyproject.toml', 'requirements.txt', 'setup.py', 'Pipfile'], skills: ['qa-python'] },
+  { files: ['Cargo.toml'], skills: ['qa-rust'] },
+  { files: ['go.mod'], skills: ['qa-go'] },
+  { files: ['pom.xml', 'build.gradle', 'build.gradle.kts'], skills: ['qa-java'] },
+  { files: ['CMakeLists.txt', 'Makefile', 'compile_commands.json'], skills: ['qa-c-cpp'] },
+  { files: ['composer.json'], skills: ['qa-php'] },
+  {
+    files: ['.github/workflows', 'Dockerfile', 'docker-compose.yml', 'infra/docker'],
+    skills: ['qa-devops', 'qa-security'],
+  },
+  { files: ['packages/mcp-server', 'mcp.json', 'mcp_config.json'], skills: ['qa-mcp'] },
+  {
+    files: ['website/public/.well-known', 'public/.well-known', '.well-known'],
+    skills: ['qa-well-known'],
+  },
+  {
+    files: ['website', 'src/pages', 'src/app', 'public'],
+    skills: ['qa-seo-website', 'qa-accessibility', 'qa-performance', 'qa-gdpr-rgpd', 'qa-cnil'],
+  },
+  {
+    files: ['package.json', 'Cargo.toml', 'go.mod'],
+    skills: ['qa-cra-software-supply-chain'],
+  },
+  { files: ['dns', 'infra/dns', 'scripts/deploy-ovh.js'], skills: ['qa-emails-dns'] },
+];
+
+const PHP_DIRECTORIES = ['.', 'public/api', 'website/public/api', 'tests/php', 'api', 'src'];
+
+/** Reads a directory for detection: an unreadable one simply holds nothing. */
+function namesIn(directory: string): string[] {
+  try {
+    return fs.readdirSync(directory);
+  } catch {
+    return [];
+  }
+}
+
+function fileMentions(file: string, text: string): boolean {
+  try {
+    return fs.readFileSync(file, 'utf-8').includes(text);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Detects relevant skills by inspecting workspace files and indicators
  */
 export function detectProjectSkills(projectPath: string = process.cwd()): string[] {
   const detected = new Set<string>(['qa-core', 'dev-flow']);
+  const inProject = (rel: string) => path.join(projectPath, rel);
 
-  const fileExists = (rel: string) => fs.existsSync(path.join(projectPath, rel));
-  const fileContains = (rel: string, query: string) => {
-    try {
-      const p = path.join(projectPath, rel);
-      return fs.existsSync(p) && fs.readFileSync(p, 'utf-8').includes(query);
-    } catch {
-      return false;
+  for (const { files, skills } of FILE_INDICATORS) {
+    if (files.some((file) => fs.existsSync(inProject(file)))) {
+      for (const skill of skills) {
+        detected.add(skill);
+      }
     }
-  };
-
-  // Language & Framework Detection
-  if (fileExists('package.json') || fileExists('tsconfig.json')) {
-    detected.add('qa-javascript-typescript');
   }
-  if (fileContains('package.json', '@modelcontextprotocol') || fileExists('mcp.json')) {
+  if (fileMentions(inProject('package.json'), 'modelcontextprotocol')) {
     detected.add('qa-mcp');
   }
-  if (
-    fileExists('pyproject.toml') ||
-    fileExists('requirements.txt') ||
-    fileExists('setup.py') ||
-    fileExists('Pipfile')
-  ) {
-    detected.add('qa-python');
-  }
-  if (fileExists('Cargo.toml')) {
-    detected.add('qa-rust');
-  }
-  if (fileExists('go.mod')) {
-    detected.add('qa-go');
-  }
-  if (fileExists('pom.xml') || fileExists('build.gradle') || fileExists('build.gradle.kts')) {
-    detected.add('qa-java');
-  }
-  if (
-    fileExists('CMakeLists.txt') ||
-    fileExists('Makefile') ||
-    fileExists('compile_commands.json')
-  ) {
-    detected.add('qa-c-cpp');
-  }
-  const hasPhpFiles = (relDir: string): boolean => {
-    try {
-      const fullDir = path.join(projectPath, relDir);
-      return fs.existsSync(fullDir) && fs.readdirSync(fullDir).some((f) => f.endsWith('.php'));
-    } catch {
-      return false;
-    }
-  };
-
-  if (
-    fileExists('composer.json') ||
-    hasPhpFiles('.') ||
-    hasPhpFiles('public/api') ||
-    hasPhpFiles('website/public/api') ||
-    hasPhpFiles('tests/php') ||
-    hasPhpFiles('api') ||
-    hasPhpFiles('src')
-  ) {
+  if (PHP_DIRECTORIES.some((dir) => namesIn(inProject(dir)).some((f) => f.endsWith('.php')))) {
     detected.add('qa-php');
   }
-
-  // Shell detection
-  try {
-    const files = fs.readdirSync(projectPath);
-    if (files.some((f) => f.endsWith('.sh') || f === 'scripts')) {
-      detected.add('qa-bash');
-    }
-  } catch {
-    // Ignore read errors
-  }
-
-  // DevOps & Security indicators
-  if (
-    fileExists('.github/workflows') ||
-    fileExists('Dockerfile') ||
-    fileExists('docker-compose.yml') ||
-    fileExists('infra/docker')
-  ) {
-    detected.add('qa-devops');
-    detected.add('qa-security');
-  }
-
-  // MCP Protocol detection
-  if (
-    fileExists('packages/mcp-server') ||
-    fileExists('mcp.json') ||
-    fileExists('mcp_config.json') ||
-    (fileExists('package.json') && fileContains('package.json', 'modelcontextprotocol'))
-  ) {
-    detected.add('qa-mcp');
-  }
-
-  // Well-Known standards detection
-  if (
-    fileExists('website/public/.well-known') ||
-    fileExists('public/.well-known') ||
-    fileExists('.well-known')
-  ) {
-    detected.add('qa-well-known');
-  }
-
-  // Web application & compliance detection
-  if (
-    fileExists('website') ||
-    fileExists('src/pages') ||
-    fileExists('src/app') ||
-    fileExists('public')
-  ) {
-    detected.add('qa-seo-website');
-    detected.add('qa-accessibility');
-    detected.add('qa-performance');
-    detected.add('qa-gdpr-rgpd');
-    detected.add('qa-cnil');
-  }
-
-  // Software supply chain assurance
-  if (fileExists('package.json') || fileExists('Cargo.toml') || fileExists('go.mod')) {
-    detected.add('qa-cra-software-supply-chain');
-  }
-
-  // Email / DNS indicators
-  if (fileExists('dns') || fileExists('infra/dns') || fileExists('scripts/deploy-ovh.js')) {
-    detected.add('qa-emails-dns');
+  if (namesIn(projectPath).some((f) => f.endsWith('.sh') || f === 'scripts')) {
+    detected.add('qa-bash');
   }
 
   return Array.from(detected);
@@ -406,7 +346,26 @@ export function syncWorkspaceSkills(
     failed.length > 0 ? `### Not Installed (${failed.length}):\n${failedList}\n\n` : '';
 
   let summary = '';
-  if (!isConfirmed) {
+  if (isConfirmed) {
+    summary = `# Fredo QA Skills Workspace Sync\n\n`;
+    summary += `Target: \`${safeProjectPath}\`\n`;
+    summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
+
+    if (installed.length > 0) {
+      summary += `### Successfully Installed (${installed.length}):\n${installedList}\n\n`;
+    }
+
+    if (skippedUnauthorized.length > 0) {
+      summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
+      summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
+      summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
+    }
+
+    summary += failedSection;
+    summary += `### Next Steps for AI Agent:\n`;
+    summary += `- Reference installed skills from \`.agents/skills/<skill_id>/SKILL.md\`\n`;
+    summary += `- Run relevant inner loop checks before commits\n`;
+  } else {
     summary = `# [DRY-RUN PREVIEW] Fredo QA Skills Workspace Sync\n\n`;
     summary += `> [!IMPORTANT] **0 files written to disk**. User agreement is required before modifying workspace files.\n\n`;
     summary += `Target: \`${safeProjectPath}\`\n`;
@@ -426,25 +385,6 @@ export function syncWorkspaceSkills(
     summary += `### Next Steps for AI Agent:\n`;
     summary += `1. Ask the developer for explicit confirmation in the chat: "I detected the following QA skills for this repository (${installed.map((s) => s.skillId).join(', ')}). Would you like me to install them into .agents/skills/?"\n`;
     summary += `2. Re-run \`sync_workspace_skills\` with \`confirm: true\` only after receiving user approval.\n`;
-  } else {
-    summary = `# Fredo QA Skills Workspace Sync\n\n`;
-    summary += `Target: \`${safeProjectPath}\`\n`;
-    summary += `Active Plan: **${license.tier.toUpperCase()}**\n\n`;
-
-    if (installed.length > 0) {
-      summary += `### Successfully Installed (${installed.length}):\n${installedList}\n\n`;
-    }
-
-    if (skippedUnauthorized.length > 0) {
-      summary += `### Requires Authentication (${skippedUnauthorized.length}):\n${skippedList}\n\n`;
-      summary += `> [!WARNING] To unlock commercial skills, activate your license with the \`set_license_key\` tool.\n`;
-      summary += `> Purchase or manage licenses: https://www.illicomedia.com/qa-skills/pricing\n\n`;
-    }
-
-    summary += failedSection;
-    summary += `### Next Steps for AI Agent:\n`;
-    summary += `- Reference installed skills from \`.agents/skills/<skill_id>/SKILL.md\`\n`;
-    summary += `- Run relevant inner loop checks before commits\n`;
   }
 
   return {
@@ -456,6 +396,39 @@ export function syncWorkspaceSkills(
     detectedSkills: skillsToInstall,
     summaryMessage: summary,
   };
+}
+
+/** A folder, or a link to a safe folder, that holds a skill. An unreadable entry is not a skill. */
+function isInstalledSkill(skillsDir: string, name: string): boolean {
+  const fullPath = path.join(skillsDir, name);
+  try {
+    if (!fs.statSync(fullPath).isDirectory()) {
+      return false;
+    }
+    if (fs.lstatSync(fullPath).isSymbolicLink()) {
+      validateSafeProjectPath(fs.realpathSync(fullPath), 'prune_skills symlink target');
+    }
+    return fs.existsSync(path.join(fullPath, 'SKILL.md')) || findSkill(name) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/** Moves a skill, copying when a move is impossible (another device). */
+function archiveSkill(src: string, dest: string): boolean {
+  try {
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.renameSync(src, dest);
+    return true;
+  } catch {
+    try {
+      fs.cpSync(src, dest, { recursive: true });
+      fs.rmSync(src, { recursive: true, force: true });
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 /**
@@ -504,26 +477,11 @@ export function pruneSkills(
   }
 
   // Discover currently installed skills in .agents/skills/
-  const installedEntries: string[] = [];
+  let installedEntries: string[];
   try {
-    for (const name of fs.readdirSync(skillsDir)) {
-      const fullPath = path.join(skillsDir, name);
-      try {
-        const lstat = fs.lstatSync(fullPath);
-        const isDirOrSymlinkDir =
-          lstat.isDirectory() ||
-          (lstat.isSymbolicLink() && fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory());
-        if (isDirOrSymlinkDir) {
-          if (lstat.isSymbolicLink()) {
-            const real = fs.realpathSync(fullPath);
-            validateSafeProjectPath(real, 'prune_skills symlink target');
-          }
-          if (fs.existsSync(path.join(fullPath, 'SKILL.md')) || findSkill(name)) {
-            installedEntries.push(name);
-          }
-        }
-      } catch {}
-    }
+    installedEntries = fs
+      .readdirSync(skillsDir)
+      .filter((name) => isInstalledSkill(skillsDir, name));
   } catch (err) {
     return {
       projectPath: safeProjectPath,
@@ -612,23 +570,8 @@ export function pruneSkills(
   const failedToArchive: string[] = [];
 
   for (const skillId of unneededSkills) {
-    const src = path.join(skillsDir, skillId);
-    const dest = path.join(archiveDir, skillId);
-    try {
-      if (fs.existsSync(dest)) {
-        fs.rmSync(dest, { recursive: true, force: true });
-      }
-      fs.renameSync(src, dest);
-      successfullyArchived.push(skillId);
-    } catch {
-      try {
-        fs.cpSync(src, dest, { recursive: true });
-        fs.rmSync(src, { recursive: true, force: true });
-        successfullyArchived.push(skillId);
-      } catch {
-        failedToArchive.push(skillId);
-      }
-    }
+    const archived = archiveSkill(path.join(skillsDir, skillId), path.join(archiveDir, skillId));
+    (archived ? successfullyArchived : failedToArchive).push(skillId);
   }
 
   const archivedList = successfullyArchived

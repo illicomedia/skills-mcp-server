@@ -56,13 +56,17 @@ export function validateSafeProjectPath(projectPath: string, operationName: stri
   // 2. Block system roots and core system folders
   const normalized = path.normalize(resolved);
   if (BLOCKED_EXACT_PATHS.has(normalized)) {
-    throw new Error(`[${operationName}] Security restriction: cannot target system directory '${normalized}'.`);
+    throw new Error(
+      `[${operationName}] Security restriction: cannot target system directory '${normalized}'.`,
+    );
   }
 
   // 3. Block sensitive credential stores (~/.ssh, ~/.aws, etc.)
   for (const sensitiveDir of getSensitiveUserDirs()) {
     if (normalized === sensitiveDir || normalized.startsWith(`${sensitiveDir}${path.sep}`)) {
-      throw new Error(`[${operationName}] Security restriction: cannot target credential directory '${sensitiveDir}'.`);
+      throw new Error(
+        `[${operationName}] Security restriction: cannot target credential directory '${sensitiveDir}'.`,
+      );
     }
   }
 
@@ -78,7 +82,9 @@ export function validateSafeWriteTarget(projectRoot: string, targetPath: string)
 
   const rel = path.relative(resolvedRoot, resolvedTarget);
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Security restriction: write target '${resolvedTarget}' escapes project root '${resolvedRoot}'.`);
+    throw new Error(
+      `Security restriction: write target '${resolvedTarget}' escapes project root '${resolvedRoot}'.`,
+    );
   }
 
   // Prevent symlink hijacking of parent folders
@@ -88,11 +94,15 @@ export function validateSafeWriteTarget(projectRoot: string, targetPath: string)
       const real = fs.realpathSync(current);
       const realRel = path.relative(resolvedRoot, real);
       if (realRel.startsWith('..') || path.isAbsolute(realRel)) {
-        throw new Error(`Security restriction: symlink '${current}' points outside project root to '${real}'.`);
+        throw new Error(
+          `Security restriction: symlink '${current}' points outside project root to '${real}'.`,
+        );
       }
     }
     const parent = path.dirname(current);
-    if (parent === current) break;
+    if (parent === current) {
+      break;
+    }
     current = parent;
   }
 }

@@ -1,14 +1,14 @@
 import type { AuditContext } from '../types.js';
-import type { LanguageAuditRule } from './types.js';
-import { nodeRule } from './node.js';
-import { rustRule } from './rust.js';
-import { goRule } from './go.js';
-import { pythonRule } from './python.js';
-import { javaRule } from './java.js';
 import { cppRule } from './cpp.js';
+import { defaultRule, makefileRule } from './fallback.js';
+import { goRule } from './go.js';
+import { javaRule } from './java.js';
+import { nodeRule } from './node.js';
 import { phpRule } from './php.js';
+import { pythonRule } from './python.js';
+import { rustRule } from './rust.js';
 import { shellRule } from './shell.js';
-import { makefileRule, defaultRule } from './fallback.js';
+import type { LanguageAuditRule } from './types.js';
 
 export * from './types.js';
 

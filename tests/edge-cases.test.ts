@@ -1,19 +1,24 @@
 // SPDX-FileCopyrightText: 2026 Frédéric Charles Viallet
 // SPDX-License-Identifier: MIT
 import * as assert from 'node:assert/strict';
-import * as fs from 'node:fs';
-import fsModule from 'node:fs';
+import fsModule, * as fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, mock, test } from 'node:test';
 import { createAuditContext, LANGUAGE_RULES, runComplianceAudit } from '../dist/audit/index.js';
-import { findSkill, loadSkillContent } from '../dist/skills/catalog.js';
-import { detectProjectSkills, installSkill, pruneSkills, syncWorkspaceSkills } from '../dist/skills/installer.js';
 import { validateLicense } from '../dist/license/license.js';
 import { getCommercialLicenseText, resolveSkillLicense } from '../dist/license/templates.js';
 import { validateSafeProjectPath, validateSafeWriteTarget } from '../dist/security/path-guard.js';
+import { ToolExecutor } from '../dist/server/executor.js';
 import { FredoQaMcpServer, MAX_REQUEST_BYTES } from '../dist/server/server.js';
+import { findSkill, loadSkillContent } from '../dist/skills/catalog.js';
+import {
+  detectProjectSkills,
+  installSkill,
+  pruneSkills,
+  syncWorkspaceSkills,
+} from '../dist/skills/installer.js';
 import { smokeTestServer } from '../scripts/release-lib.mjs';
 import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 
@@ -42,7 +47,9 @@ function rule(id: string) {
 
 test('context and rules: shell at the root, YAML workflows, default tests, no package.json', () => {
   assert.equal(createAuditContext(project('run.sh')).stack.isBash, true);
-  assert.ok(runComplianceAudit(project('.github/workflows/ci.yaml'), { confirm: true }).totalChecks > 0);
+  assert.ok(
+    runComplianceAudit(project('.github/workflows/ci.yaml'), { confirm: true }).totalChecks > 0,
+  );
   assert.equal(rule('default').getTestSuite(createAuditContext(project('tests/'))).passed, true);
   assert.equal(rule('node').getQaScript(createAuditContext(project())).passed, false);
 });
@@ -81,9 +88,16 @@ test('detectProjectSkills: well-known and DNS projects', () => {
 test('syncWorkspaceSkills: reads the license itself, and reports skills it cannot install', () => {
   const dir = project();
   assert.ok(syncWorkspaceSkills(dir).summaryMessage.length > 0);
-  assert.ok(syncWorkspaceSkills(dir, []).summaryMessage.length > 0, 'an empty list means detection');
+  assert.ok(
+    syncWorkspaceSkills(dir, []).summaryMessage.length > 0,
+    'an empty list means detection',
+  );
 
-  const requested = syncWorkspaceSkills(project('skills/free/qa-core/SKILL.md'), ['qa-core', 'qa-security', 'no-such-skill']);
+  const requested = syncWorkspaceSkills(project('skills/free/qa-core/SKILL.md'), [
+    'qa-core',
+    'qa-security',
+    'no-such-skill',
+  ]);
   assert.ok(requested.summaryMessage.includes('qa-core'));
   assert.ok(requested.summaryMessage.includes('qa-security'));
   assert.ok(requested.summaryMessage.includes('no-such-skill'));
@@ -105,7 +119,10 @@ test('pruneSkills: nothing installed, unreadable folder, and symlinked skills', 
   fs.symlinkSync(path.join(dir, 'gone'), path.join(dir, '.agents/skills/dangling'));
   const preview = pruneSkills(dir);
   assert.ok(preview.archivedSkills.includes('linked'));
-  assert.ok(!preview.archivedSkills.includes('refused'), 'a link to a system folder is not touched');
+  assert.ok(
+    !preview.archivedSkills.includes('refused'),
+    'a link to a system folder is not touched',
+  );
   assert.ok(!preview.archivedSkills.includes('dangling'));
 });
 
@@ -151,7 +168,10 @@ test('license text: placeholders when the license carries no detail', () => {
   assert.match(text, /Licensed Organization/);
   assert.match(text, /License: unknown/);
   assert.match(text, /Updates Until: unknown/);
-  assert.ok(resolveSkillLicense(meta, {} as never).length > 0, 'searches from the working directory');
+  assert.ok(
+    resolveSkillLicense(meta, {} as never).length > 0,
+    'searches from the working directory',
+  );
 });
 
 test('validateLicense: uses the release date of this build by default', () => {
@@ -169,14 +189,53 @@ test('security guard: bad input, files, and symlinks that leave the project', ()
   fs.symlinkSync(path.join(dir, 'real'), path.join(dir, 'inside'));
   fs.symlinkSync(project(), path.join(dir, 'outside'));
   validateSafeWriteTarget(dir, path.join(dir, 'inside', 'x'));
-  assert.throws(() => validateSafeWriteTarget(dir, path.join(dir, 'outside', 'x')), /Security restriction/);
+  assert.throws(
+    () => validateSafeWriteTarget(dir, path.join(dir, 'outside', 'x')),
+    /Security restriction/,
+  );
   validateSafeWriteTarget(path.parse(dir).root, dir);
 });
 
 test('tools/call works without arguments', () => {
   const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
-  const response = server.handleRequest({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_version' } });
+  const response = server.handleRequest({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: { name: 'get_version' },
+  });
   assert.equal(response.error, undefined);
+});
+
+test('tools: license tools report valid, invalid and empty licenses', () => {
+  const run = (name: string, args: Record<string, unknown> = {}, key?: string) =>
+    JSON.parse(ToolExecutor.execute(name, args, key, () => undefined, TEST_LICENSE_OPTIONS));
+
+  const valid = run('set_license_key', { license_key: signedLicense({ licensee: 'Fred V.' }) });
+  assert.equal(valid.status, 'AUTHENTICATED');
+  assert.equal(valid.customer, 'Fred V.');
+  assert.equal(typeof valid.licenseId, 'string');
+
+  const invalid = run('set_license_key', { license_key: 'not-a-license' });
+  assert.equal(invalid.status, 'FREE_TIER_FALLBACK');
+  assert.equal(invalid.customer, 'Community User');
+  assert.equal(invalid.licenseId, null);
+  assert.equal(invalid.updatesUntil, null);
+
+  assert.equal(run('verify_license', { license_key: signedLicense() }).status, 'ACTIVE');
+  assert.equal(run('verify_license').status, 'FREE_TIER');
+});
+
+test('tools: project tools use the given folder, or the working directory', () => {
+  const run = (args: Record<string, unknown>) =>
+    ToolExecutor.execute('prune_skills', args, undefined, () => undefined, TEST_LICENSE_OPTIONS);
+  assert.match(run({ project_path: project() }), /Nothing to do/);
+  assert.ok(run({}).length > 0);
+});
+
+test('pruneSkills: stray files are not skills', () => {
+  const dir = project('.agents/skills/notes.txt', '.agents/skills/old/SKILL.md');
+  assert.deepEqual(pruneSkills(dir).archivedSkills, ['old']);
 });
 
 test('stdio lines: size limit, blank lines, notifications, bad JSON, requests', () => {
@@ -187,7 +246,10 @@ test('stdio lines: size limit, blank lines, notifications, bad JSON, requests', 
   assert.equal(server.handleLine('   '), null);
   assert.equal(server.handleLine('{"jsonrpc":"2.0","method":"notifications/initialized"}'), null);
   assert.match(String(server.handleLine('{oops')), /Parse error/);
-  assert.equal(JSON.parse(String(server.handleLine('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'))).id, 1);
+  assert.equal(
+    JSON.parse(String(server.handleLine('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'))).id,
+    1,
+  );
 });
 
 function fakeServer(body: string): string {

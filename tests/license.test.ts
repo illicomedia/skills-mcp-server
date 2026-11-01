@@ -4,18 +4,18 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import {
-  LICENSE_SCHEMA_URL,
-  LICENSE_SCHEMA_VERSION,
-  canonicalJson,
-  validateLicense,
-} from '../dist/license/license.js';
 import { TRUSTED_LICENSE_KEYS } from '../dist/license/keys.js';
 import {
-  TEST_LICENSE_OPTIONS,
+  canonicalJson,
+  LICENSE_SCHEMA_URL,
+  LICENSE_SCHEMA_VERSION,
+  validateLicense,
+} from '../dist/license/license.js';
+import {
   licenseBody,
-  signLicense,
   signedLicense,
+  signLicense,
+  TEST_LICENSE_OPTIONS,
 } from './license-fixture.ts';
 
 test('License: no license source runs in free mode', () => {
@@ -148,14 +148,20 @@ test('License: an explicit path to a license file is accepted', () => {
     const file = path.join(dir, 'license.json');
     fs.writeFileSync(file, signedLicense());
     assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
-    assert.equal(validateLicense(path.join(dir, 'missing.json'), TEST_LICENSE_OPTIONS).valid, false);
+    assert.equal(
+      validateLicense(path.join(dir, 'missing.json'), TEST_LICENSE_OPTIONS).valid,
+      false,
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
 test('License: canonical JSON sorts keys recursively and drops whitespace', () => {
-  assert.equal(canonicalJson({ b: 1, a: { d: [1, 'x'], c: null } }), '{"a":{"c":null,"d":[1,"x"]},"b":1}');
+  assert.equal(
+    canonicalJson({ b: 1, a: { d: [1, 'x'], c: null } }),
+    '{"a":{"c":null,"d":[1,"x"]},"b":1}',
+  );
 });
 
 test('License: release builds embed only public keys and no test keys', () => {
@@ -208,7 +214,9 @@ test('License format v1: the published JSON Schema matches the fields enforced b
   assert.deepEqual(Object.keys(schema.properties).sort(), Object.keys(fixture).sort());
   assert.deepEqual(
     [...schema.required].sort(),
-    Object.keys(fixture).filter((key) => key !== '$schema').sort(),
+    Object.keys(fixture)
+      .filter((key) => key !== '$schema')
+      .sort(),
   );
 });
 

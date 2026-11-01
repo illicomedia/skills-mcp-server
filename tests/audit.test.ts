@@ -38,7 +38,7 @@ test('Audit: passing checks only claim file presence, never validity', () => {
   const report = auditOf({
     'AGENTS.md': '',
     '.qa-exceptions.yaml': 'not: [valid yaml',
-    'LICENSE': 'MIT',
+    LICENSE: 'MIT',
     'public/.well-known/security.txt': '',
     '.gitignore': '.env\n*.pem\n*.key\n',
     'package.json': JSON.stringify({
@@ -96,7 +96,8 @@ test('Audit: flags expired exceptions in .qa-exceptions.yaml as blocker', () => 
     'SECURITY.md': '# Vulnerability Disclosure\n',
     'Cargo.toml': '[package]\nname = "app"\n',
     '.gitignore': 'target/\n',
-    '.qa-exceptions.yaml': 'exceptions:\n  - id: EXC-001\n    expires_at: "2020-01-01"\n    reason: "Old expired exception"\n',
+    '.qa-exceptions.yaml':
+      'exceptions:\n  - id: EXC-001\n    expires_at: "2020-01-01"\n    reason: "Old expired exception"\n',
   });
   const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
   assert.equal(excCheck?.passed, false);
@@ -168,7 +169,9 @@ test('Audit: Addition 5 - raw private key file in root flags blocker', () => {
     '.gitignore': '.env\n',
     'server.key': '-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASC\n',
   });
-  const keyCheck = report.results.find((r) => r.name === 'private key and secret hygiene in .gitignore');
+  const keyCheck = report.results.find(
+    (r) => r.name === 'private key and secret hygiene in .gitignore',
+  );
   assert.equal(keyCheck?.passed, false);
   assert.equal(keyCheck?.severity, 'blocker');
   assert.match(keyCheck?.details || '', /Raw private key/i);
@@ -178,7 +181,7 @@ test('Audit: Java project passes with Maven/Gradle quality gates and type safety
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
     'SECURITY.md': '# Vulnerability Disclosure\n',
-    'LICENSE': 'Apache 2.0\n',
+    LICENSE: 'Apache 2.0\n',
     'pom.xml': '<project><modelVersion>4.0.0</modelVersion></project>\n',
     '.gitignore': 'target/\n',
     '.github/workflows/ci.yml': 'name: Java CI\n',
@@ -196,9 +199,9 @@ test('Audit: C/C++ project passes with CMake/Makefile quality gates and type saf
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
     'SECURITY.md': '# Vulnerability Disclosure\n',
-    'LICENSE': 'MIT\n',
+    LICENSE: 'MIT\n',
     'CMakeLists.txt': 'cmake_minimum_required(VERSION 3.20)\nproject(my_engine)\n',
-    'Makefile': 'all:\n\tcc main.c\ntest:\n\tctest\n',
+    Makefile: 'all:\n\tcc main.c\ntest:\n\tctest\n',
     '.gitignore': 'build/\n',
     '.github/workflows/ci.yml': 'name: C++ CI\n',
     'tests/test_main.c': 'int main() { return 0; }\n',
@@ -213,7 +216,7 @@ test('Audit: PHP project passes with Composer and PHPUnit/PHPStan gates', () => 
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
     'SECURITY.md': '# Vulnerability Disclosure\n',
-    'LICENSE': 'MIT\n',
+    LICENSE: 'MIT\n',
     'composer.json': JSON.stringify({ name: 'acme/service', require: {} }),
     'composer.lock': JSON.stringify({}),
     'phpstan.neon': 'parameters:\n  level: max\n',
@@ -233,10 +236,10 @@ test('Audit: Shell project passes without Node/Rust artifacts', () => {
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
     'SECURITY.md': '# Vulnerability Disclosure\n',
-    'LICENSE': 'MIT\n',
+    LICENSE: 'MIT\n',
     'scripts/deploy.sh': '#!/usr/bin/env bash\necho deploy\n',
     'scripts/qa.sh': '#!/usr/bin/env bash\necho qa\n',
-    'Makefile': 'test:\n\tbats tests/\n',
+    Makefile: 'test:\n\tbats tests/\n',
     '.gitignore': '.env\n',
     '.shellcheckrc': 'disable=SC2086\n',
     '.github/workflows/ci.yml': 'name: Shell CI\n',
@@ -249,14 +252,17 @@ test('Audit: Shell project passes without Node/Rust artifacts', () => {
 
 test('Audit: missing AGENTS.md flags warning (not a blocker) and reports prerequisites status', () => {
   const report = auditOf({
-    'LICENSE': 'MIT\n',
+    LICENSE: 'MIT\n',
     'SECURITY.md': '# Disclosure\n',
     '.gitignore': '.env\n',
   });
   const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
   assert.equal(agentsCheck?.passed, false);
   assert.equal(agentsCheck?.severity, 'warning');
-  assert.match(agentsCheck?.details || '', /Recommended to provide repository-level QA guidelines/i);
+  assert.match(
+    agentsCheck?.details || '',
+    /Recommended to provide repository-level QA guidelines/i,
+  );
   assert.equal(report.status, 'needs_attention');
   assert.match(report.prerequisites, /\d+\/\d+ met/);
 });
@@ -289,7 +295,9 @@ test('Audit Robustness: private key in subfolder (certs/server.key) flags blocke
     '.gitignore': '.env\n',
     'certs/server.key': '-----BEGIN PRIVATE KEY-----\nMIIE...\n',
   });
-  const keyCheck = report.results.find((r) => r.name === 'private key and secret hygiene in .gitignore');
+  const keyCheck = report.results.find(
+    (r) => r.name === 'private key and secret hygiene in .gitignore',
+  );
   assert.equal(keyCheck?.passed, false);
   assert.equal(keyCheck?.severity, 'blocker');
   assert.match(keyCheck?.details || '', /certs\/server\.key/);
@@ -299,7 +307,8 @@ test('Audit Robustness: alternative expiration syntax (valid_until / expiry) in 
   const report = auditOf({
     'AGENTS.md': '',
     'Cargo.toml': '[package]\nname = "test"\n',
-    '.qa-exceptions.yaml': 'exceptions:\n  - id: EXC-999\n    valid_until: "2021-01-01"\n    reason: "Legacy waiver"\n',
+    '.qa-exceptions.yaml':
+      'exceptions:\n  - id: EXC-999\n    valid_until: "2021-01-01"\n    reason: "Legacy waiver"\n',
   });
   const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
   assert.equal(excCheck?.passed, false);
@@ -317,6 +326,3 @@ test('Audit Robustness: polyglot project credits secondary stack test suite', ()
   assert.equal(testCheck?.passed, true);
   assert.match(testCheck?.details || '', /Rust test framework/i);
 });
-
-
-

@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { FredoQaMcpServer } from '../dist/server/server.js';
-import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 
 const CLI = fileURLToPath(new URL('../dist/index.js', import.meta.url));
@@ -31,7 +31,11 @@ function withWorkspace(run: (ws: Workspace) => void): void {
   }
 }
 
-function callTool(server: FredoQaMcpServer, name: string, args: Record<string, unknown> = {}): string {
+function callTool(
+  server: FredoQaMcpServer,
+  name: string,
+  args: Record<string, unknown> = {},
+): string {
   const res = server.handleRequest({
     jsonrpc: '2.0',
     id: 1,

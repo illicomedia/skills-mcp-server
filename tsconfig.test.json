@@ -5,6 +5,7 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node"],
     "typeRoots": ["./node_modules/@types", "../../website/node_modules/@types"],
     "skipLibCheck": true,

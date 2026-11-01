@@ -1,11 +1,18 @@
 import type { AuditContext } from '../types.js';
 import type { LanguageAuditRule } from './types.js';
 
-function parsePackageJson(ctx: AuditContext): any {
+interface PackageManifest {
+  scripts?: Record<string, string>;
+  [field: string]: unknown;
+}
+
+function parsePackageJson(ctx: AuditContext): PackageManifest | null {
   const content = ctx.readFile('package.json');
-  if (!content) return null;
+  if (!content) {
+    return null;
+  }
   try {
-    return JSON.parse(content);
+    return JSON.parse(content) as PackageManifest;
   } catch {
     return null;
   }
@@ -19,9 +26,7 @@ export const nodeRule: LanguageAuditRule = {
   getQaScript: (ctx) => {
     const pkg = parsePackageJson(ctx);
     const hasQaStandard = Boolean(
-      pkg?.scripts?.['qa:standard'] ||
-        pkg?.scripts?.['qa:starter'] ||
-        pkg?.scripts?.['test'],
+      pkg?.scripts?.['qa:standard'] || pkg?.scripts?.['qa:starter'] || pkg?.scripts?.test,
     );
     return {
       name: 'qa:starter or qa:standard script declared',
@@ -36,8 +41,8 @@ export const nodeRule: LanguageAuditRule = {
     const pkg = parsePackageJson(ctx);
     const hasTypeCheck = Boolean(
       pkg?.scripts?.['type-check'] ||
-        pkg?.scripts?.['tsc'] ||
-        pkg?.scripts?.['check'] ||
+        pkg?.scripts?.tsc ||
+        pkg?.scripts?.check ||
         ctx.fileExists('tsconfig.json'),
     );
     return {

@@ -19,6 +19,14 @@ const IGNORED_SCAN_DIRS = new Set([
   '.cache',
 ]);
 
+function readEntries(directory: string): fs.Dirent[] {
+  try {
+    return fs.readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
 export function createAuditContext(projectPath: string): AuditContext {
   const resolvedPath = path.resolve(projectPath);
   const parentPath = path.dirname(resolvedPath);
@@ -33,8 +41,12 @@ export function createAuditContext(projectPath: string): AuditContext {
         return candidate;
       }
       const parent = path.dirname(curr);
-      if (parent === curr) break;
-      if (fs.existsSync(path.join(curr, '.git'))) break;
+      if (parent === curr) {
+        break;
+      }
+      if (fs.existsSync(path.join(curr, '.git'))) {
+        break;
+      }
       curr = parent;
     }
     return null;
@@ -53,7 +65,9 @@ export function createAuditContext(projectPath: string): AuditContext {
   const readFile = (rel: string): string | null => {
     try {
       const p = path.join(resolvedPath, rel);
-      if (!fs.existsSync(p)) return null;
+      if (!fs.existsSync(p)) {
+        return null;
+      }
       return fs.readFileSync(p, 'utf-8');
     } catch {
       return null;
@@ -62,7 +76,9 @@ export function createAuditContext(projectPath: string): AuditContext {
 
   const readParentFile = (rel: string): string | null => {
     const found = findUp(rel);
-    if (!found || path.dirname(found) === resolvedPath) return null;
+    if (!found || path.dirname(found) === resolvedPath) {
+      return null;
+    }
     try {
       return fs.readFileSync(found, 'utf-8');
     } catch {
@@ -73,7 +89,9 @@ export function createAuditContext(projectPath: string): AuditContext {
   const readDir = (rel: string): string[] => {
     try {
       const p = path.join(resolvedPath, rel);
-      if (!fs.existsSync(p)) return [];
+      if (!fs.existsSync(p)) {
+        return [];
+      }
       return fs.readdirSync(p);
     } catch {
       return [];
@@ -87,24 +105,15 @@ export function createAuditContext(projectPath: string): AuditContext {
     const matches: string[] = [];
 
     const walk = (currentDir: string, currentRel: string, depth: number) => {
-      if (depth > maxDepth) return;
-      let entries: fs.Dirent[] = [];
-      try {
-        entries = fs.readdirSync(currentDir, { withFileTypes: true });
-      } catch {
+      if (depth > maxDepth) {
         return;
       }
-
-      for (const entry of entries) {
+      for (const entry of readEntries(currentDir)) {
         const relPath = currentRel ? `${currentRel}/${entry.name}` : entry.name;
-        if (entry.isDirectory()) {
-          if (!IGNORED_SCAN_DIRS.has(entry.name)) {
-            walk(path.join(currentDir, entry.name), relPath, depth + 1);
-          }
-        } else if (entry.isFile()) {
-          if (predicate(relPath, entry.name)) {
-            matches.push(relPath);
-          }
+        if (entry.isDirectory() && !IGNORED_SCAN_DIRS.has(entry.name)) {
+          walk(path.join(currentDir, entry.name), relPath, depth + 1);
+        } else if (entry.isFile() && predicate(relPath, entry.name)) {
+          matches.push(relPath);
         }
       }
     };
@@ -125,7 +134,9 @@ export function createAuditContext(projectPath: string): AuditContext {
   const hasShellScripts = (): boolean => {
     try {
       const rootFiles = fs.readdirSync(resolvedPath);
-      if (rootFiles.some((f) => f.endsWith('.sh'))) return true;
+      if (rootFiles.some((f) => f.endsWith('.sh'))) {
+        return true;
+      }
       const scriptsDir = path.join(resolvedPath, 'scripts');
       return (
         fs.existsSync(scriptsDir) &&
@@ -164,13 +175,7 @@ export function createAuditContext(projectPath: string): AuditContext {
     hasPhpFiles('api') ||
     hasPhpFiles('src');
   const isBash =
-    !isNode &&
-    !isRust &&
-    !isGo &&
-    !isPython &&
-    !isJava &&
-    !isCpp &&
-    !isPhp &&
+    !(isNode || isRust || isGo || isPython || isJava || isCpp || isPhp) &&
     (hasShellScripts() || fileExists('.shellcheckrc') || hasDir('tests/bats'));
   const hasMakefile =
     fileExists('Makefile') || fileExists('justfile') || fileExists('scripts/qa.sh');
@@ -186,13 +191,7 @@ export function createAuditContext(projectPath: string): AuditContext {
     fileExists('.env.prod') ||
     fileExists('.env.example');
   const hasManifest =
-    isNode ||
-    isRust ||
-    isGo ||
-    isPython ||
-    isJava ||
-    isCpp ||
-    fileExists('composer.json');
+    isNode || isRust || isGo || isPython || isJava || isCpp || fileExists('composer.json');
 
   const stack: StackDetection = {
     isRust,

@@ -3,8 +3,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-// @ts-expect-error plain ESM release script, it ships no type declarations
-import { bumpVersion, nextDistTagAfterPromotion, parseReleaseArgs, smokeTestServer } from '../scripts/release-lib.mjs';
+import {
+  bumpVersion,
+  nextDistTagAfterPromotion,
+  parseReleaseArgs,
+  smokeTestServer,
+} from '../scripts/release-lib.mjs';
 
 test('Release args: a publish needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
   assert.deepStrictEqual(parseReleaseArgs([]), { action: 'publish', dryRun: false, bump: null });
@@ -21,12 +25,15 @@ test('Release args: promote and deprecate target one exact version', () => {
     dryRun: false,
     version: '1.5.0',
   });
-  assert.deepStrictEqual(parseReleaseArgs(['--deprecate', '1.5.0', '--message', 'Broken. Use 1.5.1.']), {
-    action: 'deprecate',
-    dryRun: false,
-    version: '1.5.0',
-    message: 'Broken. Use 1.5.1.',
-  });
+  assert.deepStrictEqual(
+    parseReleaseArgs(['--deprecate', '1.5.0', '--message', 'Broken. Use 1.5.1.']),
+    {
+      action: 'deprecate',
+      dryRun: false,
+      version: '1.5.0',
+      message: 'Broken. Use 1.5.1.',
+    },
+  );
 });
 
 test('Release args: smoke-only runs without the registry', () => {
@@ -41,12 +48,24 @@ test('Release args: rejects removed lifecycle flags instead of ignoring them', (
 test('Release args: rejects bad values and ambiguous actions', () => {
   assert.throws(() => parseReleaseArgs(['--bump', 'huge']), /--bump expects/);
   assert.throws(() => parseReleaseArgs(['--promote']), /--promote expects an exact version/);
-  assert.throws(() => parseReleaseArgs(['--promote', '<1.5.0']), /--promote expects an exact version/);
-  assert.throws(() => parseReleaseArgs(['--deprecate', '<1.5.0', '--message', 'x']), /--deprecate expects an exact version/);
+  assert.throws(
+    () => parseReleaseArgs(['--promote', '<1.5.0']),
+    /--promote expects an exact version/,
+  );
+  assert.throws(
+    () => parseReleaseArgs(['--deprecate', '<1.5.0', '--message', 'x']),
+    /--deprecate expects an exact version/,
+  );
   assert.throws(() => parseReleaseArgs(['--deprecate', '1.5.0']), /--deprecate needs --message/);
-  assert.throws(() => parseReleaseArgs(['--message', 'x']), /--message only applies to --deprecate/);
+  assert.throws(
+    () => parseReleaseArgs(['--message', 'x']),
+    /--message only applies to --deprecate/,
+  );
   assert.throws(() => parseReleaseArgs(['--promote', '1.5.0', '--smoke-only']), /one action/);
-  assert.throws(() => parseReleaseArgs(['--promote', '1.5.0', '--bump', 'patch']), /--bump only applies to a publish/);
+  assert.throws(
+    () => parseReleaseArgs(['--promote', '1.5.0', '--bump', 'patch']),
+    /--bump only applies to a publish/,
+  );
 });
 
 test('bumpVersion: follows semantic versioning', () => {

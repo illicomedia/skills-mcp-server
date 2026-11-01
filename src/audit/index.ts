@@ -1,20 +1,20 @@
-import type { AuditCheckResult, AuditReport, AuditOptions } from './types.js';
-import { createAuditContext } from './context.js';
-import { auditGovernance } from './domains/governance.js';
-import { auditSecurity } from './domains/security.js';
-import { auditQuality } from './domains/quality.js';
-import { auditSupplyChain } from './domains/supply-chain.js';
-import { auditDevops } from './domains/devops.js';
 import { validateSafeProjectPath } from '../security/path-guard.js';
+import { createAuditContext } from './context.js';
+import { auditDevops } from './domains/devops.js';
+import { auditGovernance } from './domains/governance.js';
+import { auditQuality } from './domains/quality.js';
+import { auditSecurity } from './domains/security.js';
+import { auditSupplyChain } from './domains/supply-chain.js';
+import type { AuditCheckResult, AuditOptions, AuditReport } from './types.js';
 
-export * from './types.js';
 export * from './context.js';
-export * from './languages/index.js';
-export * from './domains/governance.js';
-export * from './domains/security.js';
-export * from './domains/quality.js';
-export * from './domains/supply-chain.js';
 export * from './domains/devops.js';
+export * from './domains/governance.js';
+export * from './domains/quality.js';
+export * from './domains/security.js';
+export * from './domains/supply-chain.js';
+export * from './languages/index.js';
+export * from './types.js';
 
 const AUDIT_SCOPE =
   'Fast preflight sanity check: verifies presence of scaffolding, agent directives, and baseline hygiene. Gates are not executed and compilers are not run.';
@@ -73,9 +73,7 @@ export function runComplianceAudit(projectPath: string, options?: AuditOptions):
 
   const exceptionsCheck = results.find((r) => r.name === '.qa-exceptions.yaml present');
   if (exceptionsCheck && !exceptionsCheck.passed) {
-    recommendations.push(
-      'Review and renew or remove expired exceptions in .qa-exceptions.yaml.',
-    );
+    recommendations.push('Review and renew or remove expired exceptions in .qa-exceptions.yaml.');
   }
 
   const licenseCheck = results.find((r) => r.name === 'LICENSE file present');

@@ -1,4 +1,3 @@
-
 import * as assert from 'node:assert';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -6,9 +5,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import test from 'node:test';
-import { TEST_KEY_ID, signedLicense } from './license-fixture.ts';
-import { writeSkillSources } from './skill-fixture.ts';
 import { SERVER_VERSION } from '../dist/version.js';
+import { writeSkillSources } from './skill-fixture.ts';
 
 interface JsonRpcMessage {
   jsonrpc: string;
@@ -42,7 +40,9 @@ class McpTestClient {
     const rl = createInterface({ input: this.child.stdout! });
     rl.on('line', (line) => {
       const trimmed = line.trim();
-      if (!trimmed) return;
+      if (!trimmed) {
+        return;
+      }
       try {
         const msg = JSON.parse(trimmed) as JsonRpcMessage;
         if (msg.id !== undefined && msg.id !== null) {
@@ -52,7 +52,7 @@ class McpTestClient {
             resolver(msg);
           }
         }
-      } catch (err) {
+      } catch {
         process.stderr.write(`[McpTestClient] Parse error on line: ${line}\n`);
       }
     });
@@ -63,15 +63,17 @@ class McpTestClient {
     const req = { jsonrpc: '2.0', id, method, params };
     return new Promise((resolve, reject) => {
       this.pending.set(id, resolve);
-      this.child.stdin?.write(JSON.stringify(req) + '\n', (err) => {
-        if (err) reject(err);
+      this.child.stdin?.write(`${JSON.stringify(req)}\n`, (err) => {
+        if (err) {
+          reject(err);
+        }
       });
     });
   }
 
   public sendNotification(method: string, params?: unknown): void {
     const notif = { jsonrpc: '2.0', method, params };
-    this.child.stdin?.write(JSON.stringify(notif) + '\n');
+    this.child.stdin?.write(`${JSON.stringify(notif)}\n`);
   }
 
   public async close(): Promise<number | null> {
@@ -162,7 +164,10 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
     writeSkillSources(sandboxDir);
     try {
       fs.copyFileSync(path.join(websiteDir, 'package.json'), path.join(sandboxDir, 'package.json'));
-      fs.copyFileSync(path.join(websiteDir, 'tsconfig.json'), path.join(sandboxDir, 'tsconfig.json'));
+      fs.copyFileSync(
+        path.join(websiteDir, 'tsconfig.json'),
+        path.join(sandboxDir, 'tsconfig.json'),
+      );
       fs.mkdirSync(path.join(sandboxDir, 'public/api'), { recursive: true });
       fs.writeFileSync(path.join(sandboxDir, 'public/api/test.php'), '<?php echo "ok";');
       fs.mkdirSync(path.join(sandboxDir, 'scripts'), { recursive: true });
@@ -201,7 +206,8 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
       arguments: { skill_id: 'qa-security' },
     });
     assert.strictEqual(secRulesRes.error, undefined);
-    const secRulesText = (secRulesRes.result as { content: Array<{ text: string }> }).content[0].text;
+    const secRulesText = (secRulesRes.result as { content: Array<{ text: string }> }).content[0]
+      .text;
     assert.match(secRulesText, /Access Restricted: qa-security/);
     assert.match(secRulesText, /https:\/\/www\.illicomedia\.com\/qa-skills\/pricing/);
 
@@ -211,11 +217,11 @@ test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', 
       arguments: {},
     });
     assert.strictEqual(licStatusRes.error, undefined);
-    const licStatusText = (licStatusRes.result as { content: Array<{ text: string }> }).content[0].text;
+    const licStatusText = (licStatusRes.result as { content: Array<{ text: string }> }).content[0]
+      .text;
     const licReport = JSON.parse(licStatusText);
     assert.strictEqual(licReport.tier, 'FREE');
     assert.strictEqual(licReport.status, 'FREE_TIER');
-
   } finally {
     const exitCode = await client.close();
     assert.strictEqual(exitCode, 0);

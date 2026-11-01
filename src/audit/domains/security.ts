@@ -11,7 +11,9 @@ export function parseGitignoreRules(content: string): GitignoreRules {
   let ignoresPrivateKeys = false;
 
   for (const line of lines) {
-    if (!line || line.startsWith('#')) continue;
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
 
     // Negations
     if (line === '!.env' || line === '!.env*' || line === '!*.env') {

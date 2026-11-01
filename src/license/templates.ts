@@ -24,7 +24,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`;
 
-export function getCommercialLicenseText(meta: SkillMetadata, license: LicenseValidationResult): string {
+export function getCommercialLicenseText(
+  meta: SkillMetadata,
+  license: LicenseValidationResult,
+): string {
   return `Fredo QA Commercial Skills License
 SPDX identifier: LicenseRef-Fredo-QA-Commercial
 

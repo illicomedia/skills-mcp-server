@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function checkAgentsMd(ctx: AuditContext): AuditCheckResult {

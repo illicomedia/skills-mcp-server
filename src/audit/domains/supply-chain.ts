@@ -1,5 +1,5 @@
-import type { AuditCheckResult, AuditContext } from '../types.js';
 import { resolveLanguageRule } from '../languages/index.js';
+import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function auditSupplyChain(ctx: AuditContext): AuditCheckResult[] {
   const langRule = resolveLanguageRule(ctx);

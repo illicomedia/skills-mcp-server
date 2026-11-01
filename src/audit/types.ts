@@ -53,7 +53,10 @@ export interface AuditContext {
   fileExists: (rel: string) => boolean;
   parentFileExists: (rel: string) => boolean;
   findUp: (rel: string) => string | null;
-  findFiles: (maxDepth: number, predicate: (relPath: string, fileName: string) => boolean) => string[];
+  findFiles: (
+    maxDepth: number,
+    predicate: (relPath: string, fileName: string) => boolean,
+  ) => string[];
   hasDir: (rel: string) => boolean;
   readFile: (rel: string) => string | null;
   readParentFile: (rel: string) => string | null;

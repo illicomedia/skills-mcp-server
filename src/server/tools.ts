@@ -49,7 +49,8 @@ export const MCP_TOOLS: McpTool[] = [
         },
         license_key: {
           type: 'string',
-          description: 'Optional signed license file (path or JSON content) to use for this session before installing',
+          description:
+            'Optional signed license file (path or JSON content) to use for this session before installing',
         },
         confirm: {
           type: 'boolean',
@@ -75,11 +76,13 @@ export const MCP_TOOLS: McpTool[] = [
         skills: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional list of skill IDs to install. If omitted, auto-detects from project stack.',
+          description:
+            'Optional list of skill IDs to install. If omitted, auto-detects from project stack.',
         },
         license_key: {
           type: 'string',
-          description: 'Optional signed license file (path or JSON content) to use for this session before syncing',
+          description:
+            'Optional signed license file (path or JSON content) to use for this session before syncing',
         },
         confirm: {
           type: 'boolean',
@@ -104,7 +107,8 @@ export const MCP_TOOLS: McpTool[] = [
         keep_skills: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional list of skill IDs to keep active even if not auto-detected from project files',
+          description:
+            'Optional list of skill IDs to keep active even if not auto-detected from project files',
         },
         confirm: {
           type: 'boolean',
@@ -140,7 +144,8 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         license_key: {
           type: 'string',
-          description: 'Optional signed license file (path or JSON content) to inspect without modifying session state',
+          description:
+            'Optional signed license file (path or JSON content) to inspect without modifying session state',
         },
       },
       additionalProperties: false,
@@ -189,10 +194,7 @@ export function findToolDefinition(name: string): McpTool | undefined {
  * - Rejects undeclared properties when additionalProperties is false (RFC / MCP requirement).
  * Returns null if valid, or an error message string if invalid.
  */
-export function validateToolParams(
-  tool: McpTool,
-  params: Record<string, unknown>,
-): string | null {
+export function validateToolParams(tool: McpTool, params: Record<string, unknown>): string | null {
   const schema = tool.inputSchema;
 
   // 1. Required parameters check

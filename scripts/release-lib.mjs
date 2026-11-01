@@ -51,7 +51,11 @@ export function parseReleaseArgs(argv) {
     throw new Error('--message only applies to --deprecate');
   }
   if (flags.has('--promote')) {
-    return { action: 'promote', dryRun, version: exactVersion('--promote', flags.get('--promote')) };
+    return {
+      action: 'promote',
+      dryRun,
+      version: exactVersion('--promote', flags.get('--promote')),
+    };
   }
   if (flags.has('--deprecate')) {
     const version = exactVersion('--deprecate', flags.get('--deprecate'));
@@ -76,8 +80,12 @@ export function bumpVersion(currentVersion, type) {
     throw new Error(`Cannot parse semantic version: ${currentVersion}`);
   }
   const [major, minor, patch] = currentVersion.split('.').map(Number);
-  if (type === 'major') return `${major + 1}.0.0`;
-  if (type === 'minor') return `${major}.${minor + 1}.0`;
+  if (type === 'major') {
+    return `${major + 1}.0.0`;
+  }
+  if (type === 'minor') {
+    return `${major}.${minor + 1}.0`;
+  }
   return `${major}.${minor}.${patch + 1}`;
 }
 
@@ -98,7 +106,9 @@ export function smokeTestServer(binPath, expectedVersion, timeoutMs = DEFAULT_SM
     let settled = false;
 
     const finish = (error, value) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       clearTimeout(timer);
       server.kill();
@@ -113,12 +123,17 @@ export function smokeTestServer(binPath, expectedVersion, timeoutMs = DEFAULT_SM
       server.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params: {} })}\n`);
     };
 
-    const timer = setTimeout(() => finish(new Error(`Server gave no answer within ${timeoutMs} ms`)), timeoutMs);
+    const timer = setTimeout(
+      () => finish(new Error(`Server gave no answer within ${timeoutMs} ms`)),
+      timeoutMs,
+    );
 
     server.stderr.on('data', (chunk) => stderr.push(String(chunk)));
     server.stdin.on('error', finish);
     server.on('error', (error) => finish(error));
-    server.on('exit', (code) => finish(new Error(`Server exited early with code ${code}: ${stderr.join('').trim()}`)));
+    server.on('exit', (code) =>
+      finish(new Error(`Server exited early with code ${code}: ${stderr.join('').trim()}`)),
+    );
 
     readline.createInterface({ input: server.stdout }).on('line', (line) => {
       let message;

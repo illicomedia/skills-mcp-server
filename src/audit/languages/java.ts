@@ -15,8 +15,7 @@ export const javaRule: LanguageAuditRule = {
   getTypeCheck: () => ({
     name: 'compile-time type safety (javac / JVM)',
     passed: true,
-    details:
-      'Java compiler (javac) enforces compile-time type safety and interface contracts.',
+    details: 'Java compiler (javac) enforces compile-time type safety and interface contracts.',
   }),
 
   getTestSuite: (ctx) => {

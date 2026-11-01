@@ -1,8 +1,8 @@
 import * as crypto from 'node:crypto';
 import {
+  canonicalJson,
   LICENSE_SCHEMA_URL,
   LICENSE_SCHEMA_VERSION,
-  canonicalJson,
   type LicenseOptions,
 } from '../dist/license/license.js';
 

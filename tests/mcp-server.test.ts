@@ -7,7 +7,7 @@ import { generateCanaryWatermark } from '../dist/license/license.js';
 import { FredoQaMcpServer } from '../dist/server/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 import { SERVER_VERSION } from '../dist/version.js';
-import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
+import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 
 test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
@@ -93,7 +93,10 @@ test('MCP Server: list_skills renders every tier in a table with Tier and Access
   assert.match(text, /11 accessible under FREE plan, 25 listed/);
   assert.match(text, /\| `qa-core` \| FREE \| ✅ Available \|/);
   assert.match(text, /\| `qa-security` \| PRO \| 🔒 Requires Pro license \|/);
-  assert.match(text, /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/);
+  assert.match(
+    text,
+    /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/,
+  );
   assert.match(text, /\.qa-license\.json/);
 });
 
@@ -111,7 +114,10 @@ test('MCP Server: list_skills under Pro tier unlocks Pro rows and keeps Enterpri
     new FredoQaMcpServer(signedLicense({ licensee: 'Fred V.' }), TEST_LICENSE_OPTIONS),
   );
   assert.match(text, /\| `qa-security` \| PRO \| ✅ Available \|/);
-  assert.match(text, /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/);
+  assert.match(
+    text,
+    /\| `qa-ai-infrastructure-compliance` \| ENTERPRISE \| 🔒 Requires Enterprise license \|/,
+  );
 });
 
 test('MCP Server: list_skills category filter and Enterprise tier show no lock advisory', () => {
@@ -276,7 +282,10 @@ test('MCP Server: install_skill allows free skills without license key', () => {
     assert.strictEqual(result.tier, 'free');
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')));
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE')));
-    const licenseContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE'), 'utf-8');
+    const licenseContent = fs.readFileSync(
+      path.join(tmpDir, '.agents', 'skills', 'qa-go', 'LICENSE'),
+      'utf-8',
+    );
     assert.ok(licenseContent.includes('MIT License'));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -338,7 +347,10 @@ test('MCP Server: install_skill blocks paid skill without auth and reports requi
 });
 
 test('MCP Server: install_skill succeeds for paid skill with valid license key', () => {
-  const server = new FredoQaMcpServer(signedLicense({ licensee: 'acmecorp' }), TEST_LICENSE_OPTIONS);
+  const server = new FredoQaMcpServer(
+    signedLicense({ licensee: 'acmecorp' }),
+    TEST_LICENSE_OPTIONS,
+  );
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-paid-ok-'));
   writeSkillSources(tmpDir, ['qa-security']);
   try {
@@ -358,9 +370,15 @@ test('MCP Server: install_skill succeeds for paid skill with valid license key',
     assert.strictEqual(result.tier, 'pro');
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'SKILL.md')));
     assert.ok(fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'LICENSE')));
-    const skillContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'SKILL.md'), 'utf-8');
+    const skillContent = fs.readFileSync(
+      path.join(tmpDir, '.agents', 'skills', 'qa-security', 'SKILL.md'),
+      'utf-8',
+    );
     assert.match(skillContent, /Fredo QA Skills Provenance/);
-    const licenseContent = fs.readFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-security', 'LICENSE'), 'utf-8');
+    const licenseContent = fs.readFileSync(
+      path.join(tmpDir, '.agents', 'skills', 'qa-security', 'LICENSE'),
+      'utf-8',
+    );
     assert.match(licenseContent, /Commercial Skills License/);
     assert.match(licenseContent, /acmecorp/);
   } finally {
@@ -503,7 +521,10 @@ test('MCP Server: prune_skills with confirm: true safely archives unneeded skill
     fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-go'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md'), '# qa-go');
     fs.mkdirSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md'), '# qa-rust custom');
+    fs.writeFileSync(
+      path.join(tmpDir, '.agents', 'skills', 'qa-rust', 'SKILL.md'),
+      '# qa-rust custom',
+    );
 
     const req: JsonRpcRequest = {
       jsonrpc: '2.0',

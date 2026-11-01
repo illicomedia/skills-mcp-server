@@ -1,12 +1,12 @@
-import type { AuditCheckResult, AuditContext } from '../types.js';
 import { resolveAllMatchingRules } from '../languages/index.js';
+import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function auditQuality(ctx: AuditContext): AuditCheckResult[] {
   const matchedRules = resolveAllMatchingRules(ctx);
   const primaryRule = matchedRules[0];
 
   let qaScript = primaryRule.getQaScript(ctx);
-  let typeCheck = primaryRule.getTypeCheck(ctx);
+  const typeCheck = primaryRule.getTypeCheck(ctx);
   let testSuite = primaryRule.getTestSuite(ctx);
 
   // In polyglot projects: if primary lacks tests or QA gates, check secondary stacks

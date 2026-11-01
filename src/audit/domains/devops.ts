@@ -1,5 +1,4 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {

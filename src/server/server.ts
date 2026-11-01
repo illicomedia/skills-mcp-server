@@ -1,10 +1,10 @@
 import * as readline from 'node:readline';
 import { resolveApiEndpoint } from '../config.js';
-import { ToolExecutor } from './executor.js';
 import type { LicenseOptions } from '../license/license.js';
-import { MCP_TOOLS, findToolDefinition, validateToolParams } from './tools.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
+import { ToolExecutor } from './executor.js';
+import { findToolDefinition, MCP_TOOLS, validateToolParams } from './tools.js';
 
 export { MCP_TOOLS };
 
@@ -171,7 +171,9 @@ export class FredoQaMcpServer {
       JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message } });
 
     if (line.length > MAX_REQUEST_BYTES) {
-      return parseError(`Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes.`);
+      return parseError(
+        `Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes.`,
+      );
     }
     const trimmed = line.trim();
     if (!trimmed) {
@@ -180,7 +182,7 @@ export class FredoQaMcpServer {
     try {
       const request = JSON.parse(trimmed) as JsonRpcRequest;
       const response = this.handleRequest(request);
-      return request.id !== undefined ? JSON.stringify(response) : null;
+      return request.id === undefined ? null : JSON.stringify(response);
     } catch (err) {
       return parseError(`Parse error: ${(err as Error).message}`);
     }

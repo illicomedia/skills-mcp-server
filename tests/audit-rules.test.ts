@@ -5,7 +5,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, test } from 'node:test';
-import { createAuditContext, LANGUAGE_RULES, resolveLanguageRule, runComplianceAudit } from '../dist/audit/index.js';
+import {
+  createAuditContext,
+  LANGUAGE_RULES,
+  resolveLanguageRule,
+  runComplianceAudit,
+} from '../dist/audit/index.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-rules-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -31,7 +36,11 @@ function rule(id: string) {
   return found;
 }
 
-const passing: Array<[string, 'getQaScript' | 'getTypeCheck' | 'getTestSuite' | 'getLockfile', string[]]> = [
+const passing: [
+  string,
+  'getQaScript' | 'getTypeCheck' | 'getTestSuite' | 'getLockfile',
+  string[],
+][] = [
   ['php', 'getQaScript', ['composer.json', 'Makefile']],
   ['php', 'getTypeCheck', ['phpstan.neon', 'phpstan.neon.dist', 'psalm.xml']],
   ['php', 'getTestSuite', ['phpunit.xml', 'phpunit.xml.dist', 'pest.php', 'tests/']],
@@ -39,7 +48,11 @@ const passing: Array<[string, 'getQaScript' | 'getTypeCheck' | 'getTestSuite' | 
   ['python', 'getQaScript', ['pyproject.toml', 'tox.ini']],
   ['python', 'getTypeCheck', ['mypy.ini', 'pyproject.toml']],
   ['python', 'getTestSuite', ['pytest.ini', 'tox.ini', 'setup.cfg', 'tests/', 'test/']],
-  ['python', 'getLockfile', ['poetry.lock', 'Pipfile.lock', 'uv.lock', 'pdm.lock', 'requirements.lock']],
+  [
+    'python',
+    'getLockfile',
+    ['poetry.lock', 'Pipfile.lock', 'uv.lock', 'pdm.lock', 'requirements.lock'],
+  ],
   ['bash', 'getQaScript', ['Makefile', 'scripts/qa.sh']],
   ['bash', 'getTypeCheck', ['.shellcheckrc', 'Makefile']],
   ['cpp', 'getQaScript', ['Makefile', 'CMakeLists.txt']],
@@ -69,7 +82,11 @@ test('cpp lockfile: only a conanfile without a lock fails', () => {
   assert.equal(cpp.getLockfile(createAuditContext(project())).passed, true);
   assert.equal(cpp.getLockfile(createAuditContext(project('conanfile.txt'))).passed, false);
   for (const marker of ['conan.lock', 'vcpkg.json', 'CPM.cmake']) {
-    assert.equal(cpp.getLockfile(createAuditContext(project('conanfile.txt', marker))).passed, true, marker);
+    assert.equal(
+      cpp.getLockfile(createAuditContext(project('conanfile.txt', marker))).passed,
+      true,
+      marker,
+    );
   }
 });
 
@@ -109,7 +126,10 @@ test('context: reads tolerate directories, missing paths and unreadable folders'
 
   fs.chmodSync(path.join(dir, 'locked'), 0o000);
   try {
-    assert.deepEqual(ctx.findFiles(3, (rel) => rel.endsWith('inner.txt')), []);
+    assert.deepEqual(
+      ctx.findFiles(3, (rel) => rel.endsWith('inner.txt')),
+      [],
+    );
   } finally {
     fs.chmodSync(path.join(dir, 'locked'), 0o755);
   }

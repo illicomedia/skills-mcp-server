@@ -30,8 +30,7 @@ export const cppRule: LanguageAuditRule = {
       ctx.stack.hasMakefile;
     return {
       passed: hasTestSuite,
-      details:
-        'C/C++ test suite configuration or tests/ directory detected (tests not executed).',
+      details: 'C/C++ test suite configuration or tests/ directory detected (tests not executed).',
     };
   },
 

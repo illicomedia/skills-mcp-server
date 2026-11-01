@@ -2,8 +2,8 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './keys.js';
 import type { LicenseValidationResult } from '../types.js';
+import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './keys.js';
 
 const HMAC_SALT = 'fredo-qa-skills-provenance-v1';
 export const PRICING_URL = 'https://www.illicomedia.com/qa-skills/pricing';
@@ -74,7 +74,10 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function freeTier(message: string, extra: Partial<LicenseValidationResult> = {}): LicenseValidationResult {
+function freeTier(
+  message: string,
+  extra: Partial<LicenseValidationResult> = {},
+): LicenseValidationResult {
   return {
     valid: false,
     tier: 'free',
@@ -116,7 +119,8 @@ function parseLicense(text: string): LicenseDocument | string {
   }
   const record = data as Record<string, unknown>;
   if (record.schema_version !== LICENSE_SCHEMA_VERSION) {
-    return Number.isInteger(record.schema_version) && (record.schema_version as number) > LICENSE_SCHEMA_VERSION
+    return Number.isInteger(record.schema_version) &&
+      (record.schema_version as number) > LICENSE_SCHEMA_VERSION
       ? `license format version ${String(record.schema_version)} requires a newer MCP server (this build reads version ${LICENSE_SCHEMA_VERSION}); update the MCP server`
       : `license schema_version must be ${LICENSE_SCHEMA_VERSION}`;
   }
@@ -152,7 +156,10 @@ function parseLicense(text: string): LicenseDocument | string {
   return record as unknown as LicenseDocument;
 }
 
-function verifySignature(doc: LicenseDocument, trustedKeys: Readonly<Record<string, string>>): string | null {
+function verifySignature(
+  doc: LicenseDocument,
+  trustedKeys: Readonly<Record<string, string>>,
+): string | null {
   const pem = Object.hasOwn(trustedKeys, doc.key_id) ? trustedKeys[doc.key_id] : undefined;
   if (!pem) {
     return `license key id '${doc.key_id}' is not trusted by this build`;
@@ -182,7 +189,10 @@ function verifySignature(doc: LicenseDocument, trustedKeys: Readonly<Record<stri
  * discovered from FREDO_QA_LICENSE_FILE, ~/.config/fredo-qa/license.json, then
  * .qa-license.json at the project root. Any failure degrades to the free tier.
  */
-export function validateLicense(source?: string, options: LicenseOptions = {}): LicenseValidationResult {
+export function validateLicense(
+  source?: string,
+  options: LicenseOptions = {},
+): LicenseValidationResult {
   const trimmed = source?.trim();
   let text: string;
   try {

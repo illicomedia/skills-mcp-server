@@ -8,7 +8,8 @@ export const rustRule: LanguageAuditRule = {
   getQaScript: () => ({
     name: 'qa:starter / cargo quality gates declared',
     passed: true,
-    details: 'Rust project detected (Cargo.toml). Canonical QA available via cargo test and cargo clippy.',
+    details:
+      'Rust project detected (Cargo.toml). Canonical QA available via cargo test and cargo clippy.',
   }),
 
   getTypeCheck: () => ({
