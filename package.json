@@ -1,7 +1,7 @@
 {
   "name": "@illicomedia/skills-mcp-server",
   "version": "1.4.3",
-  "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server",
+  "description": "MCP server that gives AI coding agents QA skills and a local code audit: security, accessibility, performance, GDPR, DevOps and more.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -41,9 +41,26 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
+    "ai-agents",
+    "ai-coding",
+    "agent-skills",
+    "code-quality",
+    "code-review",
+    "code-audit",
     "qa",
-    "skills"
+    "quality-assurance",
+    "quality-gates",
+    "security",
+    "accessibility",
+    "performance",
+    "gdpr",
+    "devops",
+    "claude-desktop",
+    "cursor",
+    "copilot",
+    "windsurf"
   ],
   "author": "Frédéric Ch. V. <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
