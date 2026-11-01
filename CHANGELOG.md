@@ -2,13 +2,15 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.4.2 - 2026-11-01
 
-No change to the server. Releases now go through the `next` tag before reaching `latest`.
+Internal quality release: behaviour is unchanged for users, and the server still makes no API calls.
 
 ### Changed
 
-- The API endpoint defaults to `/api/v1`, and `FREDO_QA_API_URL` must be HTTPS. The server makes no API calls yet.
+- The API endpoint defaults to `/api/v1`, and `FREDO_QA_API_URL` must be HTTPS.
+- Source reorganized, with 100% test coverage enforced.
+- Releases now go through the `next` tag before reaching `latest`.
 
 ## 1.4.1 - 2026-10-30
 
