@@ -2,6 +2,12 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.4.3 - 2026-11-01
+
+### Fixed
+
+- The published package no longer declares the repository's pnpm-only rule, which could stop `npm` and `npx` with `EBADDEVENGINES`.
+
 ## 1.4.2 - 2026-11-01
 
 Internal quality release: behaviour is unchanged for users, and the server still makes no API calls.
