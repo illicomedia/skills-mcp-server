@@ -68,7 +68,8 @@ function runNpmQuery(query) {
 
 function registryState(packageName) {
   const raw = runNpmQuery(`view "${packageName}" versions dist-tags --json`);
-  const state = JSON.parse(raw);
+  // npm 12 wraps the answer in an array.
+  const [state] = [JSON.parse(raw)].flat();
   return { versions: [state.versions].flat(), distTags: state['dist-tags'] ?? {} };
 }
 
