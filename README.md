@@ -174,7 +174,7 @@ Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuratio
 An unpinned `npx` configuration can pick up a new release on its own. For teams and CI, pin an exact version so that it only changes when you choose:
 
 ```bash
-npx -y @illicomedia/skills-mcp-server@1.4.1
+npx -y @illicomedia/skills-mcp-server@1.4.3
 ```
 
 - **`latest`** is the default and the recommended stable version.

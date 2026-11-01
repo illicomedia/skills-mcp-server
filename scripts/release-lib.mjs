@@ -9,7 +9,7 @@ import * as readline from 'node:readline';
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 const BUMPS = ['patch', 'minor', 'major'];
 const FLAGS_WITH_VALUE = ['--bump', '--promote', '--deprecate', '--message'];
-const FLAGS = ['--dry-run', '--smoke-only'];
+const FLAGS = ['--dry-run', '--smoke-only', '--ship'];
 const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 
 function readFlags(argv) {
@@ -36,19 +36,32 @@ function exactVersion(flag, value) {
   return value;
 }
 
+function bumpOf(flags) {
+  const bump = flags.get('--bump') ?? null;
+  if (bump !== null && !BUMPS.includes(bump)) {
+    throw new Error(`--bump expects one of ${BUMPS.join(', ')}`);
+  }
+  return bump;
+}
+
 /** Turns the command line into one release action; anything unknown or ambiguous throws. */
 export function parseReleaseArgs(argv) {
   const flags = readFlags(argv);
   const dryRun = flags.has('--dry-run');
-  const actions = ['--promote', '--deprecate', '--smoke-only'].filter((flag) => flags.has(flag));
+  const actions = ['--ship', '--promote', '--deprecate', '--smoke-only'].filter((flag) =>
+    flags.has(flag),
+  );
   if (actions.length > 1) {
     throw new Error(`Choose one action, got: ${actions.join(', ')}`);
   }
-  if (actions.length === 1 && flags.has('--bump')) {
+  if (actions.length === 1 && actions[0] !== '--ship' && flags.has('--bump')) {
     throw new Error('--bump only applies to a publish');
   }
   if (flags.has('--message') && !flags.has('--deprecate')) {
     throw new Error('--message only applies to --deprecate');
+  }
+  if (flags.has('--ship')) {
+    return { action: 'ship', dryRun, bump: bumpOf(flags) };
   }
   if (flags.has('--promote')) {
     return {
@@ -68,11 +81,7 @@ export function parseReleaseArgs(argv) {
   if (flags.has('--smoke-only')) {
     return { action: 'smoke', dryRun };
   }
-  const bump = flags.get('--bump') ?? null;
-  if (bump !== null && !BUMPS.includes(bump)) {
-    throw new Error(`--bump expects one of ${BUMPS.join(', ')}`);
-  }
-  return { action: 'publish', dryRun, bump };
+  return { action: 'publish', dryRun, bump: bumpOf(flags) };
 }
 
 export function bumpVersion(currentVersion, type) {
@@ -90,6 +99,11 @@ export function bumpVersion(currentVersion, type) {
 }
 
 /** True when the `next` tag still points at the version that has just become `latest`. */
+/** A release must say what changed before it can ship. */
+export function changelogHasVersion(changelog, version) {
+  return changelog.split('\n').some((line) => line.startsWith(`## ${version} `));
+}
+
 export function nextDistTagAfterPromotion(distTags, promotedVersion) {
   return distTags.next === promotedVersion;
 }

@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import test from 'node:test';
 import {
   bumpVersion,
+  changelogHasVersion,
   nextDistTagAfterPromotion,
   parseReleaseArgs,
   smokeTestServer,
@@ -34,6 +35,27 @@ test('Release args: promote and deprecate target one exact version', () => {
       message: 'Broken. Use 1.5.1.',
     },
   );
+});
+
+test('Release args: ship is one action, with or without a bump', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--ship']), {
+    action: 'ship',
+    dryRun: false,
+    bump: null,
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['--ship', '--bump', 'minor', '--dry-run']), {
+    action: 'ship',
+    dryRun: true,
+    bump: 'minor',
+  });
+  assert.throws(() => parseReleaseArgs(['--ship', '--promote', '1.5.0']), /Choose one action/);
+  assert.throws(() => parseReleaseArgs(['--ship', '--bump', 'huge']), /--bump expects/);
+});
+
+test('A release needs its changelog section', () => {
+  assert.equal(changelogHasVersion('# Changelog\n\n## 1.5.0 - 2026-11-02\n', '1.5.0'), true);
+  assert.equal(changelogHasVersion('## 1.5.0 - 2026-11-02\n', '1.5.1'), false);
+  assert.equal(changelogHasVersion('## 1.5.01 - 2026-11-02\n', '1.5.0'), false);
 });
 
 test('Release args: smoke-only runs without the registry', () => {

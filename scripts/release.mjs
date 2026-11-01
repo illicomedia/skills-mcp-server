@@ -8,10 +8,14 @@
  *  1. publish: build, test, smoke-test the packed tarball, publish under the `next` tag.
  *  2. promote: point `latest` at a published version. The same command rolls back.
  *
+ * --ship runs the whole release for one version: publish, install it back from the registry and
+ * check it, promote it, then deprecate the version it replaces. It stops at the first failure.
+ *
  * Usage (add --dry-run to preview):
  *  node scripts/release.mjs [--bump patch|minor|major]
  *  node scripts/release.mjs --promote <version>
  *  node scripts/release.mjs --deprecate <version> --message "<reason>. Use <version>."
+ *  node scripts/release.mjs --ship [--bump patch|minor|major]
  *  node scripts/release.mjs --smoke-only
  */
 
@@ -19,9 +23,11 @@ import { execSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
   bumpVersion,
+  changelogHasVersion,
   nextDistTagAfterPromotion,
   parseReleaseArgs,
   smokeTestServer,
@@ -29,6 +35,8 @@ import {
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG_JSON_PATH = resolve(PKG_DIR, 'package.json');
+const REGISTRY_ATTEMPTS = 12;
+const REGISTRY_WAIT_MS = 10_000;
 
 function log(msg) {
   console.log(`\x1b[36m[release]\x1b[0m ℹ ${msg}`);
@@ -113,7 +121,75 @@ async function smokeTestTarball(pkg) {
   }
 }
 
-async function publish(pkg, { dryRun, bump }) {
+/** pnpm refuses to publish a dirty tree: better to say so before anything changes. */
+function requireCleanTree() {
+  const changes = run('git status --porcelain');
+  if (changes) {
+    throw new Error(`Commit or discard these changes first:\n${changes}`);
+  }
+}
+
+function requireChangelog(version) {
+  if (!changelogHasVersion(readFileSync(resolve(PKG_DIR, 'CHANGELOG.md'), 'utf8'), version)) {
+    throw new Error(`CHANGELOG.md has no "## ${version} - <date>" section.`);
+  }
+}
+
+/** Installs the published version as a user would. A new version can take a moment to appear. */
+async function verifyFromRegistry(pkg, version) {
+  const workDir = mkdtempSync(join(tmpdir(), 'fqa-registry-'));
+  try {
+    writeFileSync(join(workDir, 'package.json'), '{"private":true}\n', 'utf8');
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        run(`npm install --no-audit --no-fund --ignore-scripts "${pkg.name}@${version}"`, {
+          cwd: workDir,
+        });
+        break;
+      } catch (error) {
+        if (attempt === REGISTRY_ATTEMPTS) {
+          throw error;
+        }
+        log(`v${version} is not installable yet, waiting (${attempt}/${REGISTRY_ATTEMPTS})...`);
+        await sleep(REGISTRY_WAIT_MS);
+      }
+    }
+    const binName = Object.keys(pkg.bin)[0];
+    const binPath = join(workDir, 'node_modules', '.bin', binName);
+    const { tools } = await smokeTestServer(binPath, version);
+    logSuccess(`Published v${version} installs from the registry and exposes ${tools} tools.`);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+async function ship(pkg, { dryRun, bump }) {
+  const { name: packageName } = pkg;
+  requireLogin();
+  const version = bump ? bumpVersion(pkg.version, bump) : pkg.version;
+  requireChangelog(version);
+  if (!dryRun) {
+    requireCleanTree();
+  }
+  const previous = registryState(packageName).distTags.latest;
+
+  await publish(pkg, { dryRun, bump, commitBump: true });
+  if (dryRun) {
+    log(`[dry-run] Would verify v${version}, promote it, deprecate v${previous}.`);
+    return;
+  }
+  await verifyFromRegistry(pkg, version);
+  promote(pkg, { dryRun, version });
+  if (runNpmQuery(`view "${packageName}@${previous}" deprecated`)) {
+    log(`v${previous} is already deprecated.`);
+  } else {
+    const message = `Superseded by ${version}. Use ${version}.`;
+    deprecate(pkg, { dryRun, version: previous, message });
+  }
+  logSuccess(`Released v${version}.`);
+}
+
+async function publish(pkg, { dryRun, bump, commitBump = false }) {
   const { name: packageName } = pkg;
   requireLogin();
   const { versions } = registryState(packageName);
@@ -135,6 +211,10 @@ async function publish(pkg, { dryRun, bump }) {
   run('pnpm test');
   logSuccess('All tests passed.');
   await smokeTestTarball(pkg);
+
+  if (commitBump && bump && !dryRun) {
+    run(`git add package.json && git commit -m "chore(mcp): release ${version}"`);
+  }
 
   const publishArgs = ['publish', '--access', 'public', '--tag', 'next'];
   if (process.env.GITHUB_ACTIONS === 'true') {
@@ -195,7 +275,9 @@ async function main() {
   const pkg = JSON.parse(readFileSync(PKG_JSON_PATH, 'utf8'));
   log(`${pkg.name} v${pkg.version}: ${options.action}${options.dryRun ? ' (dry-run)' : ''}`);
 
-  if (options.action === 'smoke') {
+  if (options.action === 'ship') {
+    await ship(pkg, options);
+  } else if (options.action === 'smoke') {
     await smokeTestTarball(pkg);
   } else if (options.action === 'promote') {
     promote(pkg, options);
