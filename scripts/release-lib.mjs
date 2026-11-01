@@ -116,7 +116,7 @@ export function smokeTestServer(binPath, expectedVersion, timeoutMs = DEFAULT_SM
     const timer = setTimeout(() => finish(new Error(`Server gave no answer within ${timeoutMs} ms`)), timeoutMs);
 
     server.stderr.on('data', (chunk) => stderr.push(String(chunk)));
-    server.stdin.on('error', () => {});
+    server.stdin.on('error', finish);
     server.on('error', (error) => finish(error));
     server.on('exit', (code) => finish(new Error(`Server exited early with code ${code}: ${stderr.join('').trim()}`)));
 

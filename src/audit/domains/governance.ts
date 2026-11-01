@@ -22,29 +22,25 @@ export function checkQaExceptions(ctx: AuditContext): AuditCheckResult {
     'No .qa-exceptions.yaml required (clean state: 0 exceptions, or handled natively in compiler/linter config).';
 
   if (hasExceptions) {
-    try {
-      const content = ctx.readFile('.qa-exceptions.yaml') || '';
-      const dateMatches = content.matchAll(
-        /(?:expires_at|expires|expiry|valid_until|until):\s*["']?([0-9]{4}-[0-9]{2}-[0-9]{2})["']?/gi,
-      );
-      const expiredList: string[] = [];
-      const now = Date.now();
-      for (const match of dateMatches) {
-        const expDate = Date.parse(match[1]);
-        if (!Number.isNaN(expDate) && expDate < now) {
-          expiredList.push(match[1]);
-        }
+    const content = ctx.readFile('.qa-exceptions.yaml') || '';
+    const dateMatches = content.matchAll(
+      /(?:expires_at|expires|expiry|valid_until|until):\s*["']?([0-9]{4}-[0-9]{2}-[0-9]{2})["']?/gi,
+    );
+    const expiredList: string[] = [];
+    const now = Date.now();
+    for (const match of dateMatches) {
+      const expDate = Date.parse(match[1]);
+      if (!Number.isNaN(expDate) && expDate < now) {
+        expiredList.push(match[1]);
       }
-      if (expiredList.length > 0) {
-        exceptionsPassed = false;
-        exceptionsSeverity = 'blocker';
-        exceptionsDetails = `Exception register contains ${expiredList.length} expired entry(ies) (expired on ${expiredList.join(', ')}). Expired entries fail closed per qa-core.`;
-      } else {
-        exceptionsDetails =
-          'Exception register file present (all declared expiration dates are active).';
-      }
-    } catch {
-      exceptionsDetails = 'Exception register file present (schema and expiry not checked).';
+    }
+    if (expiredList.length > 0) {
+      exceptionsPassed = false;
+      exceptionsSeverity = 'blocker';
+      exceptionsDetails = `Exception register contains ${expiredList.length} expired entry(ies) (expired on ${expiredList.join(', ')}). Expired entries fail closed per qa-core.`;
+    } else {
+      exceptionsDetails =
+        'Exception register file present (all declared expiration dates are active).';
     }
   }
 

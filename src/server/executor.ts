@@ -1,15 +1,15 @@
-import { runComplianceAudit } from './audit.js';
-import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from './catalog.js';
-import { installSkill, syncWorkspaceSkills, pruneSkills } from './installer.js';
+import { runComplianceAudit } from '../audit/index.js';
+import { SKILLS_CATALOG, getAvailableSkills, loadSkillContent } from '../skills/catalog.js';
+import { installSkill, syncWorkspaceSkills, pruneSkills } from '../skills/installer.js';
 import {
   type LicenseOptions,
   PRICING_URL,
   PROJECT_LICENSE_FILE,
   generateCanaryWatermark,
   validateLicense,
-} from './license.js';
-import type { LicenseValidationResult } from './types.js';
-import { SERVER_VERSION } from './version.js';
+} from '../license/license.js';
+import type { LicenseValidationResult } from '../types.js';
+import { SERVER_VERSION } from '../version.js';
 
 export class ToolExecutor {
   public static execute(

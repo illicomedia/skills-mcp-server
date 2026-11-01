@@ -1,4 +1,4 @@
-import type { McpTool } from './types.js';
+import type { McpTool } from '../types.js';
 
 export const MCP_TOOLS: McpTool[] = [
   {

@@ -11,7 +11,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FredoQaMcpServer } from './server.js';
+import { FredoQaMcpServer } from './server/server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { FredoQaMcpServer } from '../dist/server.js';
+import { FredoQaMcpServer } from '../dist/server/server.js';
 import { TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 

@@ -2,8 +2,8 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './license-keys.js';
-import type { LicenseValidationResult } from './types.js';
+import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './keys.js';
+import type { LicenseValidationResult } from '../types.js';
 
 const HMAC_SALT = 'fredo-qa-skills-provenance-v1';
 export const PRICING_URL = 'https://www.illicomedia.com/qa-skills/pricing';

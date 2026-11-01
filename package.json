@@ -43,7 +43,7 @@
     "release:smoke": "node scripts/release.mjs --smoke-only",
     "start": "node dist/index.js",
     "test": "node --test tests/*.test.ts",
-    "test:coverage": "node --test --experimental-test-coverage tests/*.test.ts"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 tests/*.test.ts"
   },
   "keywords": [
     "mcp",
@@ -54,7 +54,7 @@
   "author": "Frédéric Ch. V. <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   }
 }

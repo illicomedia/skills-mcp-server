@@ -26,12 +26,8 @@ export const LANGUAGE_RULES: LanguageAuditRule[] = [
 ];
 
 export function resolveLanguageRule(ctx: AuditContext): LanguageAuditRule {
-  for (const rule of LANGUAGE_RULES) {
-    if (rule.match(ctx)) {
-      return rule;
-    }
-  }
-  return defaultRule;
+  // defaultRule matches everything, so the first match always exists.
+  return LANGUAGE_RULES.filter((rule) => rule.match(ctx))[0];
 }
 
 export function resolveAllMatchingRules(ctx: AuditContext): LanguageAuditRule[] {

@@ -23,7 +23,6 @@ const BLOCKED_EXACT_PATHS = new Set<string>([
 
 function getSensitiveUserDirs(): string[] {
   const home = os.homedir();
-  if (!home) return [];
   return [
     path.join(home, '.ssh'),
     path.join(home, '.aws'),
@@ -50,14 +49,7 @@ export function validateSafeProjectPath(projectPath: string, operationName: stri
     throw new Error(`[${operationName}] Target directory does not exist: '${resolved}'.`);
   }
 
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(resolved);
-  } catch (err) {
-    throw new Error(`[${operationName}] Cannot access directory '${resolved}': ${(err as Error).message}`);
-  }
-
-  if (!stat.isDirectory()) {
+  if (!fs.statSync(resolved).isDirectory()) {
     throw new Error(`[${operationName}] Target path is not a directory: '${resolved}'.`);
   }
 
@@ -92,19 +84,12 @@ export function validateSafeWriteTarget(projectRoot: string, targetPath: string)
   // Prevent symlink hijacking of parent folders
   let current = resolvedTarget;
   while (current.length >= resolvedRoot.length) {
-    try {
-      if (fs.existsSync(current)) {
-        const lstat = fs.lstatSync(current);
-        if (lstat.isSymbolicLink()) {
-          const real = fs.realpathSync(current);
-          const realRel = path.relative(resolvedRoot, real);
-          if (realRel.startsWith('..') || path.isAbsolute(realRel)) {
-            throw new Error(`Security restriction: symlink '${current}' points outside project root to '${real}'.`);
-          }
-        }
+    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
+      const real = fs.realpathSync(current);
+      const realRel = path.relative(resolvedRoot, real);
+      if (realRel.startsWith('..') || path.isAbsolute(realRel)) {
+        throw new Error(`Security restriction: symlink '${current}' points outside project root to '${real}'.`);
       }
-    } catch (err) {
-      if ((err as Error).message.includes('Security restriction')) throw err;
     }
     const parent = path.dirname(current);
     if (parent === current) break;

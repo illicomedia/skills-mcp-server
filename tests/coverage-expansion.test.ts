@@ -11,17 +11,17 @@ import {
   getAvailableSkills,
   loadSkillContent,
   loadSkillLicense,
-} from '../dist/catalog.js';
-import { runComplianceAudit } from '../dist/audit.js';
-import { ToolExecutor } from '../dist/executor.js';
+} from '../dist/skills/catalog.js';
+import { runComplianceAudit } from '../dist/audit/index.js';
+import { ToolExecutor } from '../dist/server/executor.js';
 import {
   detectProjectSkills,
   installSkill,
   syncWorkspaceSkills,
-} from '../dist/installer.js';
-import { resolveSkillLicense } from '../dist/license-templates.js';
-import { canonicalJson, validateLicense } from '../dist/license.js';
-import { FredoQaMcpServer } from '../dist/server.js';
+} from '../dist/skills/installer.js';
+import { resolveSkillLicense } from '../dist/license/templates.js';
+import { canonicalJson, validateLicense } from '../dist/license/license.js';
+import { FredoQaMcpServer } from '../dist/server/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 import { TEST_KEY_ID, TEST_LICENSE_OPTIONS, signedLicense } from './license-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
@@ -569,7 +569,7 @@ test('CLI: Pre-flight lock triggers fatal exit when LICENSE is missing', async (
 });
 
 test('Security Guard: validateSafeProjectPath blocks root and sensitive system directories', async () => {
-  const { validateSafeProjectPath, validateSafeWriteTarget } = await import('../dist/security-guard.js');
+  const { validateSafeProjectPath, validateSafeWriteTarget } = await import('../dist/security/path-guard.js');
 
   assert.throws(
     () => validateSafeProjectPath('/', 'test_root'),

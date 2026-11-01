@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { runComplianceAudit } from '../dist/audit.js';
+import { runComplianceAudit } from '../dist/audit/index.js';
 
 const OVERCLAIMS = /\b(valid|correctly|compliant|ensures?|verified|soundness)\b/i;
 

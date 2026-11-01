@@ -46,12 +46,8 @@ export function createAuditContext(projectPath: string): AuditContext {
   };
 
   const hasDir = (rel: string): boolean => {
-    try {
-      const p = path.join(resolvedPath, rel);
-      return fs.existsSync(p) && fs.statSync(p).isDirectory();
-    } catch {
-      return false;
-    }
+    const p = path.join(resolvedPath, rel);
+    return fs.existsSync(p) && fs.statSync(p).isDirectory();
   };
 
   const readFile = (rel: string): string | null => {

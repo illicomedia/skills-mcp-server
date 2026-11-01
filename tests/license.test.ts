@@ -9,8 +9,8 @@ import {
   LICENSE_SCHEMA_VERSION,
   canonicalJson,
   validateLicense,
-} from '../dist/license.js';
-import { TRUSTED_LICENSE_KEYS } from '../dist/license-keys.js';
+} from '../dist/license/license.js';
+import { TRUSTED_LICENSE_KEYS } from '../dist/license/keys.js';
 import {
   TEST_LICENSE_OPTIONS,
   licenseBody,
@@ -163,7 +163,7 @@ test('License: release builds embed only public keys and no test keys', () => {
     assert.equal(crypto.createPublicKey(pem).asymmetricKeyType, 'ed25519');
     assert.doesNotMatch(pem, /PRIVATE/);
   }
-  const source = fs.readFileSync(new URL('../dist/license.js', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../dist/license/license.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /fqa_test_|fqa_live_/);
 });
 

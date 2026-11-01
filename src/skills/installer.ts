@@ -1,9 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
-import { generateCanaryWatermark, validateLicense } from './license.js';
-import { validateSafeProjectPath, validateSafeWriteTarget } from './security-guard.js';
-import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
+import { generateCanaryWatermark, validateLicense } from '../license/license.js';
+import { validateSafeProjectPath, validateSafeWriteTarget } from '../security/path-guard.js';
+import type { LicenseValidationResult, SkillMetadata, SkillTier } from '../types.js';
 
 export interface InstallSkillResult {
   success: boolean;
@@ -211,12 +211,11 @@ export function installSkill(
       promptRecommendation: `Apply the quality gates in .agents/skills/${skillId}/SKILL.md to this codebase and verify compliance.`,
     };
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
       skillId,
       installedFiles: [],
-      message: `Failed to install skill '${skillId}': ${errorMsg}`,
+      message: `Failed to install skill '${skillId}': ${(err as Error).message}`,
     };
   }
 }
@@ -393,13 +392,13 @@ export function syncWorkspaceSkills(
   const installedList = installed
     .map(
       (r) =>
-        `  - ${isConfirmed ? '✓' : '📋'} **\`${r.skillId}\`** [${r.tier?.toUpperCase()}]: ${r.skillName}`,
+        `  - ${isConfirmed ? '✓' : '📋'} **\`${r.skillId}\`** [${String(r.tier).toUpperCase()}]: ${r.skillName}`,
     )
     .join('\n');
   const skippedList = skippedUnauthorized
     .map(
       (r) =>
-        `  - 🔒 **\`${r.skillId}\`** [${r.requiredTier?.toUpperCase()}]: Authentication required (Use 'set_license_key')`,
+        `  - 🔒 **\`${r.skillId}\`** [${String(r.requiredTier).toUpperCase()}]: Authentication required (Use 'set_license_key')`,
     )
     .join('\n');
   const failedList = failed.map((r) => `  - ✗ **\`${r.skillId}\`**: ${r.message}`).join('\n');

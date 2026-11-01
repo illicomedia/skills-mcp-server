@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { resolveSkillLicense } from './license-templates.js';
-import type { LicenseValidationResult, SkillMetadata, SkillTier } from './types.js';
+import { resolveSkillLicense } from '../license/templates.js';
+import type { LicenseValidationResult, SkillMetadata, SkillTier } from '../types.js';
 
 export const SKILLS_CATALOG: SkillMetadata[] = [
   // Free Foundation (MIT)
@@ -267,12 +267,13 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
   }
 
   // Look for actual file on disk if available
+  const base = searchDir ?? process.cwd();
   const candidatePaths = [
-    path.join(searchDir || process.cwd(), 'skills', 'free', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), 'skills', 'pro', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), 'skills', 'enterprise', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), 'skills', skillId, 'SKILL.md'),
-    path.join(searchDir || process.cwd(), '.agents', 'skills', skillId, 'SKILL.md'),
+    path.join(base, 'skills', 'free', skillId, 'SKILL.md'),
+    path.join(base, 'skills', 'pro', skillId, 'SKILL.md'),
+    path.join(base, 'skills', 'enterprise', skillId, 'SKILL.md'),
+    path.join(base, 'skills', skillId, 'SKILL.md'),
+    path.join(base, '.agents', 'skills', skillId, 'SKILL.md'),
   ];
 
   for (const p of candidatePaths) {

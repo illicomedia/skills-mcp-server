@@ -5,7 +5,7 @@ import { auditSecurity } from './domains/security.js';
 import { auditQuality } from './domains/quality.js';
 import { auditSupplyChain } from './domains/supply-chain.js';
 import { auditDevops } from './domains/devops.js';
-import { validateSafeProjectPath } from '../security-guard.js';
+import { validateSafeProjectPath } from '../security/path-guard.js';
 
 export * from './types.js';
 export * from './context.js';

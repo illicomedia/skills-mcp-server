@@ -1,14 +1,14 @@
 import * as readline from 'node:readline';
+import { resolveApiEndpoint } from '../config.js';
 import { ToolExecutor } from './executor.js';
-import type { LicenseOptions } from './license.js';
+import type { LicenseOptions } from '../license/license.js';
 import { MCP_TOOLS, findToolDefinition, validateToolParams } from './tools.js';
-import type { JsonRpcRequest, JsonRpcResponse } from './types.js';
-import { SERVER_VERSION } from './version.js';
+import type { JsonRpcRequest, JsonRpcResponse } from '../types.js';
+import { SERVER_VERSION } from '../version.js';
 
 export { MCP_TOOLS };
 
-export const DEFAULT_API_ENDPOINT =
-  process.env.FREDO_QA_API_URL || 'https://www.illicomedia.com/api';
+export const DEFAULT_API_ENDPOINT = resolveApiEndpoint(process.env.FREDO_QA_API_URL);
 
 export const MAX_REQUEST_BYTES = 1024 * 1024; // 1MB DoS guard per JSON-RPC frame
 
@@ -158,40 +158,31 @@ export class FredoQaMcpServer {
     });
 
     rl.on('line', (line: string) => {
-      if (line.length > MAX_REQUEST_BYTES) {
-        const errorResponse: JsonRpcResponse = {
-          jsonrpc: '2.0',
-          id: null as unknown as string,
-          error: {
-            code: -32700,
-            message: `Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes`,
-          },
-        };
-        process.stdout.write(`${JSON.stringify(errorResponse)}\n`);
-        return;
-      }
-
-      const trimmed = line.trim();
-      if (!trimmed) return;
-
-      try {
-        const request = JSON.parse(trimmed) as JsonRpcRequest;
-        const response = this.handleRequest(request);
-
-        if (request.id !== undefined) {
-          process.stdout.write(`${JSON.stringify(response)}\n`);
-        }
-      } catch (err) {
-        const errorResponse: JsonRpcResponse = {
-          jsonrpc: '2.0',
-          id: null as unknown as string,
-          error: {
-            code: -32700,
-            message: `Parse error: ${(err as Error).message}`,
-          },
-        };
-        process.stdout.write(`${JSON.stringify(errorResponse)}\n`);
+      const output = this.handleLine(line);
+      if (output !== null) {
+        process.stdout.write(`${output}\n`);
       }
     });
+  }
+
+  /** One line of the stdio protocol: the JSON to answer with, or null when no answer is due. */
+  public handleLine(line: string): string | null {
+    const parseError = (message: string): string =>
+      JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message } });
+
+    if (line.length > MAX_REQUEST_BYTES) {
+      return parseError(`Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes.`);
+    }
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return null;
+    }
+    try {
+      const request = JSON.parse(trimmed) as JsonRpcRequest;
+      const response = this.handleRequest(request);
+      return request.id !== undefined ? JSON.stringify(response) : null;
+    } catch (err) {
+      return parseError(`Parse error: ${(err as Error).message}`);
+    }
   }
 }

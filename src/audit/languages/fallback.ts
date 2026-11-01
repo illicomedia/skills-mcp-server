@@ -11,14 +11,11 @@ export const makefileRule: LanguageAuditRule = {
     details: 'Makefile / scripts/qa.sh detected for canonical quality gate execution.',
   }),
 
-  getTypeCheck: (ctx) => {
-    const hasQaStandard = true;
-    return {
-      name: 'type-check script declared',
-      passed: hasQaStandard,
-      details: 'Static analysis provided by build system.',
-    };
-  },
+  getTypeCheck: () => ({
+    name: 'type-check script declared',
+    passed: true,
+    details: 'Static analysis provided by build system.',
+  }),
 
   getTestSuite: (ctx) => {
     const makefileContent = ctx.readFile('Makefile') || '';

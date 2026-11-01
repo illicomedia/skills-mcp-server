@@ -1,6 +1,6 @@
 import * as assert from 'node:assert';
 import test from 'node:test';
-import { FredoQaMcpServer } from '../dist/server.js';
+import { FredoQaMcpServer } from '../dist/server/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 
 test('MCP Protocol Negative: Unknown JSON-RPC method returns code -32601', () => {

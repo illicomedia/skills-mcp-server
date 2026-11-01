@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { LicenseValidationResult, SkillMetadata } from './types.js';
+import type { LicenseValidationResult, SkillMetadata } from '../types.js';
 
 export const DEFAULT_MIT_LICENSE = `MIT License
 
@@ -55,14 +55,15 @@ export function resolveSkillLicense(
   license: LicenseValidationResult,
   searchDir?: string,
 ): string {
+  const base = searchDir ?? process.cwd();
   const candidatePaths = [
-    path.join(searchDir || process.cwd(), 'skills', 'free', meta.id, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'pro', meta.id, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'pro', 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'enterprise', meta.id, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', 'enterprise', 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'skills', meta.id, 'LICENSE'),
-    path.join(searchDir || process.cwd(), 'LICENSE'),
+    path.join(base, 'skills', 'free', meta.id, 'LICENSE'),
+    path.join(base, 'skills', 'pro', meta.id, 'LICENSE'),
+    path.join(base, 'skills', 'pro', 'LICENSE'),
+    path.join(base, 'skills', 'enterprise', meta.id, 'LICENSE'),
+    path.join(base, 'skills', 'enterprise', 'LICENSE'),
+    path.join(base, 'skills', meta.id, 'LICENSE'),
+    path.join(base, 'LICENSE'),
   ];
 
   for (const p of candidatePaths) {
