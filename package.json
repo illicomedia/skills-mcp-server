@@ -1,6 +1,6 @@
 {
   "name": "@illicomedia/skills-mcp-server",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Official Fredo QA Skills Model Context Protocol (MCP) Server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
