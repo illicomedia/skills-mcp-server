@@ -1,5 +1,11 @@
 # Fredo QA Skills — Model Context Protocol (MCP) Server
 
+[![npm version](https://img.shields.io/npm/v/@illicomedia/skills-mcp-server.svg)](https://www.npmjs.com/package/@illicomedia/skills-mcp-server)
+[![CI Status](https://github.com/illicomedia/skills-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/illicomedia/skills-mcp-server/actions/workflows/ci.yml)
+[![Socket Security](https://socket.dev/api/badge/npm/package/@illicomedia/skills-mcp-server)](https://socket.dev/npm/package/@illicomedia/skills-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success.svg)](package.json)
+
 Official **Model Context Protocol (MCP)** server for **Fredo QA Skills**.  
 Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Windsurf, Copilot, VS Code**) to the Fredo QA engineering standards, regulatory checklists, and preflight audit engine.
 

@@ -1,0 +1,74 @@
+name: Release & Provenance
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to publish (e.g. v1.4.8)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm with Provenance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Code Style & Lint
+        run: pnpm run lint
+
+      - name: Build Package
+        run: pnpm run build
+
+      - name: Enforce 100% Test Coverage Gate
+        run: pnpm run test:coverage
+
+      - name: Run Release Smoke Test
+        run: pnpm run release:smoke
+
+      - name: Publish to npm with Provenance (SLSA Level 3)
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name || inputs.tag }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          node -e "
+            import fs from 'node:fs';
+            import { extractChangelogSection } from './scripts/release-lib.mjs';
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf-8');
+            const notes = extractChangelogSection(changelog, '$VERSION');
+            fs.writeFileSync('RELEASE_NOTES.md', notes || 'Release $TAG_NAME');
+          "
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag || echo "Release already exists"
