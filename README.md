@@ -170,10 +170,10 @@ During rapid **vibe coding**, simply prompt the assistant naturally in chat:
 > **Prompt:** *"Set up standard QA quality gates for this TypeScript and Python repository."*  
 > 🤖 **What happens:** The agent asks for your approval (`confirm: true`), runs `sync_workspace_skills`, and automatically installs relevant engineering profiles (e.g., `qa-javascript-typescript`, `qa-python`, `qa-security`) directly into `.agents/skills/`.
 
-### 3. Loading Specific Engineering Directives
-> **Prompt:** *"What are the WCAG 2.2 AA accessibility requirements we must follow for this frontend?"*  
-> **Prompt:** *"Show me the GDPR compliance checklist for user data handling."*  
-> 🤖 **What happens:** The agent triggers `get_skill_rules` with `qa-accessibility` or `qa-gdpr-rgpd` and strictly incorporates the formal policy rules into its coding plan.
+### 3. Enforcing Deterministic Engineering Contracts
+> **Prompt (Free):** *"Apply the `qa-rust` (or `qa-javascript-typescript`) `standard` gate to this module—zero suppressions—and output the `qa-core` evidence block."*  
+> **Prompt (Pro):** *"Audit this frontend against `qa-accessibility` (WCAG 2.2 AA) and `qa-gdpr-rgpd` (CNIL equal accept/refuse & Art. 13 forms) and fix every blocker."*  
+> 🤖 **What happens:** Rather than relying on generic LLM advice or taking shortcuts, the agent calls `get_skill_rules` to load the exact profile thresholds, toolchain flags, exception rules, and mandatory `qa-core` evidence format before writing or validating code.
 
 ### 4. Cleaning Up Unused Skills (Archiving)
 > **Prompt:** *"Clean up any installed QA skills that don't match our active stack."*  
