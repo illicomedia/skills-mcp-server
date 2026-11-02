@@ -9,7 +9,7 @@ import * as readline from 'node:readline';
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 const BUMPS = ['patch', 'minor', 'major'];
 const FLAGS_WITH_VALUE = ['--bump', '--promote', '--deprecate', '--message'];
-const FLAGS = ['--dry-run', '--smoke-only', '--ship'];
+const FLAGS = ['--dry-run', '--smoke-only', '--ship', '--yes', '-y'];
 const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 
 function readFlags(argv) {
@@ -48,6 +48,7 @@ function bumpOf(flags) {
 export function parseReleaseArgs(argv) {
   const flags = readFlags(argv);
   const dryRun = flags.has('--dry-run');
+  const yes = flags.has('--yes') || flags.has('-y');
   const actions = ['--ship', '--promote', '--deprecate', '--smoke-only'].filter((flag) =>
     flags.has(flag),
   );
@@ -61,13 +62,14 @@ export function parseReleaseArgs(argv) {
     throw new Error('--message only applies to --deprecate');
   }
   if (flags.has('--ship')) {
-    return { action: 'ship', dryRun, bump: bumpOf(flags) };
+    return { action: 'ship', dryRun, bump: bumpOf(flags), yes };
   }
   if (flags.has('--promote')) {
     return {
       action: 'promote',
       dryRun,
       version: exactVersion('--promote', flags.get('--promote')),
+      yes,
     };
   }
   if (flags.has('--deprecate')) {
@@ -76,12 +78,12 @@ export function parseReleaseArgs(argv) {
     if (!message) {
       throw new Error('--deprecate needs --message "<reason>. Use <version>."');
     }
-    return { action: 'deprecate', dryRun, version, message };
+    return { action: 'deprecate', dryRun, version, message, yes };
   }
   if (flags.has('--smoke-only')) {
-    return { action: 'smoke', dryRun };
+    return { action: 'smoke', dryRun, yes };
   }
-  return { action: 'publish', dryRun, bump: bumpOf(flags) };
+  return { action: 'publish', dryRun, bump: bumpOf(flags), yes };
 }
 
 export function bumpVersion(currentVersion, type) {

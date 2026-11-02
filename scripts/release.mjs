@@ -23,6 +23,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
@@ -37,8 +38,39 @@ import {
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG_JSON_PATH = resolve(PKG_DIR, 'package.json');
 const SNAPSHOT_PATH = resolve(PKG_DIR, '../../website/src/data/generated/catalog.snapshot.json');
-const REGISTRY_ATTEMPTS = 12;
+const REGISTRY_ATTEMPTS = 30;
 const REGISTRY_WAIT_MS = 10_000;
+
+async function confirmStep(promptMessage, { yes = false, defaultYes = true } = {}) {
+  if (yes || !process.stdin.isTTY) {
+    return defaultYes;
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const hint = defaultYes ? '[Y/n]' : '[y/N]';
+    const answer = await rl.question(`\x1b[33m[release]\x1b[0m ? ${promptMessage} ${hint} `);
+    const cleaned = answer.trim().toLowerCase();
+    if (!cleaned) {
+      return defaultYes;
+    }
+    return cleaned === 'y' || cleaned === 'yes' || cleaned === 'o' || cleaned === 'oui';
+  } finally {
+    rl.close();
+  }
+}
+
+async function askOption(promptMessage, options) {
+  if (!process.stdin.isTTY) {
+    return options[0];
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await rl.question(`\x1b[33m[release]\x1b[0m ? ${promptMessage} `);
+    return answer.trim().toLowerCase();
+  } finally {
+    rl.close();
+  }
+}
 
 function log(msg) {
   console.log(`\x1b[36m[release]\x1b[0m ℹ ${msg}`);
@@ -170,11 +202,11 @@ function requireChangelog(version) {
 }
 
 /** Installs the published version as a user would. A new version can take a moment to appear. */
-async function verifyFromRegistry(pkg, version) {
+async function verifyFromRegistry(pkg, version, { yes = false } = {}) {
   const workDir = mkdtempSync(join(tmpdir(), 'fqa-registry-'));
   try {
     writeFileSync(join(workDir, 'package.json'), '{"private":true}\n', 'utf8');
-    for (let attempt = 1; ; attempt += 1) {
+    for (let attempt = 1; attempt <= REGISTRY_ATTEMPTS; attempt += 1) {
       try {
         run(`npm install --no-audit --no-fund --ignore-scripts "${pkg.name}@${version}"`, {
           cwd: workDir,
@@ -182,7 +214,29 @@ async function verifyFromRegistry(pkg, version) {
         break;
       } catch (error) {
         if (attempt === REGISTRY_ATTEMPTS) {
+          logError(`v${version} installation timed out after ${REGISTRY_ATTEMPTS} attempts.`);
+          const proceed = await confirmStep(
+            `v${version} is not yet answering on local CDN cache. Skip verification and proceed to promote?`,
+            { yes, defaultYes: false },
+          );
+          if (proceed) {
+            logSuccess('Skipping registry install verification upon user confirmation.');
+            return;
+          }
           throw error;
+        }
+        if (attempt === 12 && process.stdin.isTTY && !yes) {
+          const action = await askOption(
+            `v${version} is taking time to replicate on npm CDN. [W]ait, [S]kip verification, or [A]bort? (W/s/a):`,
+            ['w', 's', 'a'],
+          );
+          if (action === 's') {
+            logSuccess('Skipping registry install verification upon user confirmation.');
+            return;
+          }
+          if (action === 'a') {
+            throw new Error('Verification aborted by user.');
+          }
         }
         log(`v${version} is not installable yet, waiting (${attempt}/${REGISTRY_ATTEMPTS})...`);
         await sleep(REGISTRY_WAIT_MS);
@@ -197,38 +251,96 @@ async function verifyFromRegistry(pkg, version) {
   }
 }
 
-async function ship(pkg, { dryRun, bump }) {
+async function ship(pkg, options) {
+  const { dryRun, bump, yes = false } = options;
   const { name: packageName } = pkg;
   requireLogin();
   const version = bump ? bumpVersion(pkg.version, bump) : pkg.version;
   requireChangelog(version);
-  if (!dryRun) {
+  if (!dryRun && pkg.version !== version) {
     requireCleanTree();
   }
   const previous = registryState(packageName).distTags.latest;
 
-  await publish(pkg, { dryRun, bump, commitBump: true });
+  log(`\n\x1b[1m=== Release Plan for ${packageName} ===\x1b[0m`);
+  log(`  Target Version:  v${version} (${bump ?? 'current'})`);
+  log(`  Previous Latest: v${previous}`);
+  log(`  Mode:            ${dryRun ? 'DRY-RUN (preview only)' : 'LIVE EXECUTION'}`);
+  log('=========================================\n');
+
+  if (!dryRun) {
+    const proceed = await confirmStep(`Proceed with shipping v${version}?`, {
+      yes,
+      defaultYes: true,
+    });
+    if (!proceed) {
+      log('Release aborted by user.');
+      return;
+    }
+  }
+
+  await publish(pkg, { dryRun, bump, commitBump: true, yes });
   if (dryRun) {
     log(`[dry-run] Would verify v${version}, promote it, deprecate v${previous}.`);
     return;
   }
-  await verifyFromRegistry(pkg, version);
+  await verifyFromRegistry(pkg, version, { yes });
   promote(pkg, { dryRun, version });
-  if (runNpmQuery(`view "${packageName}@${previous}" deprecated`)) {
-    log(`v${previous} is already deprecated.`);
-  } else {
-    const message = `Superseded by ${version}. Use ${version}.`;
-    deprecate(pkg, { dryRun, version: previous, message });
+
+  // Deprecate previous version
+  if (previous && previous !== version) {
+    if (runNpmQuery(`view "${packageName}@${previous}" deprecated`)) {
+      log(`v${previous} is already deprecated.`);
+    } else {
+      const message = `Superseded by ${version}. Use ${version}.`;
+      deprecate(pkg, { dryRun, version: previous, message });
+    }
+
+    const deprecateOlder = await confirmStep(
+      `Would you like to also deprecate all older versions (< ${version}) to point to ${version}?`,
+      { yes, defaultYes: true },
+    );
+    if (deprecateOlder) {
+      runNpmInteractive([
+        'deprecate',
+        `${packageName}@<${version}`,
+        `Superseded by ${version}. Use ${version}.`,
+      ]);
+      logSuccess(`Deprecated all versions < ${version}.`);
+    }
   }
-  logSuccess(`Released v${version}.`);
+
+  // Push commit and tags to origin
+  const pushGit = await confirmStep(
+    `Push release commit and git tag v${version} to remote origin?`,
+    { yes, defaultYes: true },
+  );
+  if (pushGit) {
+    log('Pushing main and tags to remote origin...');
+    runInteractive('git', ['push', 'origin', 'main', '--tags'], PKG_DIR);
+    logSuccess('Pushed commits and tags to origin.');
+  }
+
+  logSuccess(`\n🚀 Successfully released and finalized v${version}!\n`);
 }
 
 async function publish(pkg, { dryRun, bump, commitBump = false }) {
   const { name: packageName } = pkg;
   requireLogin();
-  const { versions } = registryState(packageName);
+  const { versions, distTags } = registryState(packageName);
   const version = bump ? bumpVersion(pkg.version, bump) : pkg.version;
+
   if (versions.includes(version)) {
+    if (distTags.next === version) {
+      logSuccess(
+        `v${version} is already published under the \`next\` dist-tag. Resuming release process...`,
+      );
+      return;
+    }
+    if (distTags.latest === version) {
+      logSuccess(`v${version} is already published and promoted as \`latest\`.`);
+      return;
+    }
     throw new Error(`v${version} is already published and npm never allows it again. Use --bump.`);
   }
 
@@ -287,6 +399,11 @@ function promote({ name: packageName }, { dryRun, version }) {
   const deprecated = runNpmQuery(`view "${packageName}@${version}" deprecated`);
   if (deprecated) {
     throw new Error(`${packageName}@${version} is deprecated: ${deprecated}`);
+  }
+  if (distTags.latest === version) {
+    logSuccess(`\`latest\` already points at v${version}.`);
+    ensureGitTag(version, { dryRun });
+    return;
   }
   const commands = [['dist-tag', 'add', `${packageName}@${version}`, 'latest']];
   if (nextDistTagAfterPromotion(distTags, version)) {

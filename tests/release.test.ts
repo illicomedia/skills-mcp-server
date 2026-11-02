@@ -13,11 +13,23 @@ import {
 } from '../scripts/release-lib.mjs';
 
 test('Release args: a publish needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
-  assert.deepStrictEqual(parseReleaseArgs([]), { action: 'publish', dryRun: false, bump: null });
-  assert.deepStrictEqual(parseReleaseArgs(['--', '--dry-run', '--bump', 'minor']), {
+  assert.deepStrictEqual(parseReleaseArgs([]), {
+    action: 'publish',
+    dryRun: false,
+    bump: null,
+    yes: false,
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['--', '--dry-run', '--bump', 'minor', '--yes']), {
     action: 'publish',
     dryRun: true,
     bump: 'minor',
+    yes: true,
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['-y']), {
+    action: 'publish',
+    dryRun: false,
+    bump: null,
+    yes: true,
   });
 });
 
@@ -26,6 +38,7 @@ test('Release args: promote and deprecate target one exact version', () => {
     action: 'promote',
     dryRun: false,
     version: '1.5.0',
+    yes: false,
   });
   assert.deepStrictEqual(
     parseReleaseArgs(['--deprecate', '1.5.0', '--message', 'Broken. Use 1.5.1.']),
@@ -34,6 +47,7 @@ test('Release args: promote and deprecate target one exact version', () => {
       dryRun: false,
       version: '1.5.0',
       message: 'Broken. Use 1.5.1.',
+      yes: false,
     },
   );
 });
@@ -43,11 +57,13 @@ test('Release args: ship is one action, with or without a bump', () => {
     action: 'ship',
     dryRun: false,
     bump: null,
+    yes: false,
   });
   assert.deepStrictEqual(parseReleaseArgs(['--ship', '--bump', 'minor', '--dry-run']), {
     action: 'ship',
     dryRun: true,
     bump: 'minor',
+    yes: false,
   });
   assert.throws(() => parseReleaseArgs(['--ship', '--promote', '1.5.0']), /Choose one action/);
   assert.throws(() => parseReleaseArgs(['--ship', '--bump', 'huge']), /--bump expects/);
@@ -68,7 +84,11 @@ test('extractChangelogSection: extracts the section body for a given version', (
 });
 
 test('Release args: smoke-only runs without the registry', () => {
-  assert.deepStrictEqual(parseReleaseArgs(['--smoke-only']), { action: 'smoke', dryRun: false });
+  assert.deepStrictEqual(parseReleaseArgs(['--smoke-only']), {
+    action: 'smoke',
+    dryRun: false,
+    yes: false,
+  });
 });
 
 test('Release args: rejects removed lifecycle flags instead of ignoring them', () => {
