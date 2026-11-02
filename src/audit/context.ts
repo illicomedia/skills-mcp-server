@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { AuditContext, StackDetection } from './types.js';
+import type { AuditContext, GitForge, StackDetection } from './types.js';
 
 const IGNORED_SCAN_DIRS = new Set([
   '.git',
@@ -179,12 +179,36 @@ export function createAuditContext(projectPath: string): AuditContext {
     (hasShellScripts() || fileExists('.shellcheckrc') || hasDir('tests/bats'));
   const hasMakefile =
     fileExists('Makefile') || fileExists('justfile') || fileExists('scripts/qa.sh');
+  const makefileContent = fileExists('Makefile') ? (readFile('Makefile') ?? '') : '';
+  const makefileHasQaRunner = /(?:^|\n)\s*(?:qa[a-z0-9_-]*|test[a-z0-9_-]*)\s*:/m.test(
+    makefileContent,
+  );
+  const hasLocalQaRunner =
+    fileExists('scripts/qa.sh') ||
+    fileExists('scripts/qa') ||
+    fileExists('justfile') ||
+    fileExists('Taskfile.yml') ||
+    fileExists('Taskfile.yaml') ||
+    fileExists('Taskfile') ||
+    hasDir('.githooks') ||
+    fileExists('.git/hooks/pre-push') ||
+    fileExists('.git/hooks/pre-commit') ||
+    makefileHasQaRunner;
+  const hasAgentArtifacts =
+    hasDir('.agents') ||
+    hasDir('.claude') ||
+    hasDir('.cursor') ||
+    hasDir('.windsurf') ||
+    fileExists('AGENTS.md') ||
+    parentFileExists('AGENTS.md');
   const isWebProject =
     hasDir('public') ||
     fileExists('index.html') ||
     fileExists('src/index.html') ||
     hasDir('dist') ||
     hasDir('www');
+  const isOfflineCliProject =
+    !isWebProject && (isRust || isGo || isCpp || isBash || hasLocalQaRunner);
   const hasEnvFiles =
     fileExists('.env') ||
     fileExists('.env.local') ||
@@ -192,6 +216,28 @@ export function createAuditContext(projectPath: string): AuditContext {
     fileExists('.env.example');
   const hasManifest =
     isNode || isRust || isGo || isPython || isJava || isCpp || fileExists('composer.json');
+
+  const gitConfigPath = findUp('.git/config');
+  let gitConfigContent = '';
+  if (gitConfigPath) {
+    try {
+      gitConfigContent = fs.readFileSync(gitConfigPath, 'utf-8');
+    } catch {
+      gitConfigContent = '';
+    }
+  }
+  let detectedForge: GitForge = 'unknown';
+  if (/gitlab/i.test(gitConfigContent)) {
+    detectedForge = 'gitlab';
+  } else if (/forgejo|gitea|codeberg/i.test(gitConfigContent)) {
+    detectedForge = 'forgejo';
+  } else if (/bitbucket/i.test(gitConfigContent)) {
+    detectedForge = 'bitbucket';
+  } else if (/dev\.azure\.com|visualstudio\.com/i.test(gitConfigContent)) {
+    detectedForge = 'azure';
+  } else if (/github/i.test(gitConfigContent)) {
+    detectedForge = 'github';
+  }
 
   const stack: StackDetection = {
     isRust,
@@ -203,6 +249,9 @@ export function createAuditContext(projectPath: string): AuditContext {
     isPhp,
     isBash,
     hasMakefile,
+    hasLocalQaRunner,
+    hasAgentArtifacts,
+    isOfflineCliProject,
     isWebProject,
     hasEnvFiles,
     hasManifest,
@@ -213,6 +262,7 @@ export function createAuditContext(projectPath: string): AuditContext {
     resolvedPath,
     parentPath,
     stack,
+    detectedForge,
     fileExists,
     parentFileExists,
     findUp,

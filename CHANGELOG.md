@@ -2,6 +2,13 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.4.4 - Unreleased
+
+### Changed
+
+- The commercial license text now matches the terms of sale, which prevail: client work is allowed and termination for breach is what ends the license.
+- Preflight audit (`quick_check`): treat missing `AGENTS.md` as advisory info for human-only workflows, recognize local QA runners (`scripts/qa.sh`, `Makefile`, git hooks) and multi-forge CI definitions (GitLab, Forgejo, Bitbucket, Azure, Woodpecker, Jenkins), decouple advisory checks from readiness status, and provide forge-tailored recommendations.
+
 ## 1.4.3 - 2026-11-01
 
 ### Fixed

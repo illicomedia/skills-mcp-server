@@ -1,15 +1,35 @@
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function checkAgentsMd(ctx: AuditContext): AuditCheckResult {
-  const hasAgentsMd = ctx.fileExists('AGENTS.md');
+  const hasAgentsMd = ctx.fileExists('AGENTS.md') || ctx.parentFileExists('AGENTS.md');
+  if (hasAgentsMd) {
+    return {
+      category: 'governance',
+      name: 'AGENTS.md present',
+      passed: true,
+      severity: 'info',
+      details: 'AGENTS.md file present (content not evaluated).',
+    };
+  }
+
+  if (ctx.stack.hasAgentArtifacts) {
+    return {
+      category: 'governance',
+      name: 'AGENTS.md present',
+      passed: false,
+      severity: 'warning',
+      details:
+        'Agent configuration detected (.agents, .claude, etc.) but AGENTS.md not found. Recommended to provide repository-level QA guidelines and policy directives for AI coding agents.',
+    };
+  }
+
   return {
     category: 'governance',
     name: 'AGENTS.md present',
-    passed: hasAgentsMd,
-    severity: 'warning',
-    details: hasAgentsMd
-      ? 'AGENTS.md file present (content not evaluated).'
-      : 'AGENTS.md not found. Recommended to provide repository-level QA guidelines and policy directives for AI coding agents.',
+    passed: true,
+    severity: 'info',
+    details:
+      'AGENTS.md not present. Optional for human-only workflows; recommended when collaborating with AI coding agents.',
   };
 }
 

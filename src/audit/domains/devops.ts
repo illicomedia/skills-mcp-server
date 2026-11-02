@@ -2,17 +2,28 @@ import * as fs from 'node:fs';
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {
-  const checkCiDir = (fullDir: string): boolean =>
+  const checkCiDir = (fullDir: string | null): boolean =>
+    fullDir !== null &&
     fs.statSync(fullDir).isDirectory() &&
     fs.readdirSync(fullDir).some((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
 
-  const workflowDir = ctx.findUp('.github/workflows');
-  const hasGithubCi = workflowDir !== null && checkCiDir(workflowDir);
+  const hasGithubCi = checkCiDir(ctx.findUp('.github/workflows'));
+  const hasGitlabCi =
+    ctx.fileExists('.gitlab-ci.yml') ||
+    ctx.parentFileExists('.gitlab-ci.yml') ||
+    checkCiDir(ctx.findUp('.gitlab/ci'));
+  const hasForgejoCi =
+    checkCiDir(ctx.findUp('.forgejo/workflows')) || checkCiDir(ctx.findUp('.gitea/workflows'));
+  const hasWoodpeckerCi =
+    ctx.fileExists('.woodpecker.yml') ||
+    ctx.parentFileExists('.woodpecker.yml') ||
+    checkCiDir(ctx.findUp('.woodpecker'));
 
   const hasCiWorkflow =
     hasGithubCi ||
-    ctx.fileExists('.gitlab-ci.yml') ||
-    ctx.parentFileExists('.gitlab-ci.yml') ||
+    hasGitlabCi ||
+    hasForgejoCi ||
+    hasWoodpeckerCi ||
     ctx.fileExists('.circleci/config.yml') ||
     ctx.parentFileExists('.circleci/config.yml') ||
     ctx.fileExists('azure-pipelines.yml') ||
@@ -22,17 +33,37 @@ export function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {
     ctx.fileExists('Jenkinsfile') ||
     ctx.parentFileExists('Jenkinsfile') ||
     ctx.fileExists('.travis.yml') ||
-    ctx.fileExists('.woodpecker.yml') ||
-    ctx.fileExists('.drone.yml');
+    ctx.fileExists('.drone.yml') ||
+    ctx.fileExists('.cirrus.yml');
+
+  if (hasCiWorkflow) {
+    return {
+      category: 'devops',
+      name: 'CI workflow definition present',
+      passed: true,
+      severity: 'info',
+      details: 'CI workflow definition file present (workflow execution not evaluated).',
+    };
+  }
+
+  if (ctx.stack.hasLocalQaRunner) {
+    return {
+      category: 'devops',
+      name: 'CI workflow definition present',
+      passed: true,
+      severity: 'info',
+      details:
+        'Local QA automation detected (scripts/qa.sh / Makefile). Cloud CI workflow is optional and depends on team deployment choices.',
+    };
+  }
 
   return {
     category: 'devops',
     name: 'CI workflow definition present',
-    passed: Boolean(hasCiWorkflow),
-    severity: 'warning',
-    details: hasCiWorkflow
-      ? 'CI workflow definition file present (workflow execution not evaluated).'
-      : 'No CI workflow configuration found (.github/workflows, .gitlab-ci.yml, etc.).',
+    passed: false,
+    severity: 'info',
+    details:
+      'No CI workflow configuration or local QA runner found (.github/workflows, .gitlab-ci.yml, scripts/qa.sh, Makefile).',
   };
 }
 

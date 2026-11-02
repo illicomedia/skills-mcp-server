@@ -153,13 +153,13 @@ test('Audit: Addition 3 - missing automated test suite on Node repo flags blocke
   assert.ok(report.recommendations.some((rec) => rec.includes('automated test runner script')));
 });
 
-test('Audit: Addition 4 - missing CI workflow definition flags warning', () => {
+test('Audit: Addition 4 - missing CI workflow definition flags advisory info without blocking', () => {
   const report = auditOf({
     'AGENTS.md': '# QA\n',
   });
   const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
   assert.equal(ciCheck?.passed, false);
-  assert.equal(ciCheck?.severity, 'warning');
+  assert.equal(ciCheck?.severity, 'info');
   assert.ok(report.recommendations.some((rec) => rec.includes('CI workflow configuration')));
 });
 
@@ -250,11 +250,12 @@ test('Audit: Shell project passes without Node/Rust artifacts', () => {
   assert.equal(qaCheck?.passed, true);
 });
 
-test('Audit: missing AGENTS.md flags warning (not a blocker) and reports prerequisites status', () => {
+test('Audit: missing AGENTS.md in agent-configured repository flags warning and requires attention', () => {
   const report = auditOf({
     LICENSE: 'MIT\n',
     'SECURITY.md': '# Disclosure\n',
     '.gitignore': '.env\n',
+    '.cursor/rules/qa.md': '# Cursor QA rules\n',
   });
   const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
   assert.equal(agentsCheck?.passed, false);
@@ -265,6 +266,24 @@ test('Audit: missing AGENTS.md flags warning (not a blocker) and reports prerequ
   );
   assert.equal(report.status, 'needs_attention');
   assert.match(report.prerequisites, /\d+\/\d+ met/);
+});
+
+test('Audit: missing AGENTS.md in human-only repository passes with advisory info and status ready', () => {
+  const report = auditOf({
+    LICENSE: 'MIT\n',
+    'SECURITY.md': '# Disclosure\n',
+    '.gitignore': '.env\n',
+    'scripts/qa.sh': '#!/usr/bin/env bash\nexit 0\n',
+    'Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\n',
+    'Cargo.lock': '# lock\n',
+    'deny.toml': '[licenses]\n',
+  });
+  const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
+  assert.equal(agentsCheck?.passed, true);
+  assert.equal(agentsCheck?.severity, 'info');
+  assert.match(agentsCheck?.details || '', /Optional for human-only workflows/i);
+  assert.equal(report.status, 'ready');
+  assert.equal(report.score, 100);
 });
 
 test('Audit Robustness: commented .gitignore line (# .env) does not pass as ignoring .env', () => {
@@ -325,4 +344,109 @@ test('Audit Robustness: polyglot project credits secondary stack test suite', ()
   const testCheck = report.results.find((r) => r.name === 'automated test suite declared');
   assert.equal(testCheck?.passed, true);
   assert.match(testCheck?.details || '', /Rust test framework/i);
+});
+
+test('Audit: Multi-Forge CI detection recognizes diverse providers', () => {
+  const providers: Record<string, string>[] = [
+    { '.gitlab-ci.yml': 'stages:\n  - test\n' },
+    { '.gitlab/ci/test.yml': 'test:\n  script: echo 1\n' },
+    { '.forgejo/workflows/ci.yml': 'name: Forgejo CI\n' },
+    { '.gitea/workflows/ci.yaml': 'name: Gitea CI\n' },
+    { '.woodpecker.yml': 'pipeline:\n  test:\n    image: node\n' },
+    { '.woodpecker/ci.yaml': 'pipeline:\n  test:\n    image: node\n' },
+    { '.cirrus.yml': 'test_task:\n  script: echo 1\n' },
+  ];
+
+  for (const files of providers) {
+    const report = auditOf({
+      'AGENTS.md': '',
+      ...files,
+    });
+    const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
+    assert.equal(ciCheck?.passed, true, JSON.stringify(files));
+    assert.equal(ciCheck?.severity, 'info');
+  }
+});
+
+test('Audit: Local QA runners satisfy CI requirement without cloud CI', () => {
+  const runners: Record<string, string>[] = [
+    { 'scripts/qa': '#!/usr/bin/env bash\necho qa\n' },
+    { justfile: 'test:\n\tcargo test\n' },
+    { 'Taskfile.yml': 'version: "3"\n' },
+    { 'Taskfile.yaml': 'version: "3"\n' },
+    { Taskfile: 'version: "3"\n' },
+    { '.githooks/pre-push': '#!/bin/sh\nexit 0\n' },
+    { '.git/hooks/pre-push': '#!/bin/sh\nexit 0\n' },
+    { '.git/hooks/pre-commit': '#!/bin/sh\nexit 0\n' },
+    { Makefile: 'qa:\n\t./scripts/qa.sh\n' },
+    { Makefile: 'test:\n\tpytest\n' },
+  ];
+
+  for (const files of runners) {
+    const report = auditOf({
+      'AGENTS.md': '',
+      ...files,
+    });
+    const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
+    assert.equal(ciCheck?.passed, true, JSON.stringify(files));
+    assert.match(ciCheck?.details || '', /Local QA automation detected/i);
+  }
+});
+
+test('Audit: Context-aware recommendations for forge and offline CLI projects', () => {
+  // 1. GitLab remote
+  const gitlabReport = auditOf({
+    '.git/config': '[remote "origin"]\n  url = git@gitlab.com:org/repo.git\n',
+  });
+  assert.ok(gitlabReport.recommendations.some((r) => r.includes('GitLab CI')));
+
+  // 2. Forgejo remote
+  const forgejoReport = auditOf({
+    '.git/config': '[remote "origin"]\n  url = https://codeberg.org/org/repo.git\n',
+  });
+  assert.ok(forgejoReport.recommendations.some((r) => r.includes('Forgejo/Gitea')));
+
+  // 3. Bitbucket remote
+  const bitbucketReport = auditOf({
+    '.git/config': '[remote "origin"]\n  url = https://bitbucket.org/org/repo.git\n',
+  });
+  assert.ok(bitbucketReport.recommendations.some((r) => r.includes('Bitbucket Pipelines')));
+
+  // 4. Azure DevOps remote
+  const azureReport = auditOf({
+    '.git/config': '[remote "origin"]\n  url = https://dev.azure.com/org/proj/_git/repo\n',
+  });
+  assert.ok(azureReport.recommendations.some((r) => r.includes('Azure Pipelines')));
+
+  // 5. Offline CLI project (no remote, CLI stack)
+  const cliReport = auditOf({
+    'Cargo.toml': '[package]\nname = "mycli"\n',
+  });
+  assert.ok(cliReport.recommendations.some((r) => r.includes('canonical local QA runner')));
+
+  // 6. Web project with GitHub remote
+  const githubWebReport = auditOf({
+    'index.html': '<html></html>\n',
+    '.git/config': '[remote "origin"]\n  url = https://github.com/org/repo.git\n',
+  });
+  assert.ok(githubWebReport.recommendations.some((r) => r.includes('.github/workflows/ci.yml')));
+});
+
+test('Audit: Agent configuration folders without AGENTS.md', () => {
+  for (const folder of ['.agents/config.json', '.claude/config.json', '.windsurf/rules.md']) {
+    const report = auditOf({
+      [folder]: '{}',
+    });
+    const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
+    assert.equal(agentsCheck?.passed, false, folder);
+    assert.equal(agentsCheck?.severity, 'warning');
+    assert.ok(report.recommendations.some((r) => r.includes('Create an AGENTS.md')));
+  }
+});
+
+test('Audit: Unreadable or directory .git/config handled safely', () => {
+  const report = auditOf({
+    '.git/config/dummy': 'nested',
+  });
+  assert.ok(report.totalChecks > 0);
 });

@@ -30,6 +30,8 @@ export interface AuditReport {
   message?: string;
 }
 
+export type GitForge = 'github' | 'gitlab' | 'forgejo' | 'bitbucket' | 'azure' | 'unknown';
+
 export interface StackDetection {
   isRust: boolean;
   isGo: boolean;
@@ -40,6 +42,9 @@ export interface StackDetection {
   isPhp: boolean;
   isBash: boolean;
   hasMakefile: boolean;
+  hasLocalQaRunner: boolean;
+  hasAgentArtifacts: boolean;
+  isOfflineCliProject: boolean;
   isWebProject: boolean;
   hasEnvFiles: boolean;
   hasManifest: boolean;
@@ -50,6 +55,7 @@ export interface AuditContext {
   resolvedPath: string;
   parentPath: string;
   stack: StackDetection;
+  detectedForge: GitForge;
   fileExists: (rel: string) => boolean;
   parentFileExists: (rel: string) => boolean;
   findUp: (rel: string) => string | null;

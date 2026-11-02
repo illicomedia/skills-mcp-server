@@ -5,7 +5,7 @@ import { auditGovernance } from './domains/governance.js';
 import { auditQuality } from './domains/quality.js';
 import { auditSecurity } from './domains/security.js';
 import { auditSupplyChain } from './domains/supply-chain.js';
-import type { AuditCheckResult, AuditOptions, AuditReport } from './types.js';
+import type { AuditCheckResult, AuditContext, AuditOptions, AuditReport } from './types.js';
 
 export * from './context.js';
 export * from './domains/devops.js';
@@ -57,11 +57,56 @@ export function runComplianceAudit(projectPath: string, options?: AuditOptions):
   const totalChecks = results.length;
   const passedChecks = results.filter((r) => r.passed).length;
   const failedChecks = totalChecks - passedChecks;
-  const score = Math.round((passedChecks / totalChecks) * 100);
-  const status: 'ready' | 'needs_attention' = failedChecks === 0 ? 'ready' : 'needs_attention';
+
+  // Advisory checks with severity 'info' do not dock the quality score when absent.
+  const scoreEligibleChecks = results.filter((r) => r.severity !== 'info' || r.passed);
+  const passedScoreChecks = scoreEligibleChecks.filter((r) => r.passed).length;
+  const score = Math.round((passedScoreChecks / scoreEligibleChecks.length) * 100);
+
+  // Status is ready if all required blocker and warning checks pass. Advisory info checks do not block readiness.
+  const hasBlockersOrWarnings = results.some(
+    (r) => !r.passed && (r.severity === 'blocker' || r.severity === 'warning'),
+  );
+  const status: 'ready' | 'needs_attention' = hasBlockersOrWarnings ? 'needs_attention' : 'ready';
   const prerequisites = `${passedChecks}/${totalChecks} met`;
 
-  // Recommendations extraction
+  const recommendations = buildRecommendations(ctx, results);
+
+  return {
+    projectPath: ctx.resolvedPath,
+    timestamp: new Date().toISOString(),
+    status,
+    prerequisites,
+    score,
+    scope: AUDIT_SCOPE,
+    totalChecks,
+    passedChecks,
+    failedChecks,
+    results,
+    recommendations,
+  };
+}
+
+function getForgeCiRecommendation(ctx: AuditContext): string {
+  if (ctx.detectedForge === 'gitlab') {
+    return 'Add a GitLab CI workflow configuration (.gitlab-ci.yml) or local QA runner (scripts/qa.sh / Makefile).';
+  }
+  if (ctx.detectedForge === 'forgejo') {
+    return 'Add a Forgejo/Gitea Actions workflow configuration (.forgejo/workflows/ci.yml) or local QA runner.';
+  }
+  if (ctx.detectedForge === 'bitbucket') {
+    return 'Add a Bitbucket Pipelines configuration (bitbucket-pipelines.yml) or local QA runner.';
+  }
+  if (ctx.detectedForge === 'azure') {
+    return 'Add an Azure Pipelines configuration (azure-pipelines.yml) or local QA runner.';
+  }
+  if (ctx.stack.isOfflineCliProject) {
+    return 'Add a canonical local QA runner (scripts/qa.sh or Makefile with qa: target) or CI workflow for automated validation.';
+  }
+  return 'Add a CI workflow configuration (e.g. .github/workflows/ci.yml) or local QA runner (scripts/qa.sh) for automated PR validation.';
+}
+
+function buildRecommendations(ctx: AuditContext, results: AuditCheckResult[]): string[] {
   const recommendations: string[] = [];
 
   const agentsCheck = results.find((r) => r.name === 'AGENTS.md present');
@@ -130,22 +175,8 @@ export function runComplianceAudit(projectPath: string, options?: AuditOptions):
 
   const ciCheck = results.find((r) => r.name === 'CI workflow definition present');
   if (ciCheck && !ciCheck.passed) {
-    recommendations.push(
-      'Add a CI workflow configuration (e.g. .github/workflows/ci.yml) for automated PR validation.',
-    );
+    recommendations.push(getForgeCiRecommendation(ctx));
   }
 
-  return {
-    projectPath: ctx.resolvedPath,
-    timestamp: new Date().toISOString(),
-    status,
-    prerequisites,
-    score,
-    scope: AUDIT_SCOPE,
-    totalChecks,
-    passedChecks,
-    failedChecks,
-    results,
-    recommendations,
-  };
+  return recommendations;
 }
