@@ -14,7 +14,7 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
   - Native MCP client authorization dialogs protect against unintended workspace access or modifications.
   - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
 - **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 9 language stacks—with user-confirmed directory traversal and zero arbitrary code execution.
-- **Cryptographic Ed25519 License Verification**: Offline signature checks unlock Pro and Enterprise skills with lifetime version retention. Open-source MIT skills remain free and unlocked forever.
+- **Cryptographic Ed25519 License Verification**: Offline signature checks unlock Pro and Enterprise skills with version retention as set out in the terms of sale. Open-source MIT skills remain free and unlocked forever.
 - **Provenance & Canary Watermarking**: Embeds cryptographic watermark headers into skill rules for licensing integrity and leak tracing.
 
 ---
@@ -257,6 +257,68 @@ Or run directly from the compiled JavaScript bundle without global binaries:
 
 ---
 
+## Complete Uninstallation & Clean Removal
+
+We believe software should never pollute your system or workspace. The Fredo QA MCP server:
+- Has **zero background daemons or services**.
+- Runs **zero remote telemetry or background network jobs**.
+- Writes files **only to `.agents/`** in your project when explicitly approved (`confirm: true`).
+
+If you decide not to use the MCP server, you can remove it completely and restore a pristine state in seconds:
+
+### Step 1: Remove from your AI Editor / MCP Client Configuration
+
+Simply delete the `"fredo-qa"` block from your client's configuration file:
+
+- **Claude Desktop**: Open `claude_desktop_config.json` and delete the `"fredo-qa"` entry from `mcpServers`.
+  - MacOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+  - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+  - Linux: `~/.config/Claude/claude_desktop_config.json`
+- **Cursor IDE**: Delete `"fredo-qa"` from `.cursor/mcp.json` or remove it in **Cursor Settings > Features > MCP**.
+- **Google Antigravity**: Delete `"fredo-qa"` from `~/.gemini/config/mcp_config.json` or disable it in the Antigravity MCP settings.
+- **VS Code / Windsurf**: Delete `"fredo-qa"` from `.vscode/mcp.json` or user settings.
+
+### Step 2: Uninstall the Package
+
+Depending on how you ran the server:
+
+- **If run via `npx` (Option 2)**: Nothing was permanently installed. The server was executed from the temporary npx cache.
+  ```bash
+  # Optional: clear npm cache if desired
+  npm cache clean --force
+  ```
+- **If installed globally (Option 1)**:
+  ```bash
+  npm uninstall -g @illicomedia/skills-mcp-server
+  ```
+- **If linked locally (`npm link`)**:
+  ```bash
+  npm unlink -g @illicomedia/skills-mcp-server
+  ```
+
+### Step 3: Remove Project & User Artifacts (Optional)
+
+If you previously approved `install_skill` or `sync_workspace_skills`, delete the installed skills directory from your workspace:
+
+```bash
+# In your project root:
+rm -rf .agents/
+
+# If you generated local license or exception files:
+rm -f .qa-license.json .qa-exceptions.yaml
+
+# If you stored a global license file:
+rm -rf ~/.config/fredo-qa
+```
+
+### Verification
+
+1. Restart your editor or MCP client.
+2. Confirm the `fredo-qa` tools are no longer listed in the client's tools menu.
+3. Your workspace is completely clean with 0 leftover dependencies or configuration.
+
+---
+
 ## License Verification & Tiered Access
 
 Pro and Enterprise skills require an Ed25519-signed license file (`license.json`).
@@ -300,5 +362,5 @@ npm run test:coverage
 ## License & Copyright
 
 - **Engine & Free Skills**: Released under the [MIT License](LICENSE).  
-- **Pro & Enterprise Skills**: Proprietary, subject to the Fredo QA Commercial License.  
+- **Pro & Enterprise Skills**: Proprietary, subject to the Fredo QA Commercial Skills License (`LICENSE` of each skill) and the [terms of sale](https://www.illicomedia.com/terms).  
 - Copyright (c) 2026 Frédéric Charles Viallet.
