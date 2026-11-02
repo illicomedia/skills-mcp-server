@@ -40,14 +40,15 @@ Updates Until: ${license.updatesUntil || 'unknown'}
 Authorized by: Frédéric Charles Viallet (www.illicomedia.com/qa-skills/)
 
 This skill is paid, proprietary material licensed to the licensee named above for its own
-development work, by the people working for it on its projects. Without separate written
+development work, including work for its clients, by the people working for it on its projects,
+with no limit on their number. Without separate written
 permission, the licensee must not copy it (other than installation and backup copies),
 distribute, publish, share, sell, rent or sublicense it, create derivative works of it for use
 outside this license, share the license file, or remove copyright and provenance notices.
-Results the licensee produces with the skill belong to the licensee. The license ends
-automatically on breach or non-payment. Provided "as is" to the extent permitted by law;
-governed by French law. Full terms: the LICENSE file of the skill and
-https://www.illicomedia.com/qa-skills/`;
+Results the licensee produces with the skill belong to the licensee. Termination for breach
+ends the license, and non-payment ends the subscription. Provided "as is" to the extent
+permitted by law; governed by French law. Full terms: the LICENSE file of the skill and
+https://www.illicomedia.com/qa-skills/. The terms of sale accepted with the order prevail.`;
 }
 
 /**

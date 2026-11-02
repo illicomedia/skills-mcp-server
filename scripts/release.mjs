@@ -35,6 +35,7 @@ import {
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG_JSON_PATH = resolve(PKG_DIR, 'package.json');
+const SNAPSHOT_PATH = resolve(PKG_DIR, '../../website/src/data/generated/catalog.snapshot.json');
 const REGISTRY_ATTEMPTS = 12;
 const REGISTRY_WAIT_MS = 10_000;
 
@@ -121,6 +122,13 @@ async function smokeTestTarball(pkg) {
   }
 }
 
+/** The website shows the MCP version from this tracked snapshot, and a test keeps them equal. */
+function syncWebsiteSnapshot(version) {
+  const snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
+  snapshot.mcpServer.version = version;
+  writeFileSync(SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+}
+
 /** pnpm refuses to publish a dirty tree: better to say so before anything changes. */
 function requireCleanTree() {
   const changes = run('git status --porcelain');
@@ -203,7 +211,8 @@ async function publish(pkg, { dryRun, bump, commitBump = false }) {
   } else if (bump) {
     pkg.version = version;
     writeFileSync(PKG_JSON_PATH, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
-    logSuccess(`Updated package.json to v${version}`);
+    syncWebsiteSnapshot(version);
+    logSuccess(`Updated package.json and the website snapshot to v${version}`);
   }
 
   log('Running build and test suite...');
@@ -213,7 +222,9 @@ async function publish(pkg, { dryRun, bump, commitBump = false }) {
   await smokeTestTarball(pkg);
 
   if (commitBump && bump && !dryRun) {
-    run(`git add package.json && git commit -m "chore(mcp): release ${version}"`);
+    run(
+      `git add package.json "${SNAPSHOT_PATH}" && git commit -m "chore(mcp): release ${version}"`,
+    );
   }
 
   const publishArgs = ['publish', '--access', 'public', '--tag', 'next'];

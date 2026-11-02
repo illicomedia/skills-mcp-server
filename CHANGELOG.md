@@ -2,7 +2,7 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
-## 1.4.4 - Unreleased
+## 1.4.4 - 2026-11-02
 
 ### Changed
 
