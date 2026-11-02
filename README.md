@@ -97,7 +97,7 @@ These tools modify files or directory structures in the target project's `.agent
 | `prune_skills` | 📦 Archiving | `{ project_path?: string, keep_skills?: string[], confirm?: boolean }` | Safely archives unneeded skills from `.agents/skills/` to `.agents/.archive/` based on project stacks. **Non-destructive** (moves files). **Requires `confirm: true`**; otherwise returns safe preview. |
 | `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
 | `set_license_key` | ⚙️ In-Memory | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
-| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (`1.4.1`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
+| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (e.g. `1.4.5`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
 
 ---
 
@@ -145,6 +145,46 @@ Because `quick_check` traverses repository directories and inspects configuratio
 ### Safety design:
 `quick_check` performs **static inspection** of file paths, headers, and directory structures. It does not spawn subprocesses, compile code, or access the network. Review its output like any tool result, especially on untrusted repositories.
 
+### Native Toolchain Recognition & Zero Unsolicited Files
+
+Starting with version **1.4.4+**:
+- **Native Toolchains Are First-Class**: `quick_check` natively detects and honors standard language commands (`cargo test`, `npm test`, `pytest`, `go test`, `make test`, `mvn test`) without requiring custom wrapper scripts.
+- **Local & Multi-Forge CI Support**: If your repository uses a local runner (`scripts/qa.sh`, `Makefile` recipes, git hooks) or diverse CI providers (GitLab CI, Forgejo, Bitbucket Pipelines, Azure DevOps, Woodpecker, Drone, Cirrus, Jenkins), the audit recognizes them automatically.
+- **Zero File Pollution**: The MCP server will **never generate unsolicited wrapper scripts** (`scripts/qa.sh` or `scripts/qa`) on your project. If no CI is configured, it reports an informational advisory recommendation tailored to your remote forge without blocking your audit score (`status: ready`).
+
+---
+
+## Vibe Coding with Fredo QA: Natural Language Prompt Examples
+
+When using AI coding assistants (**Cursor Agent / Composer, Claude Code, Google Antigravity, Windsurf Cascade, Cline**), you do not need to call JSON-RPC methods directly or memorize tool names. The AI agent automatically discovers all Fredo QA tools from its environment.
+
+During rapid **vibe coding**, simply prompt the assistant naturally in chat:
+
+### 1. Preflight Codebase Audit
+> **Prompt:** *"Audit this repository before I commit my work."*  
+> **Prompt:** *"Run a quick preflight sanity check on this codebase."*  
+> 🤖 **What happens:** The agent triggers `quick_check`. It inspects repository governance, test suites, secret hygiene, lockfiles, and CI configuration across your tech stack in milliseconds, reporting readiness and any blocker or warning findings.
+
+### 2. Auto-Detecting Stack & Installing Skills
+> **Prompt:** *"Detect the tech stack of this project and install the matching QA engineering skills."*  
+> **Prompt:** *"Set up standard QA quality gates for this TypeScript and Python repository."*  
+> 🤖 **What happens:** The agent asks for your approval (`confirm: true`), runs `sync_workspace_skills`, and automatically installs relevant engineering profiles (e.g., `qa-javascript-typescript`, `qa-python`, `qa-security`) directly into `.agents/skills/`.
+
+### 3. Loading Specific Engineering Directives
+> **Prompt:** *"What are the WCAG 2.2 AA accessibility requirements we must follow for this frontend?"*  
+> **Prompt:** *"Show me the GDPR compliance checklist for user data handling."*  
+> 🤖 **What happens:** The agent triggers `get_skill_rules` with `qa-accessibility` or `qa-gdpr-rgpd` and strictly incorporates the formal policy rules into its coding plan.
+
+### 4. Cleaning Up Unused Skills (Archiving)
+> **Prompt:** *"Clean up any installed QA skills that don't match our active stack."*  
+> **Prompt:** *"Prune unneeded skills from our .agents directory."*  
+> 🤖 **What happens:** The agent invokes `prune_skills` with `confirm: true`. Skills not matching the current stack are safely moved to `.agents/.archive/` (non-destructive archiving) to keep the AI context window lean.
+
+### 5. Checking License & Commercial Skills
+> **Prompt:** *"Verify our Fredo QA license status and expiration."*  
+> **Prompt:** *"Check if our Pro skills are activated."*  
+> 🤖 **What happens:** The agent calls `verify_license` to validate the Ed25519 signature, tier, licensee details, and version retention status.
+
 ---
 
 ## Installation & Setup
@@ -168,6 +208,19 @@ cd packages/mcp-server && npm link
 ### Option 2: Remote / NPX (Zero-install)
 
 Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuration.
+
+### How MCP `stdio` Transport Works (and why running in a shell pauses)
+
+When you run `npx @illicomedia/skills-mcp-server` directly in an interactive bash or zsh terminal:
+```bash
+[fredo-qa-mcp-server] Starting Model Context Protocol server on stdio (PID: 12345)...
+```
+...the process pauses and appears to wait. **This is normal and by design.**
+
+- **MCP is a JSON-RPC 2.0 daemon, not an interactive CLI**: The server communicates with your AI editor by reading JSON-RPC requests from standard input (`stdin`) and writing JSON responses to standard output (`stdout`).
+- **Zero Open Network Ports**: Unlike HTTP servers, an MCP server on `stdio` opens **no network ports** (`localhost`, `0.0.0.0`). It is completely invisible to local network sniffers, port scanners, and malicious browser scripts.
+- **Process Isolation**: Only the parent IDE process that spawned the server holds the pipes to talk to it. When the IDE closes, the operating system closes the pipe (`EOF`), and the MCP server terminates instantly with zero zombie processes.
+- **How to test or exit**: If you launched it in a human terminal to test it, simply press `Ctrl+C` to exit. To use the server, configure it in your editor's MCP settings (see [Client Configuration](#client-configuration) below).
 
 ### Versions and upgrades
 

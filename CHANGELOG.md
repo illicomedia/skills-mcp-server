@@ -2,6 +2,17 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.4.5 - 2026-11-02
+
+### Added
+
+- Vibe coding documentation: added natural language prompting examples for all core tools and developer intents in `README.md`.
+- Safety and transport documentation: clarified the `stdio` architecture (zero open ports, kernel pipe containment, automatic lifecycle termination) and why running `npx` directly in an interactive shell pauses waiting for JSON-RPC input.
+
+### Changed
+
+- Preflight audit (`quick_check`): codified native toolchain recognition (`cargo`, `pytest`, `npm test`, `go test`, `make`) as first-class citizens, guaranteeing zero unsolicited wrapper scripts (`scripts/qa.sh`).
+
 ## 1.4.4 - 2026-11-02
 
 ### Changed
