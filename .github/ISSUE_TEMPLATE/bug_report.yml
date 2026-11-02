@@ -1,0 +1,37 @@
+name: Bug Report
+description: Report a reproducible issue or defect in the MCP server
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for filing a bug report! Please provide as much context as possible.
+  - type: input
+    id: version
+    attributes:
+      label: MCP Server Version
+      description: What version are you running? (e.g. 1.4.7)
+      placeholder: 1.4.7
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: MCP Client & Node Version
+      description: MCP client (Claude Desktop, Cursor, Antigravity) and Node.js version
+      placeholder: Claude Desktop / Node v20.18.0
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description & Reproduction
+      description: Clear, step-by-step instructions to reproduce the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
