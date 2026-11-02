@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+# Website QA exceptions register. Keep this file empty unless a temporary exception is approved.
+version: 1
+exceptions:
+  - id: website-coverage-below-60-2026-10-27
+    skill: qa-javascript-typescript
+    gate: qa:standard
+    effect: allow_failure
+    rule: vitest global coverage thresholds (functions/statements/branches >= 60%)
+    path: website/vitest.config.ts
+    reason: >-
+      Pre-existing on main at 7b8a323 (measured 2026-10-27: functions 54.29%, statements 59.84%,
+      branches 54.55%, lines 61.28%). Recorded so the pre-securisation baseline can be tagged;
+      tests are not lowered and thresholds are not changed.
+    owner: Frédéric Viallet
+    created_at: "2026-10-27"
+    expires_at: "2026-11-26"
+    risk: standard
+    compensating_controls:
+      - "vitest: 52 files / 260 tests pass"
+      - "Playwright e2e, accessibility and SEO suites pass"
+      - "W3C HTML/CSS validation passes"

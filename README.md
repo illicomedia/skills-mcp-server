@@ -397,6 +397,13 @@ A license unlocks all releases published on or before its `updates_until` date *
 
 ---
 
+## Repository & Governance
+
+- **Canonical Repository**: [github.com/illicomedia/skills-mcp-server](https://github.com/illicomedia/skills-mcp-server)
+- **Historical Note**: Prior to v1.4.7, versions 1.4.0 through 1.4.6 were incubated within the `fcviallet/skills` monorepo before transitioning to this dedicated organization repository `illicomedia/skills-mcp-server`.
+
+---
+
 ## Development & Testing
 
 ```bash

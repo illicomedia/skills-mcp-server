@@ -195,10 +195,7 @@ test('License format v1: schema_version is required and future versions ask for 
 });
 
 test('License format v1: the published JSON Schema matches the fields enforced by the verifier', () => {
-  const schemaPath = path.resolve(
-    import.meta.dirname,
-    '../../../website/public/schemas/qa-license-v1.schema.json',
-  );
+  const schemaPath = path.resolve(import.meta.dirname, '../schemas/qa-license-v1.schema.json');
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as {
     $id: string;
     additionalProperties: boolean;

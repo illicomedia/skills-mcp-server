@@ -104,6 +104,23 @@ export function changelogHasVersion(changelog, version) {
   return changelog.split('\n').some((line) => line.startsWith(`## ${version} `));
 }
 
+/** Extracts the markdown section for a release version from CHANGELOG.md. */
+export function extractChangelogSection(changelog, version) {
+  const lines = changelog.split('\n');
+  const startIndex = lines.findIndex((line) => line.startsWith(`## ${version} `));
+  if (startIndex === -1) {
+    return '';
+  }
+  const sectionLines = [];
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith('## ')) {
+      break;
+    }
+    sectionLines.push(lines[i]);
+  }
+  return sectionLines.join('\n').trim();
+}
+
 export function nextDistTagAfterPromotion(distTags, promotedVersion) {
   return distTags.next === promotedVersion;
 }

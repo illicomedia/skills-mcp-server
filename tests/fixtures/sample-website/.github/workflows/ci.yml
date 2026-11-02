@@ -1,0 +1,137 @@
+name: Deploy OVH Shared Hosting
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Deployment mode'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging-protected
+      dry_run:
+        description: 'Dry run (verify packaging without upload)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    name: Build & Package for OVH (/home/illico/)
+    runs-on: ubuntu-latest
+    services:
+      # Disposable PostgreSQL (Supabase runs 17): proves the PHP code and supabase/migrations work
+      # together before the production database is switched from SQLite.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.11'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Quality Gate Tests
+        run: pnpm run test
+
+      - name: Install PHP test runtime (CLI, SQLite, cURL, mbstring, Xdebug for the coverage gate)
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-sqlite3 php-pgsql php-curl php-mbstring php-xdebug
+
+      - name: Run PHP payment, licensing and email suites (100% line coverage gate)
+        run: pnpm run test:php
+
+      - name: Run the same PHP suites on PostgreSQL (Supabase schema from supabase/migrations)
+        env:
+          FREDO_TEST_PG_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: pnpm run test:php -- --no-coverage --db=pgsql
+
+      - name: Build Website and API for Production
+        run: pnpm run build:prod
+
+      - name: Assemble and Verify OVH Package
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ github.event.inputs.mode }}" = "staging-protected" ]; then
+            EXTRA_ARGS="--protected"
+          fi
+          node scripts/package-ovh-deploy.js $EXTRA_ARGS
+
+      - name: Upload Deployment Artifacts
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: ovh-deploy-package
+          path: .deploy/home/illok/
+          retention-days: 5
+
+      - name: Install Deployment Utilities
+        # secrets.* must be used in if: — step env is not visible to the if expression
+        if: ${{ github.event.inputs.dry_run != true && secrets.OVH_FTP_SERVER != '' }}
+        run: sudo apt-get update && sudo apt-get install -y sshpass curl
+
+      - name: Deploy to OVH with Folder Rotation & Smoke Tests
+        if: ${{ github.event.inputs.dry_run != true && secrets.OVH_FTP_SERVER != '' }}
+        env:
+          OVH_DEPLOY_MODE: 'prod'
+          OVH_FTP_SERVER: ${{ secrets.OVH_FTP_SERVER }}
+          OVH_FTP_USERNAME: ${{ secrets.OVH_FTP_USERNAME }}
+          OVH_FTP_PASSWORD: ${{ secrets.OVH_FTP_PASSWORD }}
+          OVH_FTP_PORT: ${{ secrets.OVH_FTP_PORT || 22 }}
+          OVH_PROTOCOL: ${{ secrets.OVH_PROTOCOL || 'sftp' }}
+          OVH_TARGET_DIR: ${{ secrets.OVH_TARGET_DIR || '/home/illok/' }}
+          PRODUCTION_DOMAIN: ${{ secrets.PRODUCTION_DOMAIN || 'www.illicomedia.com' }}
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ github.event.inputs.mode }}" = "staging-protected" ]; then
+            EXTRA_ARGS="--protected"
+          fi
+          node scripts/deploy-ovh.js --mode=prod --skip-build $EXTRA_ARGS
+
+      - name: Staging & Local CI Verification Notice
+        if: ${{ secrets.OVH_FTP_SERVER == '' || github.event.inputs.dry_run == true }}
+        run: |
+          echo "========================================================================"
+          echo "OVH Package verified and ready for /home/illok/!"
+          echo "Directories prepared:"
+          echo "  - .deploy/home/illok/www/             -> upload to OVH www/ (public web root)"
+          echo "  - .deploy/home/illok/www/api/         -> upload to OVH www/api/ (no test files)"
+          echo "  - .deploy/home/illok/api/             -> upload to OVH api/ (dedicated subdomain)"
+          echo "  - .deploy/home/illok/php-src/         -> upload to OVH php-src/ (private mailer handler)"
+          echo "  - .deploy/home/illok/php-src/templates/email/ -> upload to OVH php-src/templates/email/ (private email template)"
+          echo "  - .deploy/home/illok/skills/          -> upload to OVH skills/ (dynamic zip source packs)"
+          echo "  - .deploy/home/illok/data/            -> upload to OVH data/ (content.sqlite & app.sqlite outside web root)"
+          echo "  - .deploy/home/illok/.htpass_me       -> upload to OVH /home/illok/.htpass_me"
+          echo "  - .deploy/home/illok/.env             -> upload to OVH /home/illok/.env"
+          echo "========================================================================"

@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   bumpVersion,
   changelogHasVersion,
+  extractChangelogSection,
   nextDistTagAfterPromotion,
   parseReleaseArgs,
   smokeTestServer,
@@ -56,6 +57,14 @@ test('A release needs its changelog section', () => {
   assert.equal(changelogHasVersion('# Changelog\n\n## 1.5.0 - 2026-11-02\n', '1.5.0'), true);
   assert.equal(changelogHasVersion('## 1.5.0 - 2026-11-02\n', '1.5.1'), false);
   assert.equal(changelogHasVersion('## 1.5.01 - 2026-11-02\n', '1.5.0'), false);
+});
+
+test('extractChangelogSection: extracts the section body for a given version', () => {
+  const changelog =
+    '# Changelog\n\n## 1.5.0 - 2026-11-02\n\n### Added\n- New feature.\n\n## 1.4.0 - 2026-10-26\n\n- Older feature.\n';
+  assert.strictEqual(extractChangelogSection(changelog, '1.5.0'), '### Added\n- New feature.');
+  assert.strictEqual(extractChangelogSection(changelog, '1.4.0'), '- Older feature.');
+  assert.strictEqual(extractChangelogSection(changelog, '9.9.9'), '');
 });
 
 test('Release args: smoke-only runs without the registry', () => {

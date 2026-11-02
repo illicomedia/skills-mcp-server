@@ -1,12 +1,106 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
-  "extends": ["../../website/biome.json"],
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100,
+    "bracketSpacing": true,
+    "bracketSameLine": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "warn",
+          "options": {
+            "maxAllowedComplexity": 25
+          }
+        },
+        "useSimplifiedLogicExpression": "warn",
+        "noUselessUndefinedInitialization": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "noUndeclaredVariables": "error"
+      },
+      "performance": {
+        "noAccumulatingSpread": "error",
+        "noDelete": "warn"
+      },
+      "security": {
+        "noBlankTarget": "error",
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useBlockStatements": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "useConsistentTypeDefinitions": "error",
+        "useConsistentArrayType": "error",
+        "noNegationElse": "warn",
+        "useCollapsedIf": "error",
+        "useForOf": "error",
+        "useConst": "error",
+        "noParameterAssign": "error",
+        "noUselessElse": "error",
+        "useDefaultSwitchClause": "off",
+        "useNodejsImportProtocol": "error",
+        "useThrowOnlyError": "error",
+        "useShorthandAssign": "error",
+        "useTemplate": "error",
+        "useUnifiedTypeSignatures": "error"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noExplicitAny": "error",
+        "noEvolvingTypes": "error",
+        "noEmptyBlockStatements": "error",
+        "noImplicitAnyLet": "error",
+        "noTemplateCurlyInString": "off",
+        "useAwait": "warn",
+        "noConsole": "off",
+        "noVar": "error",
+        "noDoubleEquals": "error"
+      }
+    }
+  },
   "files": {
-    "includes": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.mjs"]
+    "includes": [
+      "src/**/*.ts",
+      "tests/**/*.ts",
+      "!tests/fixtures/**",
+      "scripts/**/*.mjs"
+    ],
+    "ignoreUnknown": true
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "json": {
+    "formatter": {
+      "indentWidth": 2,
+      "trailingCommas": "none"
+    }
   },
   "overrides": [
     {
-      "includes": ["tests/**", "scripts/**"],
+      "includes": [
+        "tests/**",
+        "scripts/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {

@@ -451,8 +451,8 @@ test('Installer: installSkill returns failure for unknown skill', () => {
 });
 
 test('Catalog: loadSkillContent reads real file from disk', () => {
-  const rootDir = path.resolve('../..');
-  const content = loadSkillContent('qa-core', rootDir);
+  const fixtureDir = path.resolve(import.meta.dirname, 'fixtures');
+  const content = loadSkillContent('qa-core', fixtureDir);
   assert.ok(content.length > 0);
   assert.match(content, /Core engineering policy/i);
 });

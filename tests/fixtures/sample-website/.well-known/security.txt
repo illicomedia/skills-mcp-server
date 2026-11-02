@@ -1,0 +1,6 @@
+# RFC 9116 security.txt for illicomedia
+Contact: mailto:security@illicomedia.com
+Expires: 2027-10-25T19:54:03.512Z
+Preferred-Languages: en,fr
+Canonical: https://www.illicomedia.com/.well-known/security.txt
+Policy: https://www.illicomedia.com/privacy-policy

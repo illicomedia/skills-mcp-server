@@ -2,6 +2,14 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.4.7 - 2026-11-02
+
+### Changed
+
+- Transitioned repository governance to official organization repository `github.com/illicomedia/skills-mcp-server`.
+- Enhanced release automation script with automated Git release tagging and changelog summary extraction.
+- Added comprehensive operational publishing documentation in `docs/operations/mcp-publish-process.md`.
+
 ## 1.4.6 - 2026-11-02
 
 ### Changed

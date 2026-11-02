@@ -20,7 +20,7 @@
  */
 
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import {
   bumpVersion,
   changelogHasVersion,
+  extractChangelogSection,
   nextDistTagAfterPromotion,
   parseReleaseArgs,
   smokeTestServer,
@@ -122,11 +123,36 @@ async function smokeTestTarball(pkg) {
   }
 }
 
-/** The website shows the MCP version from this tracked snapshot, and a test keeps them equal. */
+/** The website shows the MCP version from this tracked snapshot when in monorepo. */
 function syncWebsiteSnapshot(version) {
+  if (!existsSync(SNAPSHOT_PATH)) {
+    return;
+  }
   const snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
   snapshot.mcpServer.version = version;
   writeFileSync(SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+}
+
+/** Ensures an annotated git tag exists for the release version. */
+function ensureGitTag(version, { dryRun = false } = {}) {
+  const tagName = `v${version}`;
+  let tagExists = false;
+  try {
+    tagExists = Boolean(run(`git tag -l "${tagName}"`));
+  } catch {
+    return;
+  }
+  if (tagExists) {
+    log(`Git tag ${tagName} already exists.`);
+    return;
+  }
+  if (dryRun) {
+    log(`[dry-run] Would create git tag ${tagName}`);
+    return;
+  }
+  run(`git tag -a "${tagName}" -m "chore(mcp): release ${version}"`);
+  logSuccess(`Created annotated git tag ${tagName}.`);
+  log(`Push tag to remote: git push origin ${tagName}`);
 }
 
 /** pnpm refuses to publish a dirty tree: better to say so before anything changes. */
@@ -212,7 +238,11 @@ async function publish(pkg, { dryRun, bump, commitBump = false }) {
     pkg.version = version;
     writeFileSync(PKG_JSON_PATH, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
     syncWebsiteSnapshot(version);
-    logSuccess(`Updated package.json and the website snapshot to v${version}`);
+    logSuccess(
+      existsSync(SNAPSHOT_PATH)
+        ? `Updated package.json and the website snapshot to v${version}`
+        : `Updated package.json to v${version}`,
+    );
   }
 
   log('Running build and test suite...');
@@ -222,9 +252,17 @@ async function publish(pkg, { dryRun, bump, commitBump = false }) {
   await smokeTestTarball(pkg);
 
   if (commitBump && bump && !dryRun) {
-    run(
-      `git add package.json "${SNAPSHOT_PATH}" && git commit -m "chore(mcp): release ${version}"`,
-    );
+    const filesToStage = ['package.json'];
+    if (existsSync(SNAPSHOT_PATH)) {
+      filesToStage.push(`"${SNAPSHOT_PATH}"`);
+    }
+    const changelogText = readFileSync(resolve(PKG_DIR, 'CHANGELOG.md'), 'utf8');
+    const summary = extractChangelogSection(changelogText, version);
+    const commitMsg = summary
+      ? `chore(mcp): release ${version}\n\n${summary}`
+      : `chore(mcp): release ${version}`;
+    run(`git add ${filesToStage.join(' ')}`);
+    runInteractive('git', ['commit', '-m', commitMsg], PKG_DIR);
   }
 
   const publishArgs = ['publish', '--access', 'public', '--tag', 'next'];
@@ -240,7 +278,7 @@ async function publish(pkg, { dryRun, bump, commitBump = false }) {
     `Published ${packageName}@${version} under the \`next\` tag. \`latest\` did not move.`,
   );
   log(`Try it: npx -y ${packageName}@next`);
-  log(`Then promote it: pnpm run mcp:release -- --promote ${version}`);
+  log(`Then promote it: pnpm run release -- --promote ${version}`);
 }
 
 function promote({ name: packageName }, { dryRun, version }) {
@@ -264,6 +302,7 @@ function promote({ name: packageName }, { dryRun, version }) {
   if (!dryRun) {
     logSuccess(`\`latest\` now points at v${version} (was v${distTags.latest}).`);
   }
+  ensureGitTag(version, { dryRun });
 }
 
 function deprecate({ name: packageName }, { dryRun, version, message }) {

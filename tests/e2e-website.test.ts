@@ -86,10 +86,10 @@ class McpTestClient {
 
 test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', async () => {
   const cliPath = path.resolve('dist/index.js');
-  const websiteDir = path.resolve('../../website');
+  const websiteDir = path.resolve(import.meta.dirname, 'fixtures/sample-website');
 
   // Run from the repository root, where real skill sources live under skills/ (the package ships none)
-  const client = new McpTestClient(cliPath, path.resolve('../..'));
+  const client = new McpTestClient(cliPath, path.resolve(import.meta.dirname, 'fixtures'));
 
   try {
     // 1. Handshake (initialize)

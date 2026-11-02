@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.illicomedia.com/schemas/qa-license-v1.schema.json",
+  "title": "Fredo QA Skills signed license file (.qa-license.json), format version 1",
+  "description": "License file read by the Fredo QA Skills MCP server to unlock Pro or Enterprise skills. The signature is an Ed25519 signature (base64) over the canonical JSON (keys sorted, no whitespace) of every other field. Any change to the format must bump schema_version and publish a new schema file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "license_id",
+    "licensee",
+    "contact",
+    "tier",
+    "seats",
+    "issued_at",
+    "updates_until",
+    "binding",
+    "key_id",
+    "signature"
+  ],
+  "properties": {
+    "$schema": {
+      "description": "Optional link to this schema, for editor validation. Covered by the signature when present.",
+      "const": "https://www.illicomedia.com/schemas/qa-license-v1.schema.json"
+    },
+    "schema_version": {
+      "description": "License file format version. MCP servers reject versions they do not know.",
+      "const": 1
+    },
+    "license_id": { "type": "string", "minLength": 1 },
+    "licensee": { "type": "string", "minLength": 1 },
+    "contact": { "type": "string", "minLength": 1 },
+    "tier": { "enum": ["pro", "enterprise"] },
+    "seats": { "type": "integer", "minimum": 1 },
+    "issued_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "updates_until": {
+      "description": "Last release date covered: MCP builds released after this instant run in free mode.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": { "kind": { "const": "none" } }
+    },
+    "key_id": {
+      "description": "Identifier of the Ed25519 public key trusted by the MCP build.",
+      "type": "string",
+      "minLength": 1
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  }
+}
