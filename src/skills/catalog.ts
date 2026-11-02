@@ -100,11 +100,11 @@ export const SKILLS_CATALOG: SkillMetadata[] = [
     tier: 'free',
     category: 'language',
     description:
-      'Cargo check, Clippy with -D warnings, rustfmt, cargo-deny, cargo-audit, and Miri safety.',
+      'Clippy -D warnings & panic-restriction lints, forbid(unsafe_code), pure architectural boundaries, adversarial input bounds, cargo-deny, cargo-audit, and Miri.',
     rulesSummary: [
-      'cargo clippy --all-targets -- -D warnings',
-      'cargo fmt --check',
-      'cargo deny check and cargo audit',
+      'cargo clippy --all-targets -- -D warnings (plus unwrap_used / expect_used / missing_errors_doc bans)',
+      '#![forbid(unsafe_code)], pure domain/parser boundaries, and adversarial input caps',
+      'cargo fmt --check, cargo deny check, cargo audit, and Miri',
     ],
   },
   {

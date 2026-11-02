@@ -2,6 +2,13 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.4.6 - 2026-11-02
+
+### Changed
+
+- Updated `qa-rust` catalog metadata to v1.3.0 (`forbid(unsafe_code)`, Clippy panic-restriction and `# Errors` doc-contract lints, pure domain/parser architectural boundary isolation, and adversarial input complexity bounds).
+- Refined `README.md` prompt examples to emphasize deterministic engineering contract enforcement and `qa-core` evidence verification over generic LLM advice.
+
 ## 1.4.5 - 2026-11-02
 
 ### Added
