@@ -32,3 +32,17 @@ test('Capabilities: no network, no child processes, no dynamic code', () => {
     .map(({ file }) => file);
   assert.deepStrictEqual(offenders, []);
 });
+
+test('Capabilities: the only URLs shipped are the declared links shown to people, never fetched', () => {
+  const urls = new Set(
+    shippedCode().flatMap(({ code }) =>
+      [...code.matchAll(/https?:\/\/[^\s'"`)<>\\]+/g)].map((m) => m[0].replace(/[.,]$/, '')),
+    ),
+  );
+  assert.deepStrictEqual([...urls].sort(), [
+    'https://www.illicomedia.com/qa-skills/',
+    'https://www.illicomedia.com/qa-skills/pricing',
+    'https://www.illicomedia.com/qa-skills/skills',
+    'https://www.illicomedia.com/schemas/qa-license-v1.schema.json',
+  ]);
+});

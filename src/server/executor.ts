@@ -61,7 +61,7 @@ function verifyLicense(
       updatesUntil: targetLicense.updatesUntil ?? null,
       fallbackMode: targetLicense.fallbackMode,
       message: targetLicense.message,
-      portal: 'https://www.illicomedia.com/qa-skills/pricing',
+      portal: PRICING_URL,
     },
     null,
     2,
@@ -103,7 +103,7 @@ function getSkillRules(args: ToolArguments, license: LicenseValidationResult): s
   const skill = skills.find((s) => s.id === skillId);
 
   if (!skill) {
-    return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill, provide a signed license file with 'set_license_key' or visit:\nhttps://www.illicomedia.com/qa-skills/pricing`;
+    return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill, provide a signed license file with 'set_license_key' or visit:\n${PRICING_URL}`;
   }
 
   const content = loadSkillContent(skillId);

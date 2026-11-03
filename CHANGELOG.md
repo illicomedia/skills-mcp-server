@@ -9,6 +9,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 ### Changed
 
 - The server reads exactly one environment variable, `FREDO_QA_LICENSE_FILE`, by name; it no longer reads the whole environment. A test enforces it on the built package, along with no network and no child processes.
+- The package contains only four links, shown to people and never fetched; a test rejects any other URL.
 
 ### Removed
 

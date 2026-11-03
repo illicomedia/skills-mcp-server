@@ -251,5 +251,5 @@ whole-environment read and the unused API override). What is declared in README 
 must be exactly what ships.
 
 **Enforced by.** `tests/capabilities.test.ts` (scans `dist/` for environment, network, process
-and dynamic-code access); `tests/package-e2e.test.ts` (every shipped file has a current source);
+and dynamic-code access, and allows only the four declared links shown to people); `tests/package-e2e.test.ts` (every shipped file has a current source);
 `scripts/clean-dist.mjs` (`prebuild`).
