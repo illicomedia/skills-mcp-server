@@ -201,19 +201,27 @@ The listing is published with the registry's official tool, `mcp-publisher`, at 
 Sigstore signature before use; do not install it if verification fails:
 
 ```bash
-V=1.8.7; F=mcp-publisher_linux_amd64.tar.gz      # darwin_arm64 on Apple silicon
-curl -fsSLO "https://github.com/modelcontextprotocol/registry/releases/download/v$V/$F"
-curl -fsSLO "https://github.com/modelcontextprotocol/registry/releases/download/v$V/$F.sigstore.json"
+V=v1.8.7
+F="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+B="https://github.com/modelcontextprotocol/registry/releases/download/$V"
+curl -fsSL -o "$F" "$B/$F" && curl -fsSL -o "$F.sigstore.json" "$B/$F.sigstore.json"
 cosign verify-blob --bundle "$F.sigstore.json" \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/modelcontextprotocol/registry/' "$F"
-tar -xzf "$F" mcp-publisher && sudo install mcp-publisher /usr/local/bin/
+  --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/$V" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com "$F"
+tar -xzf "$F" mcp-publisher && sudo install mcp-publisher /usr/local/bin/ && rm -f "$F" "$F.sigstore.json"
 mcp-publisher --version                            # mcp-publisher v1.8.7 (...)
-mcp-publisher login github                         # once: a browser confirmation with GitHub
+mcp-publisher login github                         # once, approved in the browser AS THE illicomedia ACCOUNT
 ```
 
-The listing's name, `io.github.illicomedia/skills-mcp-server`, requires a GitHub login that can
-publish for `illicomedia`. Versions published to npm without `mcpName` (2.0.2 and older) cannot be
+The certificate identity is exact: only the registry's own release workflow, at tag v1.8.7, can
+have signed the file. This is the check the registry's documentation uses.
+
+The listing's name, `io.github.illicomedia/skills-mcp-server`, is the **personal namespace** of
+the GitHub account `illicomedia` (a user account, not an organization). `mcp-publisher login github`
+grants exactly the namespace of the account that approves the login in the browser, so approve it
+while signed in to GitHub **as `illicomedia`**; another account gets `io.github.<that-account>/`
+and the publish is refused. (Organization namespaces would need an organization Owner and a token
+or GitHub Actions: the browser login cannot publish for organizations, registry issue #1468.) Versions published to npm without `mcpName` (2.0.2 and older) cannot be
 listed; 3.0.0 is the first.
 
 ## First release with Trusted Publishing only (once)
