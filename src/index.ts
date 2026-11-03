@@ -11,9 +11,17 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { unsupportedRuntimeReason } from './security/runtime-guard.js';
 import { FredoQaMcpServer } from './server/server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Refuse to read any codebase on a Node.js line without security fixes.
+const runtimeProblem = unsupportedRuntimeReason(process.version);
+if (runtimeProblem) {
+  process.stderr.write(`[FATAL] ${runtimeProblem}\n`);
+  process.exit(1);
+}
 
 // Pre-flight License Security Lock (Rule 7)
 function verifyLicenseLock(): void {
