@@ -4,6 +4,21 @@ The guidelines this repository follows for releases, CI, supply chain, runtime s
 with the reason for each and what enforces it. The publish process itself is in
 [operations/mcp-publish-process.md](../operations/mcp-publish-process.md).
 
+## Guiding principle
+
+**When there is a choice, take the safest, most hardened and secure option.** Convenience, speed
+and familiarity come after it. In practice:
+
+- Prefer what cannot be changed behind our back (commit SHAs, digests, exact versions) over what can (tags, ranges).
+- Prefer a human with a second factor as the last step of anything that reaches users.
+- Fail closed: when a check cannot run or its answer is unclear, the action does not happen.
+- Grant the least privilege that works, per job and per step.
+- Verify instead of assuming (latest versions, hashes, CI status, registry state).
+- State the residual risk honestly; "no risk" is never claimed, only reduced and named.
+- Between two equally safe options, take the simpler one: fewer moving parts, fewer ways to fail.
+
+Every decision below applies this principle.
+
 **Changing a decision:** open a pull request that changes the code and this file together. Mark
 the old entry `Superseded by D<n>` instead of deleting it, so the history of why stays readable.
 
