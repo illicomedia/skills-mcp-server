@@ -41,6 +41,7 @@ the old entry `Superseded by D<n>` instead of deleting it, so the history of why
 | D15 | Zero runtime dependencies | before 1.4 |
 | D16 | Every platform in CI is required, macOS included | 2.0.0 |
 | D17 | Minimal capabilities, checked on the shipped code | 2.0.2 |
+| D18 | Workflows are tested like code | 2.0.3 |
 
 ---
 
@@ -274,3 +275,23 @@ must be exactly what ships.
 **Enforced by.** `tests/capabilities.test.ts` (scans `dist/` for environment, network, process
 and dynamic-code access, and allows only the four declared links shown to people); `tests/package-e2e.test.ts` (every shipped file has a current source);
 `scripts/clean-dist.mjs` (`prebuild`).
+
+## D18. Workflows are tested like code
+
+**Decision.** Workflow files hold no logic: every `run:` calls a command of `scripts/release.mjs`
+(covered by the 100% gate), `pnpm`, or a pinned, sealed tool. The release path runs on every push
+up to a dry run of staging (`--rehearse`). zizmor audits the workflows for security problems next
+to actionlint, pinned by digest, sealed and offline; each exception is justified in
+`.github/zizmor.yml`. Policy tests read the workflow files and enforce the decisions above.
+
+**Why.** Three release failures on 2026-11-03 came from shell code in workflow files that no test
+reached: a tarball path npm read as a GitHub repository, a dry run that refused an existing
+version, and a check that only ran on the maintainer's machine. zizmor found cache poisoning in
+the release jobs on its first run. A decision that is only written down erodes; one that fails CI
+does not.
+
+**Enforced by.** `tests/workflows.test.ts` (pins, permissions, credentials, caches, `${{ }}` in
+shell, thin `run:` steps, sealing, staging after full CI, rehearsal, Node.js matrices derived from
+`engines`, required platforms, time limits); the `workflows` job (actionlint, zizmor);
+`tests/release-flow.test.ts` (every command the workflows call). The policy tests were checked by
+breaking rules on purpose: each break fails them.
