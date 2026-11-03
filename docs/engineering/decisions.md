@@ -110,6 +110,8 @@ release/*.tgz`); `smokeTestServer` in `scripts/release-lib.mjs`; `tests/package-
 (file list, manifest, shebang, install, session through the bin and its shim); `ci.yml` dry-runs
 the exact `npm stage publish` command on every push, without credentials, so a broken publish
 command fails before any release (2.0.0 was lost to one: `release/x.tgz` read as a GitHub repository).
+npm refuses an existing version even in a dry run, so CI dry-runs a copy versioned
+`<version>-ci.<run id>.<attempt>`, which can never exist on npm.
 
 ## D6. Git tags and npm versions match 1:1
 

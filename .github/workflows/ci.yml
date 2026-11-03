@@ -68,10 +68,18 @@ jobs:
       - run: pnpm run build
       - run: pnpm pack --pack-destination packed
       # The exact command release.yml stages with, as a dry run without credentials: a wrong
-      # path or option fails here, on every push, instead of during a release.
+      # path or option fails here, on every push, instead of during a release. npm refuses a
+      # version that already exists even in a dry run, and main holds the released version, so
+      # the dry run uses a copy of the package with a version that can never exist on npm.
       - name: Dry-run the npm staging command
         run: |
-          tarballs=(packed/*.tgz)
+          work=$(mktemp -d -p "$RUNNER_TEMP")
+          dest="$RUNNER_TEMP/dry-run"
+          mkdir -p "$dest"
+          cp -R package.json README.md CHANGELOG.md LICENSE dist "$work"/
+          version="$(node -p 'require("./package.json").version')-ci.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          (cd "$work" && npm pkg set version="$version" && npm pack --silent --pack-destination "$dest" > /dev/null)
+          tarballs=("$dest"/*.tgz)
           [ "${#tarballs[@]}" -eq 1 ] || { echo "Expected exactly one tarball, got: ${tarballs[*]}"; exit 1; }
           TARBALL=$(realpath "${tarballs[0]}")
           npm stage publish "$TARBALL" --tag next --access public --dry-run
