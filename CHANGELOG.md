@@ -6,6 +6,11 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+**Why 3.0:** a supply-chain hardening release. The server now reads no environment variable and all
+file access goes through one audited module. Only setups that point at a license with
+`FREDO_QA_LICENSE_FILE` need a one-minute change (below); everything else works as in 2.0.x, which
+keeps receiving security and critical fixes for 6 months.
+
 ### Breaking
 
 - The server reads no environment variable. `FREDO_QA_LICENSE_FILE` is ignored: place the license at `~/.config/fredo-qa/license.json` or the project's `.qa-license.json`, or load it with `set_license_key`. Only setups that used the variable are affected.
