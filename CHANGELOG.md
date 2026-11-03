@@ -2,6 +2,19 @@
 
 All notable changes to `@illicomedia/skills-mcp-server`. Versions follow [Semantic Versioning](https://semver.org/).
 
+Add notes under `## Unreleased` as you work; `pnpm release` turns that section into the version's.
+
+## Unreleased
+
+### Breaking
+
+- Requires Node.js 22, 24 or 26+ (`^22.0.0 || ^24.0.0 || >=26.0.0`). The server refuses to start on Node.js lines without security fixes (18, 20 and odd-numbered lines), because it reads your codebase. Upgrade Node.js, or point your MCP client's `command` at a supported `node` binary.
+
+### Changed
+
+- Releases are published by GitHub Actions through npm Trusted Publishing, with provenance attestations, under the `next` tag; `latest` moves only after the published version is verified.
+- The release script no longer deprecates older versions automatically.
+
 ## 1.4.7 - 2026-11-02
 
 ### Changed

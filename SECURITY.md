@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-Only the latest release and active `main` branch receive security patches.
-
 | Version | Supported |
 | :--- | :--- |
-| `>= 1.4.7` | ✅ Yes |
-| `< 1.4.7` | ❌ No (Deprecated on npm registry — upgrade to latest) |
+| Latest major version (`latest` on npm) | ✅ All fixes |
+| Previous major version | ✅ Security and critical fixes for 6 months after the next major ships |
+| Older | ❌ Upgrade to the latest version |
+
+A version found to be vulnerable is deprecated on npm with the reason and the version to use instead.
 
 ---
 
@@ -32,9 +33,20 @@ We take the security of `@illicomedia/skills-mcp-server` seriously. If you disco
 
 ---
 
+## Verifying a Release
+
+Every version from the release workflow onwards is published by GitHub Actions with an npm provenance attestation linking the tarball to its source commit and workflow run:
+
+```bash
+npm audit signatures
+```
+
+---
+
 ## Security Model & Boundary Assurances
 
-1. **Zero Runtime Dependencies:** This package has zero third-party runtime dependencies (`dependencies: {}`). It runs entirely on audited Node.js built-ins (`node:crypto`, `node:fs`, `node:os`, `node:path`).
-2. **Offline Architecture:** All cryptographic verification (Ed25519) and static workspace audits run 100% locally. The server executes zero outbound network requests during tool operations.
-3. **Strict Path Containment:** The internal `path-guard` engine prevents path traversal (`../`), blocks operations on root directories (`/`, `/etc`, `C:\Windows`), and strictly prohibits reading or writing to sensitive credential directories (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
-4. **Human-in-the-Loop Confirmation:** Mutating tools (`install_skill`, `sync_workspace_skills`, `prune_skills`) and recursive directory traversal (`quick_check`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive safe previews.
+1. **Maintained Runtime Only:** The server refuses to start on a Node.js line that no longer receives security fixes (it enforces `^22.0.0 || ^24.0.0 || >=26.0.0` itself; npm only warns about `engines`). Keep Node.js patched within its line.
+2. **Zero Runtime Dependencies:** This package has zero third-party runtime dependencies (`dependencies: {}`). It runs entirely on Node.js built-ins (`node:crypto`, `node:fs`, `node:os`, `node:path`).
+3. **Offline Architecture:** All cryptographic verification (Ed25519) and static workspace audits run 100% locally. The server executes zero outbound network requests during tool operations.
+4. **Strict Path Containment:** The internal `path-guard` engine prevents path traversal (`../`), blocks operations on root directories (`/`, `/etc`, `C:\Windows`), and strictly prohibits reading or writing to sensitive credential directories (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+5. **Human-in-the-Loop Confirmation:** Mutating tools (`install_skill`, `sync_workspace_skills`, `prune_skills`) and recursive directory traversal (`quick_check`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive safe previews.

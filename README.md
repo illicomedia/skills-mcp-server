@@ -195,6 +195,8 @@ During rapid **vibe coding**, simply prompt the assistant naturally in chat:
 
 ## Installation & Setup
 
+**Requirements:** Node.js 22, 24 or 26+. The server refuses to start on Node.js versions that no longer receive security fixes, since it reads your codebase. If your default `node` is older (common with `nvm` on legacy projects), set the MCP client's `"command"` to the full path of a supported `node` and pass the package's `dist/index.js` as the argument, or switch with `nvm use 24` before starting the client.
+
 ### Option 1: Local / Offline Global Installation (for machines without network access)
 
 `@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing completely offline operation:
@@ -420,15 +422,11 @@ To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenS
 ## Development & Testing
 
 ```bash
-# Compile TypeScript to dist/
-npm run build
-
-# Run full test suite (Node.js native test runner)
-npm test
-
-# Run tests with coverage
-npm run test:coverage
+pnpm install
+pnpm run check   # lint, build, tests with the 100% coverage gate, packed-tarball smoke test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development flow and [docs/operations/mcp-publish-process.md](docs/operations/mcp-publish-process.md) for releases.
 
 ---
 

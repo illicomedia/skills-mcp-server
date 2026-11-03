@@ -1,21 +1,20 @@
 # MCP Server Publish & Release Process
 
-**Status:** Active  
-**Target Package:** `@illicomedia/skills-mcp-server`  
-**Registry:** [npmjs.com/package/@illicomedia/skills-mcp-server](https://www.npmjs.com/package/@illicomedia/skills-mcp-server)  
-**Publisher:** `illicomedia`  
+**Package:** [`@illicomedia/skills-mcp-server`](https://www.npmjs.com/package/@illicomedia/skills-mcp-server)
 **Repository:** [github.com/illicomedia/skills-mcp-server](https://github.com/illicomedia/skills-mcp-server)
+**Publisher:** GitHub Actions (`.github/workflows/release.yml`) through npm Trusted Publishing
 
 ---
 
 ## 1. Principles
 
-1. **A published version is permanent.** Projects, lockfiles, and MCP configs may point at any version. Problems are fixed by publishing a new version, never by removing an old one.
-2. **A release reaches users in two steps.** Publishing goes to the `next` tag; only a separate promotion moves `latest`.
-3. **Deprecation means "do not use this version".** It is applied to one broken or unsupported version at a time, with the reason and the replacement. A working version is not deprecated just because a newer one exists.
-4. **Git tags match npm versions 1:1.** When a version is promoted to `latest`, an annotated git tag `v<version>` is automatically created.
-5. **Human-in-the-loop control.** Releases are executed locally via `scripts/release.mjs` with your npm security credentials; GitHub Actions strictly runs CI tests and linting.
-6. **Unpublishing is for emergencies only**, such as a leaked secret, and is done by hand (section 6). The release script cannot unpublish.
+1. **Only a fully green CI publishes.** A version reaches npm from `release.yml`, triggered by a `v<version>` tag, with a provenance attestation, and only after the whole CI workflow has passed on that tag. `pnpm release` also refuses to tag a commit whose GitHub checks are not all green. No laptop runs `npm publish`, and no long-lived npm token exists.
+2. **A release reaches users in two steps.** CI publishes under the `next` dist-tag; a maintainer moves `latest` after checking the published version (`--promote`). The same command rolls back.
+3. **Git tags and npm versions match 1:1.** CI refuses to publish when the tag is not exactly `v` + the `package.json` version.
+4. **The tarball that is tested is the tarball that ships.** CI packs once, smoke-tests that file, and publishes that file.
+5. **A published version is permanent.** Problems are fixed by publishing a new version, never by removing an old one.
+6. **Deprecation means "do not use this version".** One broken or unsupported version at a time, with the reason and the replacement, by hand. A working version is never deprecated because a newer one exists.
+7. **Unpublishing is for emergencies only** (a leaked secret, section 7), by hand.
 
 ---
 
@@ -25,111 +24,96 @@
 | :--- | :--- | :--- |
 | **patch** | Bug fix, nothing changes for callers | Fix a wrong `quick_check` result |
 | **minor** | New capability, existing calls keep working | New tool, new optional parameter |
-| **major** | An existing setup can break | Removed or renamed tool or parameter, higher minimum Node version, license format older versions cannot read |
+| **major** | An existing setup can break | Removed or renamed tool or parameter, higher minimum Node.js version, license format older versions cannot read |
 
-Record every release in [`CHANGELOG.md`](../../CHANGELOG.md) before publishing.
+Notes accumulate under `## Unreleased` in [`CHANGELOG.md`](../../CHANGELOG.md) as pull requests land. A `### Breaking` heading there means the next release is a major.
 
 **Support policy:** the latest major version gets all fixes. The previous major version gets security and critical fixes for 6 months after the next major version ships.
 
----
-
-## 3. Shipping in One Command
-
-Write the `CHANGELOG.md` section, commit it, then run:
-
-```bash
-node scripts/release.mjs --ship --bump patch
-```
-
-It:
-1. Checks npm login, changelog entry, and clean git working tree;
-2. Runs build, tests, and tarball smoke test in an isolated temporary directory;
-3. Bumps version and commits `chore(mcp): release <version>`;
-4. Publishes under the `next` dist-tag;
-5. Installs the new version back from npm registry to verify end-to-end functionality;
-6. Promotes `latest` to the new version;
-7. Creates annotated git tag `v<version>`;
-8. Deprecates the previous version with a clear upgrade message.
-
-npm prompts for browser 2FA at each registry operation.
-After completion, push the new commit and tag:
-
-```bash
-git push origin main --tags
-```
-
-Add `--dry-run` to preview all actions without executing them:
-
-```bash
-node scripts/release.mjs --ship --bump patch --dry-run
-```
+**Node.js support:** only release lines that receive security fixes (`^22.0.0 || ^24.0.0 || >=26.0.0`), because the server reads whole codebases. `engines` declares it, and `src/security/runtime-guard.ts` enforces it at startup (npm only warns); a test keeps the two identical. CI installs the packed tarball and runs it on the first and the latest release of each line, and checks that Node 18 and 20 are refused. When a line reaches end of life, drop it in the next major release.
 
 ---
 
-## 4. Manual Staged Release (Alternative)
+## 3. One-Time Setup
 
-If you prefer verifying on `next` before promoting:
+1. **npm Trusted Publisher.** On npmjs.com, package settings > Trusted Publisher > GitHub Actions: organization `illicomedia`, repository `skills-mcp-server`, workflow `release.yml`, environment `npm-publish`. Then set "Publishing access" to require 2FA and disallow tokens, and delete the `NPM_TOKEN` repository secret.
+2. **GitHub environment.** Repository settings > Environments > `npm-publish` > Deployment branches and tags: add a rule of **Ref type: Tag**, pattern `v*` (a *branch* rule named `v*` does not match tags, and blocks publishing). Re-publish a failed tag with "Re-run jobs" on its run. Optionally add yourself as a required reviewer, so every publish waits for a click.
+3. **Branch protection on `main`:** require pull requests and the CI checks.
+4. **Local npm login** (for promote and deprecate only): `npm login`. The account enforces 2FA for writes; each registry change opens a browser confirmation.
 
-```bash
-# 0. Dry-run preview
-pnpm run release -- --dry-run --bump minor
+---
 
-# 1. Publish under the `next` tag
-pnpm run release -- --bump minor
+## 4. Releasing
 
-# 2. Test in a real agent setup
-npx -y @illicomedia/skills-mcp-server@next
-
-# 3. Promote to latest (creates git tag automatically)
-pnpm run release -- --promote 1.5.0
-
-# 4. Push commit and tag to GitHub
-git push origin main --tags
-```
-
-The publish step refuses to continue unless all of these pass:
-- npm login is verified;
-- version does not exist on npm;
-- TypeScript build succeeds;
-- Full test suite passes with 100% coverage;
-- Smoke test passes: package is packed into a `.tgz`, installed in a clean isolated directory, and starts a JSON-RPC session answering `initialize` and `tools/list`.
-
-Run the smoke test alone:
+### One command
 
 ```bash
-pnpm run release:smoke
+git switch main && git pull
+pnpm release --ship --bump minor          # add --dry-run to preview
 ```
+
+`--ship` runs the three steps below in order and stops at the first failure.
+
+### Step by step
+
+**1. Prepare** (laptop):
+
+```bash
+pnpm release --bump minor
+```
+
+The script refuses to continue unless:
+- the current branch is `main`, the tree is clean, and `HEAD` equals `origin/main`;
+- the tag and the npm version do not exist yet;
+- every GitHub check on that commit has finished green (read from the GitHub API; a `GITHUB_TOKEN` in the environment raises the API rate limit);
+- `CHANGELOG.md` has notes under `## Unreleased` (or a section for the version).
+
+It then bumps `package.json`, stamps `## Unreleased` as `## <version> - <today>`, runs lint, build, the coverage gate and the packed-tarball smoke test, commits `chore(release): <version>`, creates the annotated tag, asks, and pushes branch and tag atomically. If a gate fails, `package.json` and `CHANGELOG.md` are restored. Without a terminal, the push needs `--yes`.
+
+**2. Publish** (GitHub Actions, automatic on the tag): checks the tag against `package.json`, then runs the **entire CI workflow** (`ci.yml`) on the tagged commit. Only when every CI job is green does it pack once, smoke-test that tarball, publish it under `next` with provenance, and create the GitHub Release with the changelog section and the tarball attached. Re-running the workflow is safe: a version already on npm, or a release that already exists, is skipped.
+
+**3. Promote** (laptop, after trying `npx -y @illicomedia/skills-mcp-server@next` in a real agent if you wish):
+
+```bash
+pnpm release --promote 1.5.0
+```
+
+It installs the version from the registry into an empty folder, runs an MCP session against it, asks, then points `latest` at it and clears `next`.
+
+### Resuming
+
+Each step can be run on its own. If CI failed, fix forward: a new commit and a new patch version; the tag of a version that never reached npm can be re-pushed after `git push --delete origin v<version>`, or the workflow re-run from the Actions tab (manual run, `tag` input). If promotion was interrupted, run `--promote <version>` again.
 
 ---
 
 ## 5. When a Release Goes Wrong
 
-1. **Roll back immediately.** Point `latest` back at the last known good version:
+1. **Roll back `latest`** to the last good version:
    ```bash
-   pnpm run release -- --promote 1.4.1
+   pnpm release --promote 1.4.7
    ```
-2. **Warn users of the faulty version only.**
+2. **Warn users of the faulty version only:**
    ```bash
-   pnpm run release -- --deprecate 1.5.0 --message "Crashes on start with Node 18. Use 1.5.1."
+   pnpm release --deprecate 1.5.0 --message "Crashes on start with Node 22.0. Use 1.5.1."
    ```
-3. **Fix forward.** Publish a new patch version (`1.5.1`) and promote it.
+3. **Fix forward** with a new patch version.
 
 ---
 
-## 6. Two-Factor Authentication
+## 6. Commands
 
-The `illicomedia` npm account enforces **Two-Factor Authentication for Writes** (`auth-and-writes`). Publishing, promoting, and deprecating each prompt with an authentication URL:
+| Command | Where | What it does |
+| :--- | :--- | :--- |
+| `pnpm run check` | laptop | Lint, build, coverage gate, packed-tarball smoke test |
+| `pnpm release [--bump X]` | laptop | Prepare: preflight, version, changelog, gates, commit, tag, push |
+| `pnpm release --ship [--bump X]` | laptop | Prepare, wait for CI to publish, promote |
+| `pnpm release --promote <v>` | laptop | Verify from npm, move `latest` (or roll back) |
+| `pnpm release --deprecate <v> --message "<reason>. Use <v>."` | laptop | Deprecate one version |
+| `pnpm release --smoke-only [--tarball <file>]` | laptop, CI | Install a tarball into an empty project and run an MCP session |
+| `pnpm release --check-tag <tag>` | CI | Fail unless the tag is `v` + the `package.json` version |
+| `pnpm release --release-notes <v>` | CI | Print the changelog section of a version |
 
-```text
-Authenticate your account at:
-https://www.npmjs.com/auth/cli/<SESSION-ID>
-Press ENTER to open in the browser...
-```
-
-To log in before releasing, run:
-```bash
-npm login
-```
+Every command takes `--dry-run`. Steps that change git or npm ask first and refuse without a terminal unless `--yes` is given.
 
 ---
 
@@ -152,32 +136,23 @@ npm unpublish @illicomedia/skills-mcp-server@<VERSION>
 npm view @illicomedia/skills-mcp-server dist-tags
 npm view @illicomedia/skills-mcp-server versions --json
 npm view @illicomedia/skills-mcp-server@<VERSION> deprecated
+npm audit signatures   # in a project that installs it: verifies provenance
 ```
 
 ---
 
-## 9. Supply Chain & Package Health Governance (Socket.dev & OpenSSF Standards)
+## 9. Supply Chain Posture
 
-Socket.dev evaluates packages across 5 pillars. Here is how `@illicomedia/skills-mcp-server` aligns with each metric:
+What is in place, and what is not yet:
 
-### 1. Supply Chain Risk (Security)
-- **Zero Runtime Dependencies**: Package ships with 0 third-party dependencies, eliminating supply-chain injection vectors.
-- **Declared Capabilities**: Uses Node built-in `node:fs` solely for workspace inspection and rule installation with user confirmation (`confirm: true`); reads `process.env` only for license configurations. Contains zero child processes and zero network requests.
-- **npm Provenance**: Supports SLSA Level 3 provenance attestations via Sigstore and GitHub Actions OIDC (`npm publish --provenance`).
-- **Security Policy**: Maintained at [`SECURITY.md`](../../SECURITY.md) with defined vulnerability disclosure channels and SLAs.
-
-### 2. Maintenance
-- **Multi-Maintainer Governance**: Co-maintained under the `@illicomedia` npm organization to mitigate bus-factor risk.
-- **Synchronized GitHub Repository**: Dedicated standalone repository with full authentic commit history, issue tracker, and PR templates.
-- **Clean Deprecation Cadence**: Outdated versions are promptly deprecated on npm with clear migration pointers (`Superseded by 1.4.x`).
-
-### 3. Quality
-- **Specification Metadata**: Explicit `engines` (`>=18.0.0`), `bugs`, `homepage`, `repository`, `types`, and `bin` fields.
-- **Clean Whitespace & Strict Linting**: Biome 2.6.4 checks with zero errors and zero warnings.
-- **100% Test Coverage Gate**: Comprehensive unit, negative-path, and integration tests covering 100% lines, branches, and functions.
-
-### 4. Vulnerabilities
-- **Zero Known CVEs**: Continuous scanning and zero unpinned runtime dependencies ensure 100/100 vulnerability posture.
-
-### 5. License
-- **SPDX Conformance**: Clear `MIT` SPDX expression in `package.json` with matching full text in `LICENSE`.
+| Area | Status |
+| :--- | :--- |
+| Runtime dependencies | None (`dependencies: {}`), checked by the package e2e test |
+| Provenance | npm provenance attestation on every CI publish (Sigstore, GitHub OIDC); versions up to 1.4.7 were published locally and have none |
+| Publishing credentials | npm Trusted Publishing: short-lived OIDC credentials, no stored npm token |
+| Workflow hardening | Actions pinned to commit SHAs, least-privilege `permissions` per job, protected `npm-publish` environment, actionlint in CI |
+| Dependency updates | Dependabot, weekly, for GitHub Actions and dev dependencies |
+| Package metadata | publint in CI; `engines`, `bin`, `types`, `repository`, `bugs`, `homepage`, SPDX `license` |
+| Tests | 100% line, branch and function coverage; release flow tested with a fake git/npm runner; packed tarball installed and run on every supported Node.js line |
+| Maintainers | One npm maintainer (`illicomedia`). Adding a second maintainer to the npm organization would reduce bus-factor risk |
+| Not yet | OpenSSF Scorecard, CodeQL, Windows and macOS in the full test suite, end-to-end release against a local registry (Verdaccio) |
