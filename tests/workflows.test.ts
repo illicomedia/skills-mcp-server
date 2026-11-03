@@ -222,3 +222,8 @@ test('D16: every platform is required, and every job has a time limit', () => {
     }
   }
 });
+
+test('D8: pnpm is pinned by version and hash (Corepack verifies the download)', () => {
+  const { packageManager } = JSON.parse(read('package.json')) as { packageManager: string };
+  assert.match(packageManager, /^pnpm@\d+\.\d+\.\d+\+sha512\.[0-9a-f]{128}$/);
+});
