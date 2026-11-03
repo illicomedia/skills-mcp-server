@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 2.0.2 - 2026-11-03
+
 ### Changed
 
 - The server reads exactly one environment variable, `FREDO_QA_LICENSE_FILE`, by name; it no longer reads the whole environment. A test enforces it on the built package, along with no network and no child processes.
