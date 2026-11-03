@@ -326,13 +326,20 @@ test('smoke: packs once and cleans up, or tests the tarball it is given', async 
   assert.strictEqual(broken.removed.length, 1, 'cleans up after a failure too');
 });
 
-test('waitForPublish: polls until CI has published, then gives up with a pointer', async () => {
+test('waitForPublish: explains the 2FA approval, polls until public, then gives up with a pointer', async () => {
   const late = fakeWorld({ versions: ['1.4.0', '1.5.0'], publishAfterPolls: 2 });
   await waitForPublish(late.ctx, PKG, '1.5.0');
-  assert.ok(late.logs.some((line) => line.includes('(2/')));
+  assert.ok(late.logs.includes(`  npm stage list ${NAME}`));
+  assert.ok(late.logs.includes('  npm stage approve <stage-id>'));
+  assert.ok(late.logs.some((line) => line.includes('(1/')));
+  assert.ok(!late.logs.some((line) => line.includes('(2/')), 'progress is logged once a minute');
+  assert.ok(late.logs.includes(`${NAME}@1.5.0 is public on npm.`));
 
   const never = fakeWorld();
-  await assert.rejects(waitForPublish(never.ctx, PKG, '1.5.0'), /--promote 1\.5\.0/);
+  await assert.rejects(
+    waitForPublish(never.ctx, PKG, '1.5.0'),
+    /npm stage approve.*--promote 1\.5\.0/,
+  );
 });
 
 test('verifyFromRegistry: retries while the registry catches up, then fails loudly', async () => {

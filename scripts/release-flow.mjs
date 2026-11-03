@@ -6,8 +6,8 @@
  *
  * Publishing is CI's job (.github/workflows/release.yml, npm Trusted Publishing): this module
  * never runs `npm publish`. It prepares a release (gates, version, changelog, commit, tag, push),
- * waits for CI to put it on `next`, verifies it from the registry, then moves `latest` after a
- * human confirms. It never unpublishes, and deprecates one version at a time, on request only.
+ * waits for CI to stage it and a maintainer to approve it (`npm stage approve`, 2FA) onto `next`,
+ * verifies it from the registry, then moves `latest` after a human confirms. It never unpublishes, and deprecates one version at a time, on request only.
  */
 
 import {
@@ -24,6 +24,8 @@ import {
 export const RELEASE_BRANCH = 'main';
 export const REGISTRY_ATTEMPTS = 30;
 export const REGISTRY_WAIT_MS = 10_000;
+/** CI (about 8 minutes) plus a maintainer approving the staged version with 2FA. */
+export const PUBLISH_ATTEMPTS = 180;
 
 function git(ctx, ...args) {
   return ctx.sh('git', args);
@@ -205,18 +207,28 @@ export async function prepare(ctx, pkg, { bump = null, dryRun = false, yes = fal
   return { version, pushed: true };
 }
 
-/** Waits until CI has published the version (it lands under `next`). */
+/**
+ * Waits until the version is public on npm. CI only stages it (npm Trusted Publishing may not
+ * publish directly); it goes public when a maintainer approves the staged version with 2FA.
+ */
 export async function waitForPublish(ctx, pkg, version) {
-  for (let attempt = 1; attempt <= REGISTRY_ATTEMPTS; attempt += 1) {
+  ctx.log(`When CI is green, it stages v${version}. Approve it with 2FA in another terminal:`);
+  ctx.log(`  npm stage list ${pkg.name}`);
+  ctx.log('  npm stage approve <stage-id>');
+  for (let attempt = 1; attempt <= PUBLISH_ATTEMPTS; attempt += 1) {
     if (registryState(ctx, pkg.name).versions.includes(version)) {
-      ctx.ok(`${pkg.name}@${version} is on npm.`);
+      ctx.ok(`${pkg.name}@${version} is public on npm.`);
       return;
     }
-    ctx.log(`Waiting for CI to publish v${version} (${attempt}/${REGISTRY_ATTEMPTS})...`);
+    if (attempt % 6 === 1) {
+      ctx.log(
+        `Waiting for v${version} to be staged and approved (${attempt}/${PUBLISH_ATTEMPTS})...`,
+      );
+    }
     await ctx.sleep(REGISTRY_WAIT_MS);
   }
   throw new Error(
-    `v${version} did not reach npm in time. Check the release workflow run, then run --promote ${version}.`,
+    `v${version} is not public yet. Check the release workflow run, approve the staged version (npm stage approve), then run --promote ${version}.`,
   );
 }
 

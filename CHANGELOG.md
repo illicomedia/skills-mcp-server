@@ -12,7 +12,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ### Changed
 
-- Releases are published by GitHub Actions through npm Trusted Publishing, with provenance attestations, under the `next` tag; `latest` moves only after the published version is verified.
+- Releases are staged on npm by GitHub Actions through npm Trusted Publishing, with provenance attestations, only after the full CI passes on the release tag; a maintainer approves each version with 2FA before it goes public under `next`, and `latest` moves only after the published version is verified.
 - The release script no longer deprecates older versions automatically.
 
 ## 1.4.7 - 2026-11-02

@@ -30,6 +30,7 @@ export interface Pkg {
 export const RELEASE_BRANCH: string;
 export const REGISTRY_ATTEMPTS: number;
 export const REGISTRY_WAIT_MS: number;
+export const PUBLISH_ATTEMPTS: number;
 export function registryState(
   ctx: ReleaseContext,
   packageName: string,

@@ -5,13 +5,15 @@ name: Release
 #   1. checks the tag matches package.json,
 #   2. runs the whole CI workflow (ci.yml) on the tagged commit,
 #   3. only if every CI job is green: packs once, smoke-tests that tarball,
-#   4. publishes that exact tarball under the `next` dist-tag with a provenance attestation
-#      (npm Trusted Publishing, no npm token),
+#   4. stages that exact tarball on npm under the `next` dist-tag with a provenance attestation
+#      (npm Trusted Publishing, no npm token); it goes public only when a maintainer approves it
+#      with 2FA (`npm stage approve`): the trusted publisher may stage, not publish,
 #   5. creates the GitHub Release.
 # `latest` moves later, with `pnpm release --promote <version>`.
 #
 # One-time setup: npmjs.com > package settings > Trusted Publisher > GitHub Actions,
-# repository illicomedia/skills-mcp-server, workflow release.yml, environment npm-publish;
+# repository illicomedia/skills-mcp-server, workflow release.yml, environment npm-publish,
+# "Publish directly" and "Manage dist-tags" left unchecked (staged publishing only);
 # GitHub environment npm-publish with a deployment rule of type Tag, pattern v*.
 
 on:
@@ -106,7 +108,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish to npm under next
+    name: Stage on npm under next
     needs: [tag, build]
     runs-on: ubuntu-latest
     environment: npm-publish
@@ -126,7 +128,7 @@ jobs:
         with:
           name: release
           path: release
-      - name: Publish (skipped when this version is already on npm)
+      - name: Stage for publishing (a maintainer approves it with 2FA)
         env:
           SPEC: ${{ needs.tag.outputs.name }}@${{ needs.tag.outputs.version }}
         run: |
@@ -134,7 +136,13 @@ jobs:
             echo "$SPEC is already published; nothing to do."
             exit 0
           fi
-          npm publish release/*.tgz --tag next --access public --provenance
+          npm stage publish release/*.tgz --tag next --access public --provenance
+          {
+            echo "### $SPEC is staged, not public yet"
+            echo
+            echo "Approve it with 2FA: \`npm stage list ${SPEC%@*}\`, then \`npm stage approve <stage-id>\`."
+            echo "It then appears under \`next\`; move \`latest\` with \`pnpm release --promote ${SPEC##*@}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   github-release:
     name: GitHub Release

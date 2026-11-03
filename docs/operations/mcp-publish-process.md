@@ -9,7 +9,7 @@
 ## 1. Principles
 
 1. **Only a fully green CI publishes.** A version reaches npm from `release.yml`, triggered by a `v<version>` tag, with a provenance attestation, and only after the whole CI workflow has passed on that tag. `pnpm release` also refuses to tag a commit whose GitHub checks are not all green. No laptop runs `npm publish`, and no long-lived npm token exists.
-2. **A release reaches users in two steps.** CI publishes under the `next` dist-tag; a maintainer moves `latest` after checking the published version (`--promote`). The same command rolls back.
+2. **A release reaches users in three gates.** CI *stages* the version (staged publishing: the trusted publisher may not publish directly); a maintainer approves it with 2FA, which makes it public under `next`; a maintainer moves `latest` after checking it (`--promote`). The same command rolls back.
 3. **Git tags and npm versions match 1:1.** CI refuses to publish when the tag is not exactly `v` + the `package.json` version.
 4. **The tarball that is tested is the tarball that ships.** CI packs once, smoke-tests that file, and publishes that file.
 5. **A published version is permanent.** Problems are fixed by publishing a new version, never by removing an old one.
@@ -36,7 +36,7 @@ Notes accumulate under `## Unreleased` in [`CHANGELOG.md`](../../CHANGELOG.md) a
 
 ## 3. One-Time Setup
 
-1. **npm Trusted Publisher.** On npmjs.com, package settings > Trusted Publisher > GitHub Actions: organization `illicomedia`, repository `skills-mcp-server`, workflow `release.yml`, environment `npm-publish`. Then set "Publishing access" to require 2FA and disallow tokens, and delete the `NPM_TOKEN` repository secret.
+1. **npm Trusted Publisher.** On npmjs.com, package settings > Trusted Publisher > GitHub Actions: organization `illicomedia`, repository `skills-mcp-server`, workflow `release.yml`, environment `npm-publish`. Under **Allowed actions**, leave **Publish directly** and **Manage dist-tags** unchecked: CI may only stage versions, and only a maintainer with 2FA makes them public or moves a dist-tag. Then set "Publishing access" to require 2FA and disallow tokens, and delete the `NPM_TOKEN` repository secret.
 2. **GitHub environment.** Repository settings > Environments > `npm-publish` > Deployment branches and tags: add a rule of **Ref type: Tag**, pattern `v*` (a *branch* rule named `v*` does not match tags, and blocks publishing). Re-publish a failed tag with "Re-run jobs" on its run. Optionally add yourself as a required reviewer, so every publish waits for a click.
 3. **Branch protection on `main`:** require pull requests and the CI checks.
 4. **Local npm login** (for promote and deprecate only): `npm login`. The account enforces 2FA for writes; each registry change opens a browser confirmation.
@@ -52,7 +52,7 @@ git switch main && git pull
 pnpm release --ship --bump minor          # add --dry-run to preview
 ```
 
-`--ship` runs the three steps below in order and stops at the first failure.
+`--ship` runs the steps below in order and stops at the first failure. While it waits, it prints the `npm stage approve` commands to run in another terminal.
 
 ### Step by step
 
@@ -70,9 +70,19 @@ The script refuses to continue unless:
 
 It then bumps `package.json`, stamps `## Unreleased` as `## <version> - <today>`, runs lint, build, the coverage gate and the packed-tarball smoke test, commits `chore(release): <version>`, creates the annotated tag, asks, and pushes branch and tag atomically. If a gate fails, `package.json` and `CHANGELOG.md` are restored. Without a terminal, the push needs `--yes`.
 
-**2. Publish** (GitHub Actions, automatic on the tag): checks the tag against `package.json`, then runs the **entire CI workflow** (`ci.yml`) on the tagged commit. Only when every CI job is green does it pack once, smoke-test that tarball, publish it under `next` with provenance, and create the GitHub Release with the changelog section and the tarball attached. Re-running the workflow is safe: a version already on npm, or a release that already exists, is skipped.
+**2. Stage** (GitHub Actions, automatic on the tag): checks the tag against `package.json`, then runs the **entire CI workflow** (`ci.yml`) on the tagged commit. Only when every CI job is green does it pack once, smoke-test that tarball, stage it on npm under `next` with provenance (`npm stage publish`), and create the GitHub Release with the changelog section and the tarball attached.
 
-**3. Promote** (laptop, after trying `npx -y @illicomedia/skills-mcp-server@next` in a real agent if you wish):
+**3. Approve** (laptop, 2FA): the staged version is not public until you approve it:
+
+```bash
+npm stage list @illicomedia/skills-mcp-server
+npm stage download <stage-id>   # optional: inspect the exact tarball
+npm stage approve <stage-id>    # 2FA; the version becomes public under `next`
+```
+
+A staged version that should not ship is removed with `npm stage reject <stage-id>`; the version number is then free again. Re-running the workflow is safe: a version already on npm, or a release that already exists, is skipped.
+
+**4. Promote** (laptop, after trying `npx -y @illicomedia/skills-mcp-server@next` in a real agent if you wish):
 
 ```bash
 pnpm release --promote 1.5.0
@@ -106,7 +116,7 @@ Each step can be run on its own. If CI failed, fix forward: a new commit and a n
 | :--- | :--- | :--- |
 | `pnpm run check` | laptop | Lint, build, coverage gate, packed-tarball smoke test |
 | `pnpm release [--bump X]` | laptop | Prepare: preflight, version, changelog, gates, commit, tag, push |
-| `pnpm release --ship [--bump X]` | laptop | Prepare, wait for CI to publish, promote |
+| `pnpm release --ship [--bump X]` | laptop | Prepare, wait for CI to stage and you to approve, promote |
 | `pnpm release --promote <v>` | laptop | Verify from npm, move `latest` (or roll back) |
 | `pnpm release --deprecate <v> --message "<reason>. Use <v>."` | laptop | Deprecate one version |
 | `pnpm release --smoke-only [--tarball <file>]` | laptop, CI | Install a tarball into an empty project and run an MCP session |
@@ -149,7 +159,7 @@ What is in place, and what is not yet:
 | :--- | :--- |
 | Runtime dependencies | None (`dependencies: {}`), checked by the package e2e test |
 | Provenance | npm provenance attestation on every CI publish (Sigstore, GitHub OIDC); versions up to 1.4.7 were published locally and have none |
-| Publishing credentials | npm Trusted Publishing: short-lived OIDC credentials, no stored npm token |
+| Publishing credentials | npm Trusted Publishing: short-lived OIDC credentials, no stored npm token; staged publishing only, so a version goes public only after a maintainer's 2FA approval |
 | Workflow hardening | Actions pinned to commit SHAs, least-privilege `permissions` per job, protected `npm-publish` environment, actionlint in CI |
 | Dependency updates | Dependabot, weekly, for GitHub Actions and dev dependencies |
 | Package metadata | publint in CI; `engines`, `bin`, `types`, `repository`, `bugs`, `homepage`, SPDX `license` |
