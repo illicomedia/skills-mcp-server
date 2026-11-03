@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 2.0.0 - 2026-11-03
+
 ### Breaking
 
 - Requires Node.js 22, 24 or 26+ (`^22.0.0 || ^24.0.0 || >=26.0.0`). The server refuses to start on Node.js lines without security fixes (18, 20 and odd-numbered lines), because it reads your codebase. Upgrade Node.js, or point your MCP client's `command` at a supported `node` binary.
