@@ -56,9 +56,11 @@ jobs:
       - run: node scripts/release.mjs --check-tag "$TAG"
       - id: meta
         run: |
-          echo "ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
-          echo "name=$(node -p 'require("./package.json").name')" >> "$GITHUB_OUTPUT"
-          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+          {
+            echo "ref=refs/tags/$TAG"
+            echo "name=$(node -p 'require("./package.json").name')"
+            echo "version=$(node -p 'require("./package.json").version')"
+          } >> "$GITHUB_OUTPUT"
 
   ci:
     name: CI
