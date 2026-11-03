@@ -31,6 +31,12 @@ pnpm install
 
 Tests run against the compiled `dist/`, so `pnpm test` builds first. Fixtures live in `tests/fixtures/`.
 
+## Engineering decisions
+
+The rules this repository follows (releases, CI, supply chain, supported Node.js versions,
+tests) and the reasons for them are recorded in [docs/engineering/decisions.md](docs/engineering/decisions.md).
+A pull request that changes one of them updates that file in the same pull request.
+
 ## Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org/): `feat(scope): ...`, `fix(scope): ...`,
