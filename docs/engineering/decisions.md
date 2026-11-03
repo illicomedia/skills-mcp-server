@@ -307,7 +307,12 @@ does not.
 
 The code itself stays lean: knip finds no unused file, export or dependency, and jscpd no
 duplicated block (50 tokens, tests included, threshold 0); both run in `pnpm run check` and CI.
-An export used only by tests (which import `dist/`) is marked `@public`.
+An export used only by tests (which import `dist/`) is marked `@public`. knip builds first
+(`prelint:dead`): it only maps the tests' `dist/` imports back to `src/` when `dist/` exists.
+
+**Nothing is pushed before every gate is green locally on the committed state**, checked in a
+clean copy with `pnpm run check:clean` (no `dist/` or other leftovers), so CI is never the first
+place a failure shows up. On 2026-11-03 knip passed in a working copy and failed in CI.
 
 **Enforced by.** `tests/workflows.test.ts` (pins, permissions, credentials, caches, `${{ }}` in
 shell, thin `run:` steps, sealing, staging after full CI, rehearsal, Node.js matrices derived from

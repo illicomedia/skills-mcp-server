@@ -26,9 +26,18 @@ pnpm install
    files, exports or dependencies), `pnpm run lint:duplicates` (jscpd: no duplicated block of 50
    tokens or more, tests included), `pnpm test` (builds first),
    `pnpm run test:coverage`, `pnpm run release:smoke`, `pnpm run lint:package` (publint).
-3. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user would notice, under
+3. **Never push until every gate is green locally on the committed state.** Commit, then run:
+
+   ```bash
+   pnpm run check:clean   # exports HEAD into an empty folder, installs from the lockfile, runs check
+   ```
+
+   A working copy can pass where CI fails (an earlier build leaves `dist/` behind, for example);
+   `check:clean` sees exactly what CI sees. When workflows changed, also run actionlint and zizmor
+   (see the `workflows` job in `.github/workflows/ci.yml`).
+4. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user would notice, under
    `### Added`, `### Changed`, `### Fixed` or `### Breaking`.
-4. CI must be green: lint, build and coverage on Node 22, 24 and 26; the packed tarball installed and
+5. CI must be green: lint, build and coverage on Node 22, 24 and 26; the packed tarball installed and
    run on the first and latest release of each supported Node line, plus Windows and macOS; workflow lint.
 
 Tests run against the compiled `dist/`, so `pnpm test` builds first. Fixtures live in `tests/fixtures/`.
