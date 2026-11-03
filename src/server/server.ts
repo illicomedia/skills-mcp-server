@@ -5,8 +5,6 @@ import { SERVER_VERSION } from '../version.js';
 import { ToolExecutor } from './executor.js';
 import { findToolDefinition, MCP_TOOLS, validateToolParams } from './tools.js';
 
-export { MCP_TOOLS };
-
 export const MAX_REQUEST_BYTES = 1024 * 1024; // 1MB DoS guard per JSON-RPC frame
 
 export class FredoQaMcpServer {

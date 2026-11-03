@@ -1,7 +1,7 @@
 import { isDirectory, listDir } from '../../security/path-guard.js';
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
-export function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {
+function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {
   const checkCiDir = (fullDir: string | null): boolean =>
     fullDir !== null &&
     isDirectory(fullDir) &&

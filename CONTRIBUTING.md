@@ -19,10 +19,12 @@ pnpm install
 2. Run the same gates CI runs, in one command:
 
    ```bash
-   pnpm run check   # lint, build, tests with the 100% coverage gate, packed-tarball smoke test
+   pnpm run check   # lint, dead code (knip), duplicates (jscpd), build, 100% coverage, smoke test
    ```
 
-   Or one at a time: `pnpm run lint` (Biome, zero warnings), `pnpm test` (builds first),
+   Or one at a time: `pnpm run lint` (Biome, zero warnings), `pnpm run lint:dead` (knip: no unused
+   files, exports or dependencies), `pnpm run lint:duplicates` (jscpd: no duplicated block of 50
+   tokens or more, tests included), `pnpm test` (builds first),
    `pnpm run test:coverage`, `pnpm run release:smoke`, `pnpm run lint:package` (publint).
 3. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user would notice, under
    `### Added`, `### Changed`, `### Fixed` or `### Breaking`.

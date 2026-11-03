@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Entry points besides package.json "bin": the scripts package.json runs, and every test file.
+  // Tests import the built dist/, which knip cannot map back to src/: an export used only by tests
+  // is marked @public in its JSDoc.
+  "entry": ["scripts/*.mjs", "tests/*.test.ts"],
+  "project": ["src/**/*.ts", "scripts/**/*.mjs", "tests/**/*.ts"]
+}

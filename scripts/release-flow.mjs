@@ -27,13 +27,13 @@ import {
   versionAtLeast,
 } from './release-lib.mjs';
 
-export const RELEASE_BRANCH = 'main';
+const RELEASE_BRANCH = 'main';
 export const REGISTRY_ATTEMPTS = 30;
-export const REGISTRY_WAIT_MS = 10_000;
-export const MCP_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0/servers';
+const REGISTRY_WAIT_MS = 10_000;
+const MCP_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0/servers';
 const LISTING = 'server.json';
 /** CI (about 8 minutes) plus a maintainer approving the staged version with 2FA. */
-export const PUBLISH_ATTEMPTS = 180;
+const PUBLISH_ATTEMPTS = 180;
 
 function git(ctx, ...args) {
   return ctx.sh('git', args);

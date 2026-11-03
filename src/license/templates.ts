@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { exists, readText } from '../security/path-guard.js';
 import type { LicenseValidationResult, SkillMetadata } from '../types.js';
 
-export const DEFAULT_MIT_LICENSE = `MIT License
+const DEFAULT_MIT_LICENSE = `MIT License
 
 Copyright (c) 2026 Frédéric Charles Viallet
 

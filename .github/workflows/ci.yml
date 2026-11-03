@@ -46,6 +46,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      - name: Dead code (knip)
+        run: pnpm run lint:dead
+      - name: Duplicated code (jscpd)
+        run: pnpm run lint:duplicates
       - name: Build and test with the 100% coverage gate
         run: pnpm run test:coverage
       - name: Check package metadata (publint)

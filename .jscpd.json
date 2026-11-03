@@ -1,0 +1,8 @@
+{
+  "path": ["src", "scripts", "tests"],
+  "ignore": ["**/fixtures/**"],
+  "minTokens": 50,
+  "threshold": 0,
+  "reporters": ["console"],
+  "gitignore": true
+}

@@ -350,11 +350,12 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
   throw new SkillNotInstalledError(skillId, candidatePaths);
 }
 
-export const SKILL_PAGE_BASE_URL = 'https://www.illicomedia.com/qa-skills/skills';
+const SKILL_PAGE_BASE_URL = 'https://www.illicomedia.com/qa-skills/skills';
 
 /**
  * Raised when a known skill has no SKILL.md on disk. The message tells the agent to stop
  * and how the developer can install the skill, instead of letting it improvise rules.
+ * @public Callers tell it apart with instanceof (the tests do, through dist/).
  */
 export class SkillNotInstalledError extends Error {
   constructor(

@@ -305,6 +305,10 @@ version, and a check that only ran on the maintainer's machine. zizmor found cac
 the release jobs on its first run. A decision that is only written down erodes; one that fails CI
 does not.
 
+The code itself stays lean: knip finds no unused file, export or dependency, and jscpd no
+duplicated block (50 tokens, tests included, threshold 0); both run in `pnpm run check` and CI.
+An export used only by tests (which import `dist/`) is marked `@public`.
+
 **Enforced by.** `tests/workflows.test.ts` (pins, permissions, credentials, caches, `${{ }}` in
 shell, thin `run:` steps, sealing, staging after full CI, rehearsal, Node.js matrices derived from
 `engines`, required platforms, time limits); the `workflows` job (actionlint, zizmor);

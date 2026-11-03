@@ -1,11 +1,11 @@
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
-export interface GitignoreRules {
+interface GitignoreRules {
   ignoresEnv: boolean;
   ignoresPrivateKeys: boolean;
 }
 
-export function parseGitignoreRules(content: string): GitignoreRules {
+function parseGitignoreRules(content: string): GitignoreRules {
   const lines = content.split('\n').map((l) => l.trim());
   let ignoresEnv = false;
   let ignoresPrivateKeys = false;
@@ -55,7 +55,7 @@ export function parseGitignoreRules(content: string): GitignoreRules {
   return { ignoresEnv, ignoresPrivateKeys };
 }
 
-export function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
+function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
   const hasSecTxt =
     ctx.fileExists('public/.well-known/security.txt') ||
     ctx.fileExists('dist/.well-known/security.txt') ||
@@ -97,7 +97,7 @@ export function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
   };
 }
 
-export function checkGitignoreEnv(ctx: AuditContext): AuditCheckResult {
+function checkGitignoreEnv(ctx: AuditContext): AuditCheckResult {
   const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
   const { ignoresEnv } = parseGitignoreRules(gitignoreContent);
 
@@ -126,7 +126,7 @@ export function checkGitignoreEnv(ctx: AuditContext): AuditCheckResult {
   };
 }
 
-export function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
+function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
   const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
   const { ignoresPrivateKeys: ignoresKeys } = parseGitignoreRules(gitignoreContent);
 

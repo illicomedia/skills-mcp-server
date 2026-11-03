@@ -491,7 +491,7 @@ export function expectServerRefusal(command, timeoutMs = DEFAULT_SMOKE_TIMEOUT_M
 export const MCP_PUBLISHER_VERSION = '1.8.7';
 
 /** The schema of server.json, the MCP Registry listing. */
-export const MCP_SERVER_SCHEMA =
+const MCP_SERVER_SCHEMA =
   'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json';
 
 const MCP_NAME = /^io\.github\.[A-Za-z0-9-]+\/[a-zA-Z0-9._-]+$/;

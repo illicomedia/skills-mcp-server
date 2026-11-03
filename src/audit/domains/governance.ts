@@ -1,6 +1,6 @@
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
-export function checkAgentsMd(ctx: AuditContext): AuditCheckResult {
+function checkAgentsMd(ctx: AuditContext): AuditCheckResult {
   const hasAgentsMd = ctx.fileExists('AGENTS.md') || ctx.parentFileExists('AGENTS.md');
   if (hasAgentsMd) {
     return {
@@ -33,7 +33,7 @@ export function checkAgentsMd(ctx: AuditContext): AuditCheckResult {
   };
 }
 
-export function checkQaExceptions(ctx: AuditContext): AuditCheckResult {
+function checkQaExceptions(ctx: AuditContext): AuditCheckResult {
   const hasExceptions = ctx.fileExists('.qa-exceptions.yaml');
   let exceptionsPassed = true;
   let exceptionsSeverity: 'blocker' | 'warning' | 'info' = hasExceptions ? 'warning' : 'info';
@@ -72,7 +72,7 @@ export function checkQaExceptions(ctx: AuditContext): AuditCheckResult {
   };
 }
 
-export function checkLicense(ctx: AuditContext): AuditCheckResult {
+function checkLicense(ctx: AuditContext): AuditCheckResult {
   const hasLicense =
     ctx.fileExists('LICENSE') ||
     ctx.fileExists('LICENSE.md') ||
