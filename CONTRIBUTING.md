@@ -45,6 +45,7 @@ type for a breaking change. Every commit is focused, truthful and verified.
 
 ## Releases
 
-Maintainers only. See [docs/operations/mcp-publish-process.md](docs/operations/mcp-publish-process.md):
+Maintainers only. Step by step: [docs/operations/release-runbook.md](docs/operations/release-runbook.md).
+How and why: [docs/operations/mcp-publish-process.md](docs/operations/mcp-publish-process.md):
 `pnpm release --bump <patch|minor|major>` tags the release, GitHub Actions publishes it under `next`,
 and `pnpm release --promote <version>` moves `latest`.

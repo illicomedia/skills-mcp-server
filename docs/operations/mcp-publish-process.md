@@ -4,6 +4,7 @@
 **Repository:** [github.com/illicomedia/skills-mcp-server](https://github.com/illicomedia/skills-mcp-server)
 **Publisher:** GitHub Actions (`.github/workflows/release.yml`) through npm Trusted Publishing
 **Why it works this way:** [engineering decisions](../engineering/decisions.md) (D1 to D16)
+**Releasing now?** Follow the step-by-step [release runbook](release-runbook.md).
 
 ---
 
