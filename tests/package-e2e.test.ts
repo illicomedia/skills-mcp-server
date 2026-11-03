@@ -41,6 +41,14 @@ test('Package: ships the build, the docs and the license, and nothing else', () 
   assert.ok(!packed.files.some((file) => /\.test\.|^src\/|^tests\/|^scripts\//.test(file)));
 });
 
+test('Package: every shipped dist file comes from a current source file (no stale build output)', () => {
+  const orphans = packed.files
+    .filter((file) => file.startsWith('dist/'))
+    .map((file) => file.replace(/^dist\//, 'src/').replace(/(\.d\.ts|\.js)$/, '.ts'))
+    .filter((source) => !fs.existsSync(path.join(ROOT, source)));
+  assert.deepStrictEqual(orphans, []);
+});
+
 test('Package: the manifest users install is complete and pnpm-free', () => {
   const dir = path.join(work, 'unpacked');
   fs.mkdirSync(dir);

@@ -400,7 +400,7 @@ A license unlocks all releases published on or before its `updates_until` date *
 ### Declared Node.js Capabilities (Least Privilege)
 To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenSSF):
 - **Filesystem Access (`node:fs`)**: Legitimate read access is required for workspace preflight audits (`quick_check`), reading local `SKILL.md` documents, and loading local license files (`.qa-license.json`). Write access is strictly scoped to `.agents/skills/` and only occurs when mutating tools are invoked with explicit user confirmation (`confirm: true`).
-- **Environment Variables (`process.env`)**: Scoped exclusively to resolving license paths (`FREDO_QA_LICENSE_FILE`), inline keys (`FREDO_QA_LICENSE_KEY`), custom API gateways (`FREDO_QA_API_URL`), and user home directories (`HOME`, `USERPROFILE`, `APPDATA`). No environment tokens (such as `NPM_TOKEN`, `AWS_*`, `GITHUB_*`) are ever read or logged.
+- **Environment Variables (`process.env`)**: exactly one, read by name: `FREDO_QA_LICENSE_FILE`, the optional path to a license file. The server never reads the whole environment, and never reads tokens or credentials (such as `NPM_TOKEN`, `AWS_*`, `GITHUB_*`). The home directory comes from Node.js `os.homedir()`. A test checks the built package for any other environment access.
 - **Network & Shell Spawning**: The runtime contains **zero outbound network calls** (`fetch`, `http`, `net`) and **zero shell or child process executions** (`child_process`, `exec`, `spawn`). Execution occurs entirely in-memory over stdio.
 
 ### Sandboxing Controls

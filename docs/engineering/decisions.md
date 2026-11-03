@@ -40,6 +40,7 @@ the old entry `Superseded by D<n>` instead of deleting it, so the history of why
 | D14 | Changelog written as work lands, stamped at release | 2.0.0 |
 | D15 | Zero runtime dependencies | before 1.4 |
 | D16 | Every platform in CI is required, macOS included | 2.0.0 |
+| D17 | Minimal capabilities, checked on the shipped code | 2.0.2 |
 
 ---
 
@@ -236,3 +237,19 @@ can queue for several minutes.
 per release is cheaper than discovering a platform break after it shipped.
 
 **Enforced by.** `ci.yml` job `runtime` (no `continue-on-error`).
+
+## D17. Minimal capabilities, checked on the shipped code
+
+**Decision.** The server keeps only the capabilities its features need: file system access for
+audits and skill installs; one environment variable, `FREDO_QA_LICENSE_FILE`, read by name; no
+network, no child processes, no dynamic code. Unused capability code is removed, not kept
+"for later" (`FREDO_QA_API_URL` configured an API the server never called). The build starts from
+an empty `dist/`, so no stale file can ship.
+
+**Why.** Every capability is attack surface and a supply-chain alert (Socket `envVars` flagged the
+whole-environment read and the unused API override). What is declared in README and SECURITY.md
+must be exactly what ships.
+
+**Enforced by.** `tests/capabilities.test.ts` (scans `dist/` for environment, network, process
+and dynamic-code access); `tests/package-e2e.test.ts` (every shipped file has a current source);
+`scripts/clean-dist.mjs` (`prebuild`).

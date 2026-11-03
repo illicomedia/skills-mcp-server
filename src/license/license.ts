@@ -98,9 +98,10 @@ function readLicenseFile(file: string): string {
 }
 
 function discoverLicenseFile(options: LicenseOptions): string | undefined {
-  const env = options.env ?? process.env;
+  // The only environment variable the server reads, by name: never the whole environment.
+  const fromEnv = options.env ? options.env[LICENSE_FILE_ENV] : process.env.FREDO_QA_LICENSE_FILE;
   const candidates = [
-    env[LICENSE_FILE_ENV],
+    fromEnv,
     path.join(options.homeDir ?? os.homedir(), ...USER_LICENSE_PATH),
     path.join(options.projectRoot ?? process.cwd(), PROJECT_LICENSE_FILE),
   ];
