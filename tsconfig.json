@@ -10,7 +10,7 @@
     "noImplicitOverride": true,
     "esModuleInterop": true,
     "types": ["node"],
-    "typeRoots": ["./node_modules/@types", "../../website/node_modules/@types"],
+    "typeRoots": ["./node_modules/@types"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
