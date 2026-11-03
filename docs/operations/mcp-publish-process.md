@@ -160,8 +160,8 @@ What is in place, and what is not yet:
 | Runtime dependencies | None (`dependencies: {}`), checked by the package e2e test |
 | Provenance | npm provenance attestation on every CI publish (Sigstore, GitHub OIDC); versions up to 1.4.7 were published locally and have none |
 | Publishing credentials | npm Trusted Publishing: short-lived OIDC credentials, no stored npm token; staged publishing only, so a version goes public only after a maintainer's 2FA approval |
-| Workflow hardening | Actions pinned to commit SHAs, least-privilege `permissions` per job, protected `npm-publish` environment, actionlint in CI |
-| Dependency updates | Dependabot, weekly, for GitHub Actions and dev dependencies |
+| Workflow hardening | Actions pinned to commit SHAs and the actionlint image pinned by digest (`.github/actionlint/Dockerfile`), all updated through Dependabot pull requests; actionlint runs sealed (no network, read-only, no capabilities, not root); least-privilege `permissions` per job; protected `npm-publish` environment |
+| Dependency updates | Dependabot, weekly, for GitHub Actions, the actionlint image and dev dependencies |
 | Package metadata | publint in CI; `engines`, `bin`, `types`, `repository`, `bugs`, `homepage`, SPDX `license` |
 | Tests | 100% line, branch and function coverage; release flow tested with a fake git/npm runner; packed tarball installed and run on every supported Node.js line |
 | Maintainers | One npm maintainer (`illicomedia`). Adding a second maintainer to the npm organization would reduce bus-factor risk |

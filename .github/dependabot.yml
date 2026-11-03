@@ -14,3 +14,7 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+  - package-ecosystem: docker
+    directory: /.github/actionlint
+    schedule:
+      interval: weekly

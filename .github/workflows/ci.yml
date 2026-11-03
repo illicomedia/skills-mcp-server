@@ -141,5 +141,17 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
+      - name: Build the digest-pinned actionlint image
+        run: docker build --quiet --tag actionlint-pinned .github/actionlint
+      # Sealed: no network, read-only repository and filesystem, no capabilities, no privilege
+      # escalation, not root. Even a tampered image could not exfiltrate or change anything.
       - name: actionlint
-        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+        run: >-
+          docker run --rm
+          --network none
+          --read-only --tmpfs /tmp
+          --cap-drop ALL
+          --security-opt no-new-privileges
+          --user "$(id -u):$(id -g)"
+          --volume "$PWD:/repo:ro" --workdir /repo
+          actionlint-pinned -color
