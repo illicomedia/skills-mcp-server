@@ -6,7 +6,14 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Fixed
+
+- First published 2.x release. 2.0.0 was tagged but never reached npm: the release workflow passed the tarball to `npm stage publish` as `release/<file>.tgz`, which npm reads as a GitHub repository. It now passes an absolute path, and CI dry-runs that exact command on every push. Upgrading from 1.x: see the 2.0.0 notes below (Node.js 22, 24 or 26+ required).
+
 ## 2.0.0 - 2026-11-03
+
+Not published to npm (see 2.0.1).
+
 
 ### Breaking
 

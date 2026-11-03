@@ -203,7 +203,9 @@ export async function prepare(ctx, pkg, { bump = null, dryRun = false, yes = fal
     return { version, pushed: false };
   }
   git(ctx, 'push', '--atomic', 'origin', RELEASE_BRANCH, `refs/tags/${tag}`);
-  ctx.ok(`Pushed ${tag}: the release workflow now publishes it under \`next\`.`);
+  ctx.ok(
+    `Pushed ${tag}: after full CI, the release workflow stages it on npm for your 2FA approval.`,
+  );
   return { version, pushed: true };
 }
 

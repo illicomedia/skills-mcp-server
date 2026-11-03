@@ -136,7 +136,11 @@ jobs:
             echo "$SPEC is already published; nothing to do."
             exit 0
           fi
-          npm stage publish release/*.tgz --tag next --access public --provenance
+          # An explicit absolute path: npm reads "release/x.tgz" as a GitHub repository (user/repo).
+          tarballs=(release/*.tgz)
+          [ "${#tarballs[@]}" -eq 1 ] || { echo "Expected exactly one tarball, got: ${tarballs[*]}"; exit 1; }
+          TARBALL=$(realpath "${tarballs[0]}")
+          npm stage publish "$TARBALL" --tag next --access public --provenance
           {
             echo "### $SPEC is staged, not public yet"
             echo

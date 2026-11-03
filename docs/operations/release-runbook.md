@@ -190,6 +190,7 @@ After the first release has been staged and approved:
 | Step 4 | A CI job failed because of the runner (timeout, queue, network) | Open the run, **Re-run failed jobs** |
 | Step 4 | A CI job failed because of the code | Nothing is on npm. Fix in a new commit, then release the next patch version (2.0.1); the changelog keeps 2.0.0 as never published |
 | Step 4 | Staging failed with `403`, `404` or "not authorized" | Trusted Publisher fields differ from `illicomedia` / `skills-mcp-server` / `release.yml` / `npm-publish`, or "Publish directly" was expected: fix on npmjs.com, then **Re-run failed jobs** |
+| Step 4 | Staging failed with a git error (`ls-remote`, exit code 128) | npm read the tarball path as a GitHub repository; the workflow must pass an absolute path. CI's "Dry-run the npm staging command" catches this on every push |
 | Step 4 | "not allowed to deploy to npm-publish" | The environment needs a deployment rule of type **Tag**, pattern `v*` |
 | Step 5 | The staged version is wrong | `npm stage reject <stage-id>`; fix forward with the next patch version |
 | After 7 | A problem in the released version | Roll back: `pnpm release --promote 1.4.7`. Warn users of that version only: `pnpm release --deprecate 2.0.0 --message "<reason>. Use <version>."`. Fix forward with 2.0.1 |

@@ -106,7 +106,9 @@ npm depends on it.
 
 **Enforced by.** `release.yml` (`pnpm pack` once, `--smoke-only --tarball`, `npm stage publish
 release/*.tgz`); `smokeTestServer` in `scripts/release-lib.mjs`; `tests/package-e2e.test.ts`
-(file list, manifest, shebang, install, session through the bin and its shim).
+(file list, manifest, shebang, install, session through the bin and its shim); `ci.yml` dry-runs
+the exact `npm stage publish` command on every push, without credentials, so a broken publish
+command fails before any release (2.0.0 was lost to one: `release/x.tgz` read as a GitHub repository).
 
 ## D6. Git tags and npm versions match 1:1
 
