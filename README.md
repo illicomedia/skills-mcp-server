@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@illicomedia/skills-mcp-server.svg)](https://www.npmjs.com/package/@illicomedia/skills-mcp-server)
 [![CI Status](https://github.com/illicomedia/skills-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/illicomedia/skills-mcp-server/actions/workflows/ci.yml)
 [![Socket Security](https://socket.dev/api/badge/npm/package/@illicomedia/skills-mcp-server)](https://socket.dev/npm/package/@illicomedia/skills-mcp-server)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/illicomedia/skills-mcp-server/badge)](https://scorecard.dev/viewer/?uri=github.com/illicomedia/skills-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success.svg)](package.json)
 

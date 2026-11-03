@@ -294,7 +294,9 @@ refuses targets outside the root and through outside symlinks); `tests/package-e
 (covered by the 100% gate), `pnpm`, or a pinned, sealed tool. The release path runs on every push
 up to a dry run of staging (`--rehearse`). zizmor audits the workflows for security problems next
 to actionlint, pinned by digest, sealed and offline; each exception is justified in
-`.github/zizmor.yml`. Policy tests read the workflow files and enforce the decisions above.
+`.github/zizmor.yml`. Policy tests read every workflow file and enforce the decisions above; a new
+workflow file fails them until it is reviewed and listed. OpenSSF Scorecard rates the whole setup,
+repository settings included, every week.
 
 **Why.** Three release failures on 2026-11-03 came from shell code in workflow files that no test
 reached: a tarball path npm read as a GitHub repository, a dry run that refused an existing

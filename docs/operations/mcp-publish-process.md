@@ -167,4 +167,5 @@ What is in place, and what is not yet:
 | Package metadata | publint in CI; `engines`, `bin`, `types`, `repository`, `bugs`, `homepage`, SPDX `license` |
 | Tests | 100% line, branch and function coverage; release flow tested with a fake git/npm runner; packed tarball installed and run on every supported Node.js line |
 | Maintainers | One npm maintainer (`illicomedia`). Adding a second maintainer to the npm organization would reduce bus-factor risk |
-| Not yet | OpenSSF Scorecard, CodeQL, Windows and macOS in the full test suite, end-to-end release against a local registry (Verdaccio) |
+| OpenSSF Scorecard | Weekly, after each push to `main` and each branch-protection change (`scorecard.yml`); results in code scanning and on the README badge |
+| Not yet | CodeQL, Windows and macOS in the full test suite, end-to-end release against a local registry (Verdaccio) |

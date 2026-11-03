@@ -33,13 +33,23 @@ interface Workflow {
   jobs: Record<string, Job>;
 }
 
-const FILES = { ci: '.github/workflows/ci.yml', release: '.github/workflows/release.yml' };
+const FILES = {
+  ci: '.github/workflows/ci.yml',
+  release: '.github/workflows/release.yml',
+  scorecard: '.github/workflows/scorecard.yml',
+};
+/** Every workflow file, so a new one is checked by the general rules without being listed. */
+const WORKFLOW_FILES = fs
+  .readdirSync(path.join(ROOT, '.github', 'workflows'))
+  .filter((name) => /\.ya?ml$/.test(name))
+  .map((name) => `.github/workflows/${name}`)
+  .sort();
 const ci = parse(read(FILES.ci)) as Workflow;
 const release = parse(read(FILES.release)) as Workflow;
-const workflows: [string, Workflow][] = [
-  [FILES.ci, ci],
-  [FILES.release, release],
-];
+const workflows: [string, Workflow][] = WORKFLOW_FILES.map((file) => [
+  file,
+  parse(read(file)) as Workflow,
+]);
 
 function allJobs(): [string, string, Job][] {
   return workflows.flatMap(([file, wf]) =>
@@ -62,7 +72,7 @@ function engineLines(): number[] {
 }
 
 test('D9: every third-party action is pinned to a full commit SHA, with its version noted', () => {
-  for (const file of Object.values(FILES)) {
+  for (const file of WORKFLOW_FILES) {
     for (const [, ref, rest] of read(file).matchAll(/uses:\s*(\S+)(.*)$/gm)) {
       if (ref.startsWith('./')) {
         continue;
@@ -99,7 +109,14 @@ test('D9: every CI tool image is pinned by digest, and Dependabot updates it', (
 
 test('D11: least privilege: read-only defaults, write only where a job needs it', () => {
   assert.deepStrictEqual(ci.permissions, { contents: 'read' });
-  assert.deepStrictEqual(release.permissions, {});
+  for (const [file, wf] of workflows.filter(([file]) => file !== FILES.ci)) {
+    assert.deepStrictEqual(wf.permissions, {}, `${file}: no workflow-level permissions`);
+  }
+  assert.deepStrictEqual(
+    WORKFLOW_FILES,
+    Object.values(FILES).sort(),
+    'a new workflow needs review',
+  );
   const grants = allJobs().flatMap(([file, name, job]) =>
     Object.entries(job.permissions ?? {})
       .filter(([, level]) => level === 'write')
@@ -108,6 +125,8 @@ test('D11: least privilege: read-only defaults, write only where a job needs it'
   assert.deepStrictEqual(grants.sort(), [
     `${FILES.release}:github-release:contents`,
     `${FILES.release}:publish:id-token`,
+    `${FILES.scorecard}:analysis:id-token`,
+    `${FILES.scorecard}:analysis:security-events`,
   ]);
 });
 
