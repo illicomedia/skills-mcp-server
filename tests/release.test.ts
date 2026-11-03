@@ -8,6 +8,8 @@ import {
   changelogHasVersion,
   checkTagMatchesVersion,
   ciProblem,
+  ciTagOutputs,
+  expectServerRefusal,
   extractChangelogSection,
   githubRepoSlug,
   nextDistTagAfterPromotion,
@@ -17,6 +19,8 @@ import {
   smokeTestServer,
   stampChangelog,
   tagForVersion,
+  tarballFileName,
+  versionAtLeast,
 } from '../scripts/release-lib.mjs';
 
 test('Release args: prepare needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
@@ -76,20 +80,76 @@ test('Release args: ship is one action, with or without a bump', () => {
   assert.throws(() => parseReleaseArgs(['--ship', '--bump', 'huge']), /--bump expects/);
 });
 
-test('Release args: smoke-only runs without the registry, optionally on a given tarball', () => {
+test('Release args: smoke-only runs without the registry, optionally on a tarball folder', () => {
   assert.deepStrictEqual(parseReleaseArgs(['--smoke-only']), {
     action: 'smoke',
     dryRun: false,
     yes: false,
-    tarball: null,
+    tarballDir: null,
   });
-  assert.deepStrictEqual(parseReleaseArgs(['--smoke-only', '--tarball', 'pkg.tgz']), {
+  assert.deepStrictEqual(parseReleaseArgs(['--smoke-only', '--tarball-dir', 'packed']), {
     action: 'smoke',
     dryRun: false,
     yes: false,
-    tarball: 'pkg.tgz',
+    tarballDir: 'packed',
   });
-  assert.throws(() => parseReleaseArgs(['--tarball', 'pkg.tgz']), /--tarball only applies/);
+  assert.throws(() => parseReleaseArgs(['--tarball-dir', 'packed']), /--tarball-dir only applies/);
+  assert.throws(() => parseReleaseArgs(['--tarball', 'x.tgz']), /Unknown option: --tarball/);
+});
+
+test('Release args: CI commands stage, rehearse and publish the GitHub Release from a folder', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--stage', '--tarball-dir', 'release']), {
+    action: 'stage',
+    dryRun: false,
+    yes: false,
+    tarballDir: 'release',
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['--rehearse', '--tarball-dir', 'packed']), {
+    action: 'rehearse',
+    dryRun: false,
+    yes: false,
+    tarballDir: 'packed',
+  });
+  assert.deepStrictEqual(
+    parseReleaseArgs(['--github-release', 'v1.5.0', '--tarball-dir', 'release']),
+    { action: 'github-release', dryRun: false, yes: false, tag: 'v1.5.0', tarballDir: 'release' },
+  );
+  assert.deepStrictEqual(parseReleaseArgs(['--expect-refusal', '--tarball-dir', 'packed']), {
+    action: 'expect-refusal',
+    dryRun: false,
+    yes: false,
+    tarballDir: 'packed',
+  });
+  assert.throws(() => parseReleaseArgs(['--expect-refusal']), /--tarball-dir expects a folder/);
+  assert.throws(() => parseReleaseArgs(['--stage']), /--tarball-dir expects a folder/);
+  assert.throws(
+    () => parseReleaseArgs(['--github-release', '', '--tarball-dir', 'r']),
+    /expects a tag/,
+  );
+  assert.throws(() => parseReleaseArgs(['--stage', '--rehearse']), /Choose one action/);
+});
+
+test('versionAtLeast: compares x.y.z, ignoring a pre-release suffix', () => {
+  assert.strictEqual(versionAtLeast('11.5.1', '11.5.1'), true);
+  assert.strictEqual(versionAtLeast('11.6.0', '11.5.1'), true);
+  assert.strictEqual(versionAtLeast('12.0.0', '11.5.1'), true);
+  assert.strictEqual(versionAtLeast('11.5.0', '11.5.1'), false);
+  assert.strictEqual(versionAtLeast('10.9.9', '11.5.1'), false);
+  assert.strictEqual(versionAtLeast('11.5.1-pre.1', '11.5.1'), true);
+});
+
+test('tarballFileName and ciTagOutputs: names and step outputs CI relies on', () => {
+  assert.strictEqual(
+    tarballFileName('@illicomedia/skills-mcp-server', '2.0.2'),
+    'illicomedia-skills-mcp-server-2.0.2.tgz',
+  );
+  assert.strictEqual(tarballFileName('plain', '1.0.0'), 'plain-1.0.0.tgz');
+  const pkg = { name: '@illicomedia/skills-mcp-server', version: '2.0.2' };
+  assert.strictEqual(
+    ciTagOutputs('v2.0.2', pkg),
+    'ref=refs/tags/v2.0.2\nname=@illicomedia/skills-mcp-server\nversion=2.0.2\n',
+  );
+  assert.throws(() => ciTagOutputs('v2.0.3', pkg), /does not match/);
 });
 
 test('Release args: CI helpers check the tag and print release notes', () => {
@@ -322,4 +382,31 @@ test('ciProblem: a release needs at least one check, all finished, all green', (
     ),
     /not green: quality \(failure\), w \(cancelled\)/,
   );
+});
+
+test('expectServerRefusal: accepts only a [FATAL] "not supported" exit with code 1', async () => {
+  const refuses = fakeServer(
+    "process.stderr.write('[FATAL] Node.js v20.20.2 is not supported: upgrade\\n'); process.exit(1);",
+  );
+  assert.match(
+    await expectServerRefusal(refuses),
+    /^\[FATAL\] Node\.js v20\.20\.2 is not supported/,
+  );
+  assert.match(await expectServerRefusal(process.execPath, 10_000, [refuses]), /not supported/);
+
+  const starts = fakeServer(RESPONDER(HEALTHY));
+  await assert.rejects(expectServerRefusal(starts), /Expected a refusal, got exit 0/);
+  const otherFatal = fakeServer(
+    "process.stderr.write('[FATAL] License Pre-Flight Security Lock failed\\n'); process.exit(1);",
+  );
+  await assert.rejects(expectServerRefusal(otherFatal), /got exit 1: \[FATAL\] License/);
+  const talks = fakeServer(
+    "console.log('{}'); process.stderr.write('[FATAL] x is not supported\\n'); process.exit(1);",
+  );
+  await assert.rejects(expectServerRefusal(talks), /Expected a refusal/);
+  const silent = fakeServer('process.exit(2);');
+  await assert.rejects(expectServerRefusal(silent), /got exit 2/);
+  const hangs = fakeServer('setInterval(() => {}, 1000);');
+  await assert.rejects(expectServerRefusal(hangs, 200), /did not exit within 200 ms/);
+  await assert.rejects(expectServerRefusal('/nonexistent/fqa-server'), /ENOENT/);
 });

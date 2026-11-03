@@ -13,21 +13,44 @@
  *  pnpm release --ship [--bump patch|minor|major]    prepare, wait for CI, verify, promote
  *  pnpm release --promote <version>                  verify from npm, move `latest` (rollback too)
  *  pnpm release --deprecate <version> --message "<reason>. Use <version>."
- *  pnpm release --smoke-only [--tarball <file.tgz>]  pack (or take) a tarball and smoke-test it
- *  pnpm release --check-tag <tag>                    CI: the tag must match package.json
+ *  pnpm release --smoke-only [--tarball-dir <dir>]  pack (or take) a tarball and smoke-test it
+ *  pnpm release --rehearse --tarball-dir <dir>       CI, every push: the release path, staging dry-run
+ *  pnpm release --expect-refusal --tarball-dir <dir> CI, Node 18/20: the installed package must refuse
+ *  pnpm release --check-tag <tag>                    CI: the tag must match package.json; prints outputs
+ *  pnpm release --stage --tarball-dir <dir>          CI release: stage the tarball on npm under next
+ *  pnpm release --github-release <tag> --tarball-dir <dir>  CI release: the GitHub Release
  *  pnpm release --release-notes <version>            CI: print that version's changelog section
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  cpSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { deprecate, prepare, promote, ship, smoke } from './release-flow.mjs';
 import {
-  checkTagMatchesVersion,
+  deprecate,
+  expectRefusal,
+  githubRelease,
+  prepare,
+  promote,
+  rehearse,
+  ship,
+  smoke,
+  stage,
+} from './release-flow.mjs';
+import {
+  ciTagOutputs,
+  expectServerRefusal,
   extractChangelogSection,
   parseReleaseArgs,
   smokeTestServer,
@@ -65,13 +88,20 @@ async function confirm(question) {
   }
 }
 
-/** Starts the installed package's bin through node, so it works the same on every OS. */
-function smokeServer(installDir, version) {
+/** The installed package's bin entry, started through node so it works the same on every OS. */
+function installedEntry(installDir) {
   const pkg = JSON.parse(readFileSync(join(PKG_DIR, 'package.json'), 'utf8'));
   const installed = join(installDir, 'node_modules', ...pkg.name.split('/'));
   const { bin } = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
-  const entry = join(installed, Object.values(bin)[0]);
-  return smokeTestServer(process.execPath, version, undefined, [entry]);
+  return join(installed, Object.values(bin)[0]);
+}
+
+function smokeServer(installDir, version) {
+  return smokeTestServer(process.execPath, version, undefined, [installedEntry(installDir)]);
+}
+
+function refusingServer(installDir) {
+  return expectServerRefusal(process.execPath, undefined, [installedEntry(installDir)]);
 }
 
 /** Reads a public GitHub API answer (a GITHUB_TOKEN in the environment raises the rate limit). */
@@ -97,6 +127,7 @@ const ctx = {
   sh,
   confirm,
   smokeServer,
+  refusingServer,
   sleep,
   log: color(36, 'i'),
   ok: color(32, '✔'),
@@ -105,6 +136,17 @@ const ctx = {
   resolve,
   readFile: (path) => readFileSync(path, 'utf8'),
   writeFile: (path, text) => writeFileSync(path, text, 'utf8'),
+  listDir: (path) => readdirSync(path),
+  copy: (from, to) => cpSync(from, to, { recursive: true }),
+  /** The GitHub job summary when running in Actions, the log otherwise. */
+  summary: (markdown) =>
+    process.env.GITHUB_STEP_SUMMARY
+      ? appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown)
+      : console.error(markdown),
+  env: {
+    GITHUB_RUN_ID: process.env.GITHUB_RUN_ID,
+    GITHUB_RUN_ATTEMPT: process.env.GITHUB_RUN_ATTEMPT,
+  },
   makeTempDir: () => mkdtempSync(join(tmpdir(), 'fqa-release-')),
   removeDir: (path) => rmSync(path, { recursive: true, force: true }),
   today: () => new Date().toISOString().slice(0, 10),
@@ -115,7 +157,21 @@ async function main() {
   const pkg = JSON.parse(ctx.readFile(join(PKG_DIR, 'package.json')));
   switch (options.action) {
     case 'check-tag':
-      ctx.ok(`Tag ${checkTagMatchesVersion(options.tag, pkg.version)} matches package.json.`);
+      // stdout is the GitHub step output (ref, name, version); the log goes to stderr.
+      process.stdout.write(ciTagOutputs(options.tag, pkg));
+      ctx.ok(`Tag ${options.tag} matches package.json.`);
+      return;
+    case 'expect-refusal':
+      await expectRefusal(ctx, pkg, options);
+      return;
+    case 'stage':
+      stage(ctx, pkg, options);
+      return;
+    case 'rehearse':
+      rehearse(ctx, pkg, options);
+      return;
+    case 'github-release':
+      githubRelease(ctx, pkg, options);
       return;
     case 'release-notes':
       process.stdout.write(

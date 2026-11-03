@@ -8,6 +8,7 @@ export interface ReleaseContext {
   sh(command: string, args: string[], options?: { cwd?: string; interactive?: boolean }): string;
   confirm(question: string): Promise<boolean>;
   smokeServer(installDir: string, version: string): Promise<{ tools: number }>;
+  refusingServer(installDir: string): Promise<string>;
   sleep(ms: number): Promise<unknown>;
   log(message: string): void;
   ok(message: string): void;
@@ -16,6 +17,10 @@ export interface ReleaseContext {
   resolve(path: string): string;
   readFile(path: string): string;
   writeFile(path: string, text: string): void;
+  listDir(path: string): string[];
+  copy(from: string, to: string): void;
+  summary(markdown: string): void;
+  env: Record<string, string | undefined>;
   makeTempDir(): string;
   removeDir(path: string): void;
   today(): string;
@@ -24,6 +29,7 @@ export interface ReleaseContext {
 export interface Pkg {
   name: string;
   version: string;
+  files?: string[];
   [key: string]: unknown;
 }
 
@@ -35,7 +41,12 @@ export function registryState(
   ctx: ReleaseContext,
   packageName: string,
 ): { versions: string[]; distTags: Record<string, string> };
-export function smoke(ctx: ReleaseContext, pkg: Pkg, options?: { tarball?: string | null }): Promise<void>;
+export function findTarball(ctx: ReleaseContext, pkg: Pkg, dir: string): string;
+export function smoke(ctx: ReleaseContext, pkg: Pkg, options?: { tarballDir?: string | null }): Promise<void>;
+export function expectRefusal(ctx: ReleaseContext, pkg: Pkg, options: { tarballDir: string }): Promise<void>;
+export function stage(ctx: ReleaseContext, pkg: Pkg, options: { tarballDir: string }): void;
+export function rehearse(ctx: ReleaseContext, pkg: Pkg, options: { tarballDir: string }): void;
+export function githubRelease(ctx: ReleaseContext, pkg: Pkg, options: { tag: string; tarballDir: string }): void;
 export function prepare(
   ctx: ReleaseContext,
   pkg: Pkg,

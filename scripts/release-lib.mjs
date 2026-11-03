@@ -14,24 +14,49 @@ const FLAGS_WITH_VALUE = [
   '--promote',
   '--deprecate',
   '--message',
-  '--tarball',
+  '--tarball-dir',
   '--check-tag',
   '--release-notes',
+  '--github-release',
 ];
-const FLAGS = ['--dry-run', '--smoke-only', '--ship', '--yes', '-y'];
+const FLAGS = [
+  '--dry-run',
+  '--smoke-only',
+  '--expect-refusal',
+  '--ship',
+  '--stage',
+  '--rehearse',
+  '--yes',
+  '-y',
+];
 const ACTIONS = [
   '--ship',
   '--promote',
   '--deprecate',
   '--smoke-only',
+  '--expect-refusal',
+  '--stage',
+  '--rehearse',
+  '--github-release',
   '--check-tag',
   '--release-notes',
+];
+/** Actions that work on a folder holding exactly one packed tarball. */
+const TARBALL_DIR_ACTIONS = [
+  '--smoke-only',
+  '--expect-refusal',
+  '--stage',
+  '--rehearse',
+  '--github-release',
 ];
 const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 const UNRELEASED_HEADING = /^## \[?Unreleased\]?\s*$/i;
 
 /** MCP protocol revision the smoke test announces as a client. */
 export const SMOKE_PROTOCOL_VERSION = '2024-11-05';
+
+/** npm needs this version for Trusted Publishing (OIDC) and `npm stage publish`. */
+export const MIN_NPM_FOR_STAGING = '11.5.1';
 
 function readFlags(argv) {
   const flags = new Map();
@@ -73,6 +98,18 @@ function requireValue(flags, flag, hint) {
   return value;
 }
 
+function checkCombinations(flags, action) {
+  if (flags.has('--bump') && !['prepare', '--ship'].includes(action)) {
+    throw new Error('--bump only applies to a prepare or --ship');
+  }
+  if (flags.has('--message') && action !== '--deprecate') {
+    throw new Error('--message only applies to --deprecate');
+  }
+  if (flags.has('--tarball-dir') && !TARBALL_DIR_ACTIONS.includes(action)) {
+    throw new Error(`--tarball-dir only applies to ${TARBALL_DIR_ACTIONS.join(', ')}`);
+  }
+}
+
 /** Turns the command line into one release action; anything unknown or ambiguous throws. */
 export function parseReleaseArgs(argv) {
   const flags = readFlags(argv);
@@ -83,16 +120,9 @@ export function parseReleaseArgs(argv) {
     throw new Error(`Choose one action, got: ${actions.join(', ')}`);
   }
   const [action = 'prepare'] = actions;
-  if (flags.has('--bump') && !['prepare', '--ship'].includes(action)) {
-    throw new Error('--bump only applies to a prepare or --ship');
-  }
-  if (flags.has('--message') && action !== '--deprecate') {
-    throw new Error('--message only applies to --deprecate');
-  }
-  if (flags.has('--tarball') && action !== '--smoke-only') {
-    throw new Error('--tarball only applies to --smoke-only');
-  }
+  checkCombinations(flags, action);
   const base = { dryRun, yes };
+  const tarballDir = () => requireValue(flags, '--tarball-dir', 'a folder holding one .tgz');
   switch (action) {
     case '--ship':
       return { action: 'ship', ...base, bump: bumpOf(flags) };
@@ -104,7 +134,20 @@ export function parseReleaseArgs(argv) {
       return { action: 'deprecate', ...base, version, message };
     }
     case '--smoke-only':
-      return { action: 'smoke', ...base, tarball: flags.get('--tarball') ?? null };
+      return { action: 'smoke', ...base, tarballDir: flags.get('--tarball-dir') ?? null };
+    case '--expect-refusal':
+      return { action: 'expect-refusal', ...base, tarballDir: tarballDir() };
+    case '--stage':
+      return { action: 'stage', ...base, tarballDir: tarballDir() };
+    case '--rehearse':
+      return { action: 'rehearse', ...base, tarballDir: tarballDir() };
+    case '--github-release':
+      return {
+        action: 'github-release',
+        ...base,
+        tag: requireValue(flags, action, 'a tag such as v1.5.0'),
+        tarballDir: tarballDir(),
+      };
     case '--check-tag':
       return {
         action: 'check-tag',
@@ -119,6 +162,29 @@ export function parseReleaseArgs(argv) {
     default:
       return { action: 'prepare', ...base, bump: bumpOf(flags) };
   }
+}
+
+/** True when `version` (x.y.z, optionally with a pre-release) is at least `minimum` (x.y.z). */
+export function versionAtLeast(version, minimum) {
+  const parts = (value) => value.split('-')[0].split('.').map(Number);
+  const [a, b] = [parts(version), parts(minimum)];
+  for (let i = 0; i < 3; i += 1) {
+    if (a[i] !== b[i]) {
+      return a[i] > b[i];
+    }
+  }
+  return true;
+}
+
+/** The file name `pnpm pack` / `npm pack` gives a package: @scope/name 1.2.3 -> scope-name-1.2.3.tgz */
+export function tarballFileName(name, version) {
+  return `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;
+}
+
+/** The GitHub step outputs the release workflow needs, after checking the tag. */
+export function ciTagOutputs(tag, pkg) {
+  const name = checkTagMatchesVersion(tag, pkg.version);
+  return `ref=refs/tags/${name}\nname=${pkg.name}\nversion=${pkg.version}\n`;
 }
 
 export function bumpVersion(currentVersion, type) {
@@ -331,6 +397,45 @@ export function smokeTestServer(
         capabilities: {},
         clientInfo: { name: 'release-smoke-test', version: expectedVersion },
       },
+    });
+  });
+}
+
+/**
+ * Starts a built server that must refuse to run (an unsupported Node.js): resolves when it exits
+ * with code 1 and a [FATAL] "not supported" message, printing nothing on stdout; rejects when it
+ * exits otherwise or stays alive. Its stdin is empty: a server that wrongly starts sees the end of
+ * its input and exits with code 0, which is rejected.
+ */
+export function expectServerRefusal(command, timeoutMs = DEFAULT_SMOKE_TIMEOUT_MS, args = []) {
+  return new Promise((resolve, reject) => {
+    const server = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const output = { stdout: '', stderr: '' };
+    const timer = setTimeout(() => {
+      server.kill();
+      reject(new Error(`Server did not exit within ${timeoutMs} ms`));
+    }, timeoutMs);
+    server.stdout.on('data', (chunk) => {
+      output.stdout += String(chunk);
+    });
+    server.stderr.on('data', (chunk) => {
+      output.stderr += String(chunk);
+    });
+    server.on('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    server.on('exit', (code) => {
+      clearTimeout(timer);
+      if (code === 1 && !output.stdout && /\[FATAL\].*not supported/.test(output.stderr)) {
+        resolve(output.stderr.trim());
+      } else {
+        reject(
+          new Error(
+            `Expected a refusal, got exit ${code}: ${output.stderr || output.stdout}`.trim(),
+          ),
+        );
+      }
     });
   });
 }

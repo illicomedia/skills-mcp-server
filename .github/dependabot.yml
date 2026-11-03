@@ -18,3 +18,7 @@ updates:
     directory: /.github/actionlint
     schedule:
       interval: weekly
+  - package-ecosystem: docker
+    directory: /.github/zizmor
+    schedule:
+      interval: weekly

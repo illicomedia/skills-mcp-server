@@ -21,3 +21,8 @@ export function smokeTestServer(
 ): Promise<{ tools: number }>;
 export function githubRepoSlug(repository: unknown): string | null;
 export function ciProblem(checkRuns: unknown): string | null;
+export const MIN_NPM_FOR_STAGING: string;
+export function versionAtLeast(version: string, minimum: string): boolean;
+export function tarballFileName(name: string, version: string): string;
+export function ciTagOutputs(tag: string, pkg: { name: string; version: string }): string;
+export function expectServerRefusal(command: string, timeoutMs?: number, args?: string[]): Promise<string>;

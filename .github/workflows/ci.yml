@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: pnpm
+          package-manager-cache: false
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
@@ -65,26 +65,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: pnpm
+          package-manager-cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm pack --pack-destination packed
-      # The exact command release.yml stages with, as a dry run without credentials: a wrong
-      # path or option fails here, on every push, instead of during a release. npm refuses a
-      # version that already exists even in a dry run, and main holds the released version, so
-      # the dry run uses a copy of the package with a version that can never exist on npm.
-      - name: Dry-run the npm staging command
-        run: |
-          work=$(mktemp -d -p "$RUNNER_TEMP")
-          dest="$RUNNER_TEMP/dry-run"
-          mkdir -p "$dest"
-          cp -R package.json README.md CHANGELOG.md LICENSE dist "$work"/
-          version="$(node -p 'require("./package.json").version')-ci.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
-          (cd "$work" && npm pkg set version="$version" && npm pack --silent --pack-destination "$dest" > /dev/null)
-          tarballs=("$dest"/*.tgz)
-          [ "${#tarballs[@]}" -eq 1 ] || { echo "Expected exactly one tarball, got: ${tarballs[*]}"; exit 1; }
-          TARBALL=$(realpath "${tarballs[0]}")
-          npm stage publish "$TARBALL" --tag next --access public --dry-run
+      # The release path up to staging, on every push: tag logic, release notes, npm client,
+      # tarball, and a dry run of the exact staging command (scripts/release-flow.mjs rehearse).
+      - name: Rehearse the release
+        run: node scripts/release.mjs --rehearse --tarball-dir packed
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tarball
@@ -116,13 +104,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: tarball
           path: packed
       - name: Install the tarball into an empty project and run an MCP session
         shell: bash
-        run: node scripts/release.mjs --smoke-only --tarball packed/*.tgz
+        run: node scripts/release.mjs --smoke-only --tarball-dir packed
 
   refused:
     name: Installed package refuses Node ${{ matrix.node-version }} (no security fixes)
@@ -134,27 +123,23 @@ jobs:
       matrix:
         node-version: [18.x, 20.x]
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: tarball
           path: packed
-      - name: The server must exit with a FATAL message instead of starting
-        shell: bash
-        run: |
-          mkdir project && cd project && echo '{"private":true}' > package.json
-          npm install --no-audit --no-fund --ignore-scripts ../packed/*.tgz
-          set +e
-          output=$(echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | npx --no-install fredo-qa-mcp-server 2>&1)
-          status=$?
-          set -e
-          echo "$output"
-          [ "$status" -eq 1 ] && grep -q 'FATAL.*not supported' <<< "$output"
+      - name: The installed server must exit with a FATAL message instead of starting
+        run: node scripts/release.mjs --expect-refusal --tarball-dir packed
 
   workflows:
-    name: Lint GitHub workflows
+    name: Lint and audit GitHub workflows
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -176,3 +161,17 @@ jobs:
           --user "$(id -u):$(id -g)"
           --volume "$PWD:/repo:ro" --workdir /repo
           actionlint-pinned -color
+      - name: Build the digest-pinned zizmor image
+        run: docker build --quiet --tag zizmor-pinned .github/zizmor
+      # zizmor audits the workflows for security problems (injection, permissions, credentials,
+      # cache poisoning); sealed the same way, offline. Exceptions live in .github/zizmor.yml.
+      - name: zizmor
+        run: >-
+          docker run --rm
+          --network none
+          --read-only --tmpfs /tmp
+          --cap-drop ALL
+          --security-opt no-new-privileges
+          --user "$(id -u):$(id -g)"
+          --volume "$PWD:/repo:ro" --workdir /repo
+          zizmor-pinned --offline --config .github/zizmor.yml .github/workflows

@@ -4,12 +4,17 @@ import test from 'node:test';
 import type { Pkg, ReleaseContext } from '../scripts/release-flow.mjs';
 import {
   deprecate,
+  expectRefusal,
+  findTarball,
+  githubRelease,
   prepare,
   promote,
   REGISTRY_ATTEMPTS,
   registryState,
+  rehearse,
   ship,
   smoke,
+  stage,
   verifyFromRegistry,
   waitForPublish,
 } from '../scripts/release-flow.mjs';
@@ -37,6 +42,10 @@ interface World {
   interactive: boolean;
   answer: boolean;
   ci: 'green' | 'red' | 'unreachable';
+  npmVersion: string;
+  ghReleaseExists: boolean;
+  refuses: boolean;
+  env: Record<string, string | undefined>;
 }
 
 /** A fake git + npm + pnpm + file system that records every command it is asked to run. */
@@ -60,6 +69,10 @@ function fakeWorld(overrides: Partial<World> = {}) {
     interactive: true,
     answer: true,
     ci: 'green',
+    npmVersion: '11.6.0',
+    ghReleaseExists: false,
+    refuses: true,
+    env: {},
     ...overrides,
   };
   const files = new Map<string, string>([
@@ -70,7 +83,17 @@ function fakeWorld(overrides: Partial<World> = {}) {
   const logs: string[] = [];
   const removed: string[] = [];
   const questions: string[] = [];
+  const summaries: string[] = [];
+  /** Folder listings: what `pnpm pack` / `npm pack` wrote, or what a test put there. */
+  const dirs = new Map<string, string[]>();
   let polls = 0;
+
+  const packInto = (dir: string, packageJsonDir: string): string => {
+    const raw = files.get(path.join(packageJsonDir, 'package.json')) as string;
+    const version = (JSON.parse(raw) as { version?: string }).version ?? '1.4.0';
+    dirs.set(dir, [...(dirs.get(dir) ?? []), `illicomedia-skills-mcp-server-${version}.tgz`]);
+    return '';
+  };
 
   const git = (args: string[]): string => {
     const line = args.join(' ');
@@ -118,6 +141,9 @@ function fakeWorld(overrides: Partial<World> = {}) {
       world.installFailures -= 1;
       throw new Error('ETARGET No matching version');
     }
+    if (args[0] === '--version') {
+      return world.npmVersion;
+    }
     return '';
   };
 
@@ -126,7 +152,14 @@ function fakeWorld(overrides: Partial<World> = {}) {
       throw new Error(`${args[1]} failed`);
     }
     if (args[0] === 'pack') {
-      return JSON.stringify({ filename: `${args[2]}/pkg.tgz` });
+      return packInto(args[2], PKG_DIR);
+    }
+    return '';
+  };
+
+  const gh = (args: string[]): string => {
+    if (args[1] === 'view' && !world.ghReleaseExists) {
+      throw new Error('release not found');
     }
     return '';
   };
@@ -147,8 +180,14 @@ function fakeWorld(overrides: Partial<World> = {}) {
       if (command === 'git') {
         return git(args);
       }
+      if (command === 'npm' && args[0] === 'pack') {
+        return packInto(args[2], options.cwd as string);
+      }
       if (command === 'npm') {
         return npm(args);
+      }
+      if (command === 'gh') {
+        return gh(args);
       }
       return pnpm(args);
     },
@@ -162,6 +201,12 @@ function fakeWorld(overrides: Partial<World> = {}) {
       }
       return { tools: 9 };
     },
+    async refusingServer() {
+      if (!world.refuses) {
+        throw new Error('Expected a refusal, got exit 0');
+      }
+      return '[FATAL] Node.js v20.20.2 is not supported';
+    },
     sleep: async () => undefined,
     log: (message) => logs.push(message),
     ok: (message) => logs.push(message),
@@ -172,18 +217,27 @@ function fakeWorld(overrides: Partial<World> = {}) {
     writeFile: (file, text) => {
       files.set(file, text);
     },
-    makeTempDir: () => `/tmp/fqa-${calls.length}`,
+    listDir: (dir) => dirs.get(dir) ?? [],
+    copy: (from, to) => {
+      calls.push(`copy ${from} ${to}`);
+    },
+    summary: (markdown) => {
+      summaries.push(markdown);
+    },
+    env: world.env,
+    makeTempDir: () => `/tmp/fqa-${calls.length}-${removed.length}-${dirs.size}`,
     removeDir: (dir) => {
       removed.push(dir);
     },
     today: () => '2026-11-03',
   };
-  return { world, ctx, files, calls, logs, removed, questions };
+  return { world, ctx, files, calls, logs, removed, questions, summaries, dirs };
 }
 
 const PKG: Pkg = {
   name: NAME,
   version: '1.4.0',
+  files: ['dist', 'README.md', 'CHANGELOG.md', 'LICENSE'],
   repository: { type: 'git', url: 'git+https://github.com/illicomedia/skills-mcp-server.git' },
 };
 const has = (calls: string[], prefix: string) => calls.some((call) => call.startsWith(prefix));
@@ -309,21 +363,141 @@ test('prepare: pushing waits for a yes, and fails closed without a terminal', as
   assert.strictEqual(yes.questions.length, 0);
 });
 
-test('smoke: packs once and cleans up, or tests the tarball it is given', async () => {
+test('smoke: packs once and cleans up, or tests the tarball folder it is given', async () => {
   const packed = fakeWorld();
   await smoke(packed.ctx, PKG);
   assert.ok(has(packed.calls, 'pnpm run build') && has(packed.calls, 'pnpm pack'));
   assert.strictEqual(packed.removed.length, 2, 'install folder and pack folder');
 
   const given = fakeWorld();
-  await smoke(given.ctx, PKG, { tarball: '/ci/pkg.tgz' });
+  given.dirs.set('/ci', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  await smoke(given.ctx, PKG, { tarballDir: '/ci' });
   assert.ok(!has(given.calls, 'pnpm'));
-  assert.ok(given.calls.some((call) => call.includes('install') && call.includes('/ci/pkg.tgz')));
-  assert.strictEqual(given.removed.length, 1);
+  assert.ok(
+    given.calls.some((call) => call.includes('install') && call.includes('/ci/illicomedia-')),
+  );
+  assert.strictEqual(given.removed.length, 1, 'the given folder is kept');
 
   const broken = fakeWorld({ smokeFails: true });
-  await assert.rejects(smoke(broken.ctx, PKG, { tarball: '/ci/pkg.tgz' }), /server crashed/);
+  broken.dirs.set('/ci', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  await assert.rejects(smoke(broken.ctx, PKG, { tarballDir: '/ci' }), /server crashed/);
   assert.strictEqual(broken.removed.length, 1, 'cleans up after a failure too');
+});
+
+test('findTarball: exactly this package at this version, by absolute path', () => {
+  const { ctx, dirs } = fakeWorld();
+  dirs.set('/r', ['illicomedia-skills-mcp-server-1.4.0.tgz', 'NOTES.md']);
+  assert.strictEqual(findTarball(ctx, PKG, '/r'), '/r/illicomedia-skills-mcp-server-1.4.0.tgz');
+  dirs.set('/two', ['illicomedia-skills-mcp-server-1.4.0.tgz', 'other-1.0.0.tgz']);
+  assert.throws(() => findTarball(ctx, PKG, '/two'), /found: illicomedia.*other/);
+  dirs.set('/old', ['illicomedia-skills-mcp-server-1.3.0.tgz']);
+  assert.throws(() => findTarball(ctx, PKG, '/old'), /Expected exactly .*1\.4\.0\.tgz/);
+  assert.throws(() => findTarball(ctx, PKG, '/empty'), /found: none/);
+});
+
+test('stage: stages the tarball by absolute path under next, with provenance, then explains', () => {
+  const { ctx, calls, summaries, dirs } = fakeWorld({ versions: ['1.3.0'] });
+  dirs.set('release', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  stage(ctx, PKG, { tarballDir: 'release' });
+  assert.ok(
+    calls.includes(
+      'npm stage publish release/illicomedia-skills-mcp-server-1.4.0.tgz --tag next --access public --provenance',
+    ),
+  );
+  assert.ok(!has(calls, 'npm publish'), 'never publishes directly');
+  assert.match(
+    summaries[0],
+    /staged, not public yet[\s\S]*npm stage approve[\s\S]*--promote 1\.4\.0/,
+  );
+});
+
+test('stage: a version already on npm is skipped, an old npm is refused', () => {
+  const done = fakeWorld();
+  stage(done.ctx, PKG, { tarballDir: 'release' });
+  assert.ok(!has(done.calls, 'npm stage'));
+  assert.ok(done.logs.some((line) => line.includes('already published')));
+
+  const old = fakeWorld({ npmVersion: '10.9.2', versions: ['1.3.0'] });
+  assert.throws(() => stage(old.ctx, PKG, { tarballDir: 'release' }), /npm 10\.9\.2 cannot stage/);
+  assert.ok(!has(old.calls, 'npm stage'));
+});
+
+test('rehearse: dry-runs the exact staging command on a copy with a version npm can never have', () => {
+  const { ctx, calls, files, dirs, removed } = fakeWorld({
+    env: { GITHUB_RUN_ID: '42', GITHUB_RUN_ATTEMPT: '2' },
+  });
+  files.set('/repo/CHANGELOG.md', '## 1.4.0 - 2026-10-26\n\n- Notes.\n');
+  dirs.set('packed', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  rehearse(ctx, PKG, { tarballDir: 'packed' });
+  for (const file of PKG.files as string[]) {
+    assert.ok(
+      calls.some((call) => call.startsWith(`copy /repo/${file} `)),
+      file,
+    );
+  }
+  const copied = [...files.entries()].find(
+    ([file]) => file.endsWith('/package.json') && file !== '/repo/package.json',
+  );
+  assert.strictEqual(JSON.parse(copied?.[1] as string).version, '1.4.0-ci.42.2');
+  assert.ok(
+    calls.some((call) =>
+      /^npm stage publish \/tmp\/.*\/illicomedia-skills-mcp-server-1\.4\.0-ci\.42\.2\.tgz --tag next --access public --dry-run$/.test(
+        call,
+      ),
+    ),
+    calls.join('\n'),
+  );
+  assert.strictEqual(removed.length, 2, 'copy and pack folders removed');
+});
+
+test('rehearse: refuses missing notes, an old npm or a wrong tarball; local runs are labelled', () => {
+  const noNotes = fakeWorld();
+  noNotes.files.set('/repo/CHANGELOG.md', '## Unreleased\n');
+  assert.throws(() => rehearse(noNotes.ctx, PKG, { tarballDir: 'packed' }), /no release notes/);
+
+  const withNotes = (overrides: Partial<World> = {}) => {
+    const world = fakeWorld(overrides);
+    world.files.set('/repo/CHANGELOG.md', '## 1.4.0 - 2026-10-26\n\n- Notes.\n');
+    return world;
+  };
+  const oldNpm = withNotes({ npmVersion: '11.5.0' });
+  assert.throws(() => rehearse(oldNpm.ctx, PKG, { tarballDir: 'packed' }), /cannot stage/);
+  const noTarball = withNotes();
+  assert.throws(() => rehearse(noTarball.ctx, PKG, { tarballDir: 'packed' }), /found: none/);
+
+  const local = withNotes();
+  local.dirs.set('packed', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  rehearse(local.ctx, PKG, { tarballDir: 'packed' });
+  assert.ok(local.calls.some((call) => call.includes('1.4.0-ci.local.0.tgz')));
+});
+
+test('githubRelease: creates the release with notes and tarball; pre-releases are marked', () => {
+  const { ctx, calls, files, dirs } = fakeWorld();
+  files.set('/repo/CHANGELOG.md', '## 1.4.0 - 2026-10-26\n\n- Notes.\n');
+  dirs.set('release', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  githubRelease(ctx, PKG, { tag: 'v1.4.0', tarballDir: 'release' });
+  const create = calls.find((call) => call.startsWith('gh release create')) as string;
+  assert.match(
+    create,
+    /^gh release create v1\.4\.0 release\/illicomedia-skills-mcp-server-1\.4\.0\.tgz --verify-tag --title v1\.4\.0 --notes-file \S+NOTES\.md$/,
+  );
+  const notes = [...files.entries()].find(([file]) => file.endsWith('NOTES.md'));
+  assert.strictEqual(notes?.[1], '- Notes.\n');
+
+  const rc = fakeWorld();
+  const rcPkg = { ...PKG, version: '2.0.0-rc.1' };
+  rc.files.set('/repo/CHANGELOG.md', '## 2.0.0-rc.1 - 2026-11-03\n\n- RC.\n');
+  rc.dirs.set('release', ['illicomedia-skills-mcp-server-2.0.0-rc.1.tgz']);
+  githubRelease(rc.ctx, rcPkg, { tag: 'v2.0.0-rc.1', tarballDir: 'release' });
+  assert.ok(
+    rc.calls.some((call) => call.startsWith('gh release create') && call.endsWith('--prerelease')),
+  );
+});
+
+test('githubRelease: an existing release is left alone, so re-runs are harmless', () => {
+  const { ctx, calls } = fakeWorld({ ghReleaseExists: true });
+  githubRelease(ctx, PKG, { tag: 'v1.4.0', tarballDir: 'release' });
+  assert.ok(!has(calls, 'gh release create'));
 });
 
 test('waitForPublish: explains the 2FA approval, polls until public, then gives up with a pointer', async () => {
@@ -464,4 +638,24 @@ test('prepare: refuses when CI status cannot be read or the repository is not on
     prepare(fakeWorld().ctx, { name: NAME, version: '1.4.0' }, { bump: 'patch' }),
     /not a GitHub URL/,
   );
+});
+
+test('expectRefusal: installs the tarball as a user would and requires a [FATAL] refusal', async () => {
+  const ok = fakeWorld();
+  ok.dirs.set('packed', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  await expectRefusal(ok.ctx, PKG, { tarballDir: 'packed' });
+  assert.ok(
+    ok.calls.some(
+      (call) =>
+        call.startsWith('npm install') &&
+        call.includes('packed/illicomedia-skills-mcp-server-1.4.0.tgz'),
+    ),
+  );
+  assert.ok(ok.logs.some((line) => line.includes('refuses this Node.js, as intended')));
+  assert.strictEqual(ok.removed.length, 1);
+
+  const starts = fakeWorld({ refuses: false });
+  starts.dirs.set('packed', ['illicomedia-skills-mcp-server-1.4.0.tgz']);
+  await assert.rejects(expectRefusal(starts.ctx, PKG, { tarballDir: 'packed' }), /got exit 0/);
+  assert.strictEqual(starts.removed.length, 1, 'cleans up after a failure too');
 });
