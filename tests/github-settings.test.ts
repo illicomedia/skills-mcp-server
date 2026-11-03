@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   applySettings,
   checkSettings,
+  formatPlan,
   parseSettingsArgs,
   planSettings,
   readState,
@@ -178,6 +179,8 @@ function fakeGitHub(start: { configured?: boolean } = {}) {
       questions.push(question);
       return ctx.answer;
     },
+    color: false,
+    print: (message: string) => logs.push(message),
     log: (message: string) => logs.push(message),
     ok: (message: string) => logs.push(message),
     warn: (message: string) => logs.push(message),
@@ -252,15 +255,24 @@ test('An already configured repository needs nothing; a changed ruleset is updat
 test('Undeclared rulesets and deployment policies are reported, never deleted', async () => {
   const world = fakeGitHub({ configured: true });
   await world.ready;
-  world.gh.rulesets.push({ id: 99, name: 'legacy', target: 'branch', enforcement: 'active' });
+  world.gh.rulesets.push({
+    id: 99,
+    name: 'legacy',
+    target: 'branch',
+    enforcement: 'active',
+    conditions: { ref_name: { include: ['refs/heads/release'] } },
+    rules: [{ type: 'required_signatures' }],
+    bypass_actors: [{ actor_id: 7, actor_type: 'User', bypass_mode: 'always' }],
+  });
+  world.gh.policies.push({ name: 'x*', type: 'tag' });
   world.gh.policies.push({ name: 'v*', type: 'branch' });
   assert.strictEqual(await checkSettings(world.ctx, DECLARED), false);
   assert.strictEqual(await applySettings(world.ctx, DECLARED, { yes: true }), false);
+  assert.ok(world.logs.some((line) => /^rulesets › legacy .*\(not declared/.test(line)));
   assert.ok(
-    world.logs.some((line) => line.includes('ruleset "legacy" exists but is not declared')),
-  );
-  assert.ok(
-    world.logs.some((line) => line.includes('deployment policy branch:v* on "npm-publish"')),
+    world.logs.some((line) =>
+      /^environments › npm-publish › branches allowed to deploy\s+v\*\s+\(not declared/.test(line),
+    ),
   );
   assert.ok(!world.gh.requests.some((request) => request.startsWith('DELETE')));
   assert.strictEqual(world.gh.rulesets.length, 4);
@@ -379,6 +391,7 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
         : { status: 500, data: null },
     interactive: false,
     confirm: async () => true,
+    print: () => undefined,
     log: () => undefined,
     ok: () => undefined,
     warn: () => undefined,
@@ -417,4 +430,108 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
       url === ENV ? { status: 503, data: null } : answers[url],
   };
   await assert.rejects(readState(envError, DECLARED), /npm-publish answered 503: no details/);
+});
+
+test('The report speaks plainly: areas, "now -> after", and what needs a person', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  world.gh.rulesets.push({
+    id: 99,
+    name: 'legacy',
+    target: 'branch',
+    enforcement: 'active',
+    conditions: { ref_name: { include: ['refs/heads/release'] } },
+    rules: [{ type: 'required_signatures' }],
+    bypass_actors: [{ actor_id: 7, actor_type: 'User', bypass_mode: 'always' }],
+  });
+  world.gh.policies.push({ name: 'v*', type: 'branch' }, { name: 'x*', type: 'tag' });
+  world.gh.rulesets[0].rules = [{ type: 'deletion' }];
+  world.gh.analysis.secret_scanning_push_protection = { status: 'disabled' };
+  world.logs.length = 0;
+  assert.strictEqual(await checkSettings(world.ctx, DECLARED), false);
+  const expected = [
+    /^illicomedia\/skills-mcp-server differs from \.github\/settings\.json: 2 changes, 3 items to review by hand\.$/,
+    /^PATH\s+ACTUAL\s+REQUIRED$/,
+    /^rulesets › main\s+branch the default branch; blocks delete; bypass nobody\s+branch the default branch; blocks delete, force-push; bypass nobody$/,
+    /^security › push protection\s+off\s+on$/,
+    /^rulesets › legacy\s+branch release; blocks required_signatures; bypass User:7:always\s+\(not declared: remove by hand if unwanted\)$/,
+    /^environments › npm-publish › branches allowed to deploy\s+v\*\s+\(not declared: only the declared tags may publish\)$/,
+    /^environments › npm-publish › tags allowed to deploy\s+x\*\s+\(not declared: only the declared tags may publish\)$/,
+    /^Nothing was changed\. To apply: pnpm run github:apply$/,
+  ];
+  assert.strictEqual(world.logs.length, expected.length, world.logs.join('\n'));
+  for (const [index, pattern] of expected.entries()) {
+    assert.match(world.logs[index], pattern);
+  }
+});
+
+test('formatPlan: aligned columns; with color, actual red, required green, undeclared yellow', () => {
+  const plan = {
+    changes: [
+      {
+        summary: 's',
+        method: 'PUT',
+        path: '/p',
+        rows: [{ path: 'a › b', actual: 'no', required: 'yes' }],
+      },
+    ],
+    drift: [{ path: 'rulesets › x', actual: 'something', required: '(not declared)' }],
+  };
+  assert.deepStrictEqual(formatPlan(plan), [
+    'PATH          ACTUAL     REQUIRED',
+    'a › b         no         yes',
+    'rulesets › x  something  (not declared)',
+  ]);
+  const colored = formatPlan(plan, { color: true });
+  assert.ok(colored[1].includes('\x1b[31mno') && colored[1].includes('\x1b[32myes'));
+  assert.ok(colored[2].startsWith('\x1b[33mrulesets'));
+  assert.ok(colored[0].startsWith('\x1b[1mPATH'));
+});
+
+test('Planning words: verified creators, an unknown fork policy, a single change', () => {
+  const state = {
+    rulesets: [],
+    reviewerIds: { illicomedia: USER_ID },
+    environment: null,
+    actions: { enabled: false, allowed_actions: 'selected', sha_pinning_required: true },
+    selectedActions: { github_owned_allowed: false, verified_allowed: true },
+    workflow: { default_workflow_permissions: 'read', can_approve_pull_request_reviews: false },
+    forkApproval: 'some_new_policy',
+    security: { ...DECLARED.security },
+  };
+  const declared = {
+    ...DECLARED,
+    actions: { ...DECLARED.actions, forkPrApproval: 'another_policy' },
+  };
+  const lines = planSettings(declared, state).changes.flatMap((change) =>
+    change.rows.map((row) => `${row.path}: ${row.actual} -> ${row.required}`),
+  );
+  assert.ok(lines.includes('actions › Actions enabled: no -> yes'));
+  assert.ok(
+    lines.includes(
+      'actions › selected list: verified creators -> GitHub-owned, ossf/scorecard-action, pnpm/action-setup',
+    ),
+  );
+  assert.ok(
+    lines.includes(
+      'actions › fork pull requests need approval for: some_new_policy -> another_policy',
+    ),
+  );
+  assert.ok(lines.includes('environments › npm-publish: (missing) -> reviewers illicomedia'));
+});
+
+test('A bare undeclared ruleset is described, and a single item is counted as one', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  world.gh.rulesets.push({ id: 100, name: 'bare', target: 'branch', enforcement: 'evaluate' });
+  world.logs.length = 0;
+  assert.strictEqual(await checkSettings(world.ctx, DECLARED), false);
+  assert.match(world.logs[0], /: 0 changes, 1 item to review by hand\.$/);
+  assert.ok(
+    world.logs.some((line) =>
+      /^rulesets › bare\s+branch \(none\); blocks nothing; bypass nobody\s+\(not declared/.test(
+        line,
+      ),
+    ),
+  );
 });

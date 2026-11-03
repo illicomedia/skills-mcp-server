@@ -166,19 +166,75 @@ export async function readState(ctx, declared) {
   };
 }
 
+const RULE_WORDS = {
+  creation: 'create',
+  update: 'move',
+  deletion: 'delete',
+  non_fast_forward: 'force-push',
+};
+const yesNo = (value) => (value ? 'yes' : 'no');
+const onOff = (value) => (value ? 'on' : 'off');
+
+function refWords(ref) {
+  if (ref === '~DEFAULT_BRANCH') {
+    return 'the default branch';
+  }
+  return ref.replace(/^refs\/(tags|heads)\//, '');
+}
+
+function bypassWords(bypass) {
+  if (bypass.length === 0) {
+    return 'nobody';
+  }
+  return bypass.map((actor) => (actor === 'RepositoryRole:5:always' ? 'admin' : actor)).join(', ');
+}
+
+/** A ruleset in plain words: what it covers, what it blocks, who can bypass it. */
+function rulesetWords(shape) {
+  const refs = shape.include.map(refWords).join(', ') || '(none)';
+  const blocks = shape.rules.map((rule) => RULE_WORDS[rule] ?? rule).join(', ') || 'nothing';
+  return `${shape.target === 'tag' ? 'tags' : 'branch'} ${refs}; blocks ${blocks}; bypass ${bypassWords(shape.bypass)}`;
+}
+
+/** A row per field that differs: the setting's path, its actual value, the required one. */
+function differences(prefix, fields) {
+  return fields
+    .filter(([, actual, required]) => actual !== required)
+    .map(([label, actual, required]) => ({
+      path: `${prefix} › ${label}`,
+      actual: actual ?? '(unset)',
+      required,
+    }));
+}
+
 function planRulesets(declared, state, repo, changes, drift) {
   for (const ruleset of declared.rulesets) {
     const actual = state.rulesets.find((entry) => entry.name === ruleset.name);
+    const wanted = desiredRulesetShape(ruleset);
     if (!actual) {
       changes.push({
         summary: `create ruleset "${ruleset.name}"`,
+        rows: [
+          {
+            path: `rulesets › ${ruleset.name}`,
+            actual: '(missing)',
+            required: rulesetWords(wanted),
+          },
+        ],
         method: 'POST',
         path: `${repo}/rulesets`,
         body: rulesetBody(ruleset),
       });
-    } else if (!same(actual.shape, desiredRulesetShape(ruleset))) {
+    } else if (!same(actual.shape, wanted)) {
       changes.push({
         summary: `update ruleset "${ruleset.name}"`,
+        rows: [
+          {
+            path: `rulesets › ${ruleset.name}`,
+            actual: rulesetWords(actual.shape),
+            required: rulesetWords(wanted),
+          },
+        ],
         method: 'PUT',
         path: `${repo}/rulesets/${actual.id}`,
         body: rulesetBody(ruleset),
@@ -187,31 +243,39 @@ function planRulesets(declared, state, repo, changes, drift) {
   }
   const names = declared.rulesets.map((ruleset) => ruleset.name);
   for (const actual of state.rulesets.filter((entry) => !names.includes(entry.name))) {
-    drift.push(
-      `ruleset "${actual.name}" exists but is not declared (remove it by hand if unwanted)`,
-    );
+    drift.push({
+      path: `rulesets › ${actual.name}`,
+      actual: rulesetWords(actual.shape),
+      required: '(not declared: remove by hand if unwanted)',
+    });
   }
 }
 
 function planEnvironment(declared, state, repo, changes, drift) {
   const env = declared.environment;
   const path = `${repo}/environments/${encodeURIComponent(env.name)}`;
-  const want = {
-    reviewers: sorted(env.reviewers),
-    preventSelfReview: env.preventSelfReview,
-    adminsBypass: env.adminsBypass,
-    customPolicies: true,
-  };
+  const prefix = `environments › ${env.name}`;
   const actual = state.environment;
-  const have = actual && {
-    reviewers: actual.reviewers,
-    preventSelfReview: actual.preventSelfReview,
-    adminsBypass: actual.adminsBypass,
-    customPolicies: actual.customPolicies,
-  };
-  if (!same(have, want)) {
+  const rows = actual
+    ? differences(prefix, [
+        [
+          'required reviewers',
+          actual.reviewers.join(', ') || 'none',
+          sorted(env.reviewers).join(', '),
+        ],
+        [
+          'reviewers may approve their own runs',
+          yesNo(!actual.preventSelfReview),
+          yesNo(!env.preventSelfReview),
+        ],
+        ['administrators can bypass', yesNo(actual.adminsBypass), yesNo(env.adminsBypass)],
+        ['only listed tags may deploy', yesNo(actual.customPolicies), 'yes'],
+      ])
+    : [{ path: prefix, actual: '(missing)', required: `reviewers ${env.reviewers.join(', ')}` }];
+  if (rows.length > 0) {
     changes.push({
-      summary: `configure environment "${env.name}" (reviewers, admin bypass, custom policies)`,
+      summary: `configure environment "${env.name}"`,
+      rows,
       method: 'PUT',
       path,
       body: {
@@ -226,7 +290,8 @@ function planEnvironment(declared, state, repo, changes, drift) {
   const policies = actual?.policies ?? [];
   for (const name of env.tagPolicies.filter((tag) => !policies.includes(`tag:${tag}`))) {
     changes.push({
-      summary: `allow tag ${name} to deploy to "${env.name}"`,
+      summary: `allow tags ${name} to deploy to "${env.name}"`,
+      rows: [{ path: `${prefix} › tags allowed to deploy`, actual: '(missing)', required: name }],
       method: 'POST',
       path: `${path}/deployment-branch-policies`,
       body: { name, type: 'tag' },
@@ -234,60 +299,115 @@ function planEnvironment(declared, state, repo, changes, drift) {
   }
   const declaredPolicies = env.tagPolicies.map((tag) => `tag:${tag}`);
   for (const policy of policies.filter((entry) => !declaredPolicies.includes(entry))) {
-    drift.push(`deployment policy ${policy} on "${env.name}" is not declared (remove it by hand)`);
+    const [type, name] = policy.split(/:(.*)/);
+    drift.push({
+      path: `${prefix} › ${type === 'tag' ? 'tags' : 'branches'} allowed to deploy`,
+      actual: name,
+      required: '(not declared: only the declared tags may publish)',
+    });
   }
 }
+
+function allowedWords(selected) {
+  if (!selected) {
+    return 'none listed';
+  }
+  const parts = [];
+  if (selected.github_owned_allowed) {
+    parts.push('GitHub-owned');
+  }
+  if (selected.verified_allowed) {
+    parts.push('verified creators');
+  }
+  parts.push(
+    ...sorted(selected.patterns_allowed ?? []).map((pattern) => pattern.replace(/@\*$/, '')),
+  );
+  return parts.join(', ') || 'none';
+}
+
+const FORK_WORDS = {
+  first_time_contributors_new_to_github: 'first-time contributors new to GitHub',
+  first_time_contributors: 'first-time contributors',
+  all_external_contributors: 'all outside contributors',
+};
 
 function planActions(declared, state, repo, changes) {
   const actions = declared.actions;
   const base = `${repo}/actions/permissions`;
-  const want = [
+  const selectedBody = {
+    github_owned_allowed: actions.githubOwnedAllowed,
+    verified_allowed: actions.verifiedAllowed,
+    patterns_allowed: sorted(actions.patternsAllowed),
+  };
+  const groups = [
     {
-      summary: 'allow only selected actions, pinned to a full commit SHA',
+      summary: 'restrict and pin actions',
       path: base,
       body: {
         enabled: true,
         allowed_actions: 'selected',
         sha_pinning_required: actions.shaPinningRequired,
       },
-      have: state.actions,
+      rows: differences('actions', [
+        ['Actions enabled', yesNo(state.actions.enabled), 'yes'],
+        [
+          'allowed actions',
+          state.actions.allowed_actions === 'selected'
+            ? 'a selected list'
+            : state.actions.allowed_actions,
+          'a selected list',
+        ],
+        [
+          'full commit SHA required',
+          yesNo(state.actions.sha_pinning_required),
+          yesNo(actions.shaPinningRequired),
+        ],
+      ]),
     },
     {
       summary: 'list the allowed actions',
       path: `${base}/selected-actions`,
-      body: {
-        github_owned_allowed: actions.githubOwnedAllowed,
-        verified_allowed: actions.verifiedAllowed,
-        patterns_allowed: sorted(actions.patternsAllowed),
-      },
-      have: state.selectedActions && {
-        github_owned_allowed: state.selectedActions.github_owned_allowed,
-        verified_allowed: state.selectedActions.verified_allowed,
-        patterns_allowed: sorted(state.selectedActions.patterns_allowed ?? []),
-      },
+      body: selectedBody,
+      rows: differences('actions', [
+        ['selected list', allowedWords(state.selectedActions), allowedWords(selectedBody)],
+      ]),
     },
     {
-      summary: 'read-only default token; Actions cannot approve pull requests',
+      summary: 'restrict the workflow token',
       path: `${base}/workflow`,
       body: {
         default_workflow_permissions: actions.defaultWorkflowPermissions,
         can_approve_pull_request_reviews: actions.canApprovePullRequestReviews,
       },
-      have: {
-        default_workflow_permissions: state.workflow.default_workflow_permissions,
-        can_approve_pull_request_reviews: state.workflow.can_approve_pull_request_reviews,
-      },
+      rows: differences('actions', [
+        [
+          'default token',
+          state.workflow.default_workflow_permissions,
+          actions.defaultWorkflowPermissions,
+        ],
+        [
+          'Actions can approve pull requests',
+          yesNo(state.workflow.can_approve_pull_request_reviews),
+          yesNo(actions.canApprovePullRequestReviews),
+        ],
+      ]),
     },
     {
-      summary: `fork pull request workflows need approval (${actions.forkPrApproval})`,
+      summary: 'require approval for fork pull requests',
       path: `${base}/fork-pr-contributor-approval`,
       body: { approval_policy: actions.forkPrApproval },
-      have: { approval_policy: state.forkApproval },
+      rows: differences('actions', [
+        [
+          'fork pull requests need approval for',
+          FORK_WORDS[state.forkApproval] ?? `${state.forkApproval}`,
+          FORK_WORDS[actions.forkPrApproval] ?? actions.forkPrApproval,
+        ],
+      ]),
     },
   ];
-  for (const { summary, path, body, have } of want) {
-    if (!same(have, body)) {
-      changes.push({ summary, method: 'PUT', path, body });
+  for (const { summary, path, body, rows } of groups) {
+    if (rows.length > 0) {
+      changes.push({ summary, rows, method: 'PUT', path, body });
     }
   }
 }
@@ -306,19 +426,28 @@ function planSecurity(declared, state, repo, changes) {
   for (const [key, label, endpoint] of toggles) {
     if (state.security[key] !== security[key]) {
       changes.push({
-        summary: `${security[key] ? 'enable' : 'disable'} ${label}`,
+        summary: `turn ${onOff(security[key])} ${label}`,
+        rows: [
+          {
+            path: `security › ${label}`,
+            actual: onOff(state.security[key]),
+            required: onOff(security[key]),
+          },
+        ],
         method: security[key] ? 'PUT' : 'DELETE',
         path: `${repo}/${endpoint}`,
       });
     }
   }
-  if (
-    state.security.secretScanning !== security.secretScanning ||
-    state.security.pushProtection !== security.pushProtection
-  ) {
+  const rows = differences('security', [
+    ['secret scanning', onOff(state.security.secretScanning), onOff(security.secretScanning)],
+    ['push protection', onOff(state.security.pushProtection), onOff(security.pushProtection)],
+  ]);
+  if (rows.length > 0) {
     const status = (on) => ({ status: on ? 'enabled' : 'disabled' });
     changes.push({
       summary: 'secret scanning and push protection',
+      rows,
       method: 'PATCH',
       path: repo,
       body: {
@@ -343,13 +472,49 @@ export function planSettings(declared, state) {
   return { changes, drift };
 }
 
-function report(ctx, { changes, drift }) {
-  for (const change of changes) {
-    ctx.log(`  - ${change.summary}  (${change.method} ${change.path})`);
+const COLORS = { header: '1', actual: '31', required: '32', review: '33' };
+
+/**
+ * The plan as a table: PATH, ACTUAL, REQUIRED. With `color`, actual values are red, required
+ * ones green, and rows that need a person (undeclared settings) yellow.
+ */
+export function formatPlan({ changes, drift }, { color = false } = {}) {
+  const paint = (code, text) => (color ? `\x1b[${code}m${text}\x1b[0m` : text);
+  const rows = [
+    ...changes.flatMap((change) => change.rows.map((row) => ({ ...row, review: false }))),
+    ...drift.map((row) => ({ ...row, review: true })),
+  ];
+  const header = { path: 'PATH', actual: 'ACTUAL', required: 'REQUIRED' };
+  const width = (key) => Math.max(...[header, ...rows].map((row) => row[key].length));
+  const [pathWidth, actualWidth] = [width('path'), width('actual')];
+  const line = (row, codes) =>
+    [
+      paint(codes[0], row.path.padEnd(pathWidth)),
+      paint(codes[1], row.actual.padEnd(actualWidth)),
+      paint(codes[2], row.required),
+    ].join('  ');
+  return [
+    line(header, [COLORS.header, COLORS.header, COLORS.header]),
+    ...rows.map((row) =>
+      row.review
+        ? line(row, [COLORS.review, COLORS.review, COLORS.review])
+        : line(row, ['0', COLORS.actual, COLORS.required]),
+    ),
+  ];
+}
+
+function report(ctx, plan) {
+  for (const row of formatPlan(plan, { color: ctx.color })) {
+    ctx.print(row);
   }
-  for (const line of drift) {
-    ctx.warn(`  ! ${line}`);
+}
+
+function countWords({ changes, drift }) {
+  const parts = [`${changes.length} change${changes.length === 1 ? '' : 's'}`];
+  if (drift.length > 0) {
+    parts.push(`${drift.length} item${drift.length === 1 ? '' : 's'} to review by hand`);
   }
+  return parts.join(', ');
 }
 
 /** Read-only: true when the live settings match the declaration and nothing undeclared exists. */
@@ -359,8 +524,11 @@ export async function checkSettings(ctx, declared) {
     ctx.ok(`GitHub settings of ${declared.repository} match .github/settings.json.`);
     return true;
   }
-  ctx.warn(`GitHub settings of ${declared.repository} differ from .github/settings.json:`);
+  ctx.warn(`${declared.repository} differs from .github/settings.json: ${countWords(plan)}.`);
   report(ctx, plan);
+  if (plan.changes.length > 0) {
+    ctx.log('Nothing was changed. To apply: pnpm run github:apply');
+  }
   return false;
 }
 
@@ -372,7 +540,7 @@ export async function applySettings(ctx, declared, { yes = false } = {}) {
     report(ctx, plan);
     return plan.drift.length === 0;
   }
-  ctx.log(`Changes to apply to ${declared.repository}:`);
+  ctx.log(`${declared.repository}: ${countWords(plan)}.`);
   report(ctx, plan);
   if (!(await approve(ctx, `Apply ${plan.changes.length} change(s) to GitHub?`, { yes }))) {
     ctx.log('Nothing applied.');

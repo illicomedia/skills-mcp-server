@@ -4,6 +4,8 @@
 export interface SettingsContext {
   api(method: string, path: string, body?: Record<string, unknown>): Promise<{ status: number; data: any }>;
   interactive: boolean;
+  color?: boolean;
+  print(line: string): void;
   confirm(question: string): Promise<boolean>;
   log(message: string): void;
   ok(message: string): void;
@@ -12,6 +14,7 @@ export interface SettingsContext {
 
 export interface SettingsChange {
   summary: string;
+  rows: { path: string; actual: string; required: string }[];
   method: string;
   path: string;
   body?: Record<string, unknown>;
@@ -22,3 +25,7 @@ export function readState(ctx: SettingsContext, declared: any): Promise<any>;
 export function planSettings(declared: any, state: any): { changes: SettingsChange[]; drift: string[] };
 export function checkSettings(ctx: SettingsContext, declared: any): Promise<boolean>;
 export function applySettings(ctx: SettingsContext, declared: any, options?: { yes?: boolean }): Promise<boolean>;
+export function formatPlan(
+  plan: { changes: SettingsChange[]; drift: { path: string; actual: string; required: string }[] },
+  options?: { color?: boolean },
+): string[];

@@ -20,8 +20,9 @@ import { fileURLToPath } from 'node:url';
 import { applySettings, checkSettings, parseSettingsArgs } from './github-settings-flow.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const COLOR = Boolean(process.stderr.isTTY) && !process.env.NO_COLOR;
 const say = (code, symbol) => (msg) =>
-  console.error(`\x1b[${code}m[github]\x1b[0m ${symbol} ${msg}`);
+  console.error(`${COLOR ? `\x1b[${code}m[github]\x1b[0m` : '[github]'} ${symbol} ${msg}`);
 
 function readToken(file) {
   if (!existsSync(file)) {
@@ -75,6 +76,8 @@ async function main() {
     api: apiWith(readToken(tokenFile)),
     interactive: Boolean(process.stdin.isTTY),
     confirm,
+    color: COLOR,
+    print: (line) => console.error(line),
     log: say(36, 'i'),
     ok: say(32, '✔'),
     warn: say(33, '!'),
