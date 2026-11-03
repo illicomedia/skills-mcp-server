@@ -6,30 +6,37 @@ import test from 'node:test';
 import {
   bumpVersion,
   changelogHasVersion,
+  checkTagMatchesVersion,
+  ciProblem,
   extractChangelogSection,
+  githubRepoSlug,
   nextDistTagAfterPromotion,
+  parseRegistryState,
   parseReleaseArgs,
+  SMOKE_PROTOCOL_VERSION,
   smokeTestServer,
+  stampChangelog,
+  tagForVersion,
 } from '../scripts/release-lib.mjs';
 
-test('Release args: a publish needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
+test('Release args: prepare needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
   assert.deepStrictEqual(parseReleaseArgs([]), {
-    action: 'publish',
+    action: 'prepare',
     dryRun: false,
-    bump: null,
     yes: false,
+    bump: null,
   });
   assert.deepStrictEqual(parseReleaseArgs(['--', '--dry-run', '--bump', 'minor', '--yes']), {
-    action: 'publish',
+    action: 'prepare',
     dryRun: true,
-    bump: 'minor',
     yes: true,
+    bump: 'minor',
   });
   assert.deepStrictEqual(parseReleaseArgs(['-y']), {
-    action: 'publish',
+    action: 'prepare',
     dryRun: false,
-    bump: null,
     yes: true,
+    bump: null,
   });
 });
 
@@ -37,17 +44,17 @@ test('Release args: promote and deprecate target one exact version', () => {
   assert.deepStrictEqual(parseReleaseArgs(['--promote', '1.5.0']), {
     action: 'promote',
     dryRun: false,
-    version: '1.5.0',
     yes: false,
+    version: '1.5.0',
   });
   assert.deepStrictEqual(
     parseReleaseArgs(['--deprecate', '1.5.0', '--message', 'Broken. Use 1.5.1.']),
     {
       action: 'deprecate',
       dryRun: false,
+      yes: false,
       version: '1.5.0',
       message: 'Broken. Use 1.5.1.',
-      yes: false,
     },
   );
 });
@@ -56,39 +63,51 @@ test('Release args: ship is one action, with or without a bump', () => {
   assert.deepStrictEqual(parseReleaseArgs(['--ship']), {
     action: 'ship',
     dryRun: false,
-    bump: null,
     yes: false,
+    bump: null,
   });
   assert.deepStrictEqual(parseReleaseArgs(['--ship', '--bump', 'minor', '--dry-run']), {
     action: 'ship',
     dryRun: true,
-    bump: 'minor',
     yes: false,
+    bump: 'minor',
   });
   assert.throws(() => parseReleaseArgs(['--ship', '--promote', '1.5.0']), /Choose one action/);
   assert.throws(() => parseReleaseArgs(['--ship', '--bump', 'huge']), /--bump expects/);
 });
 
-test('A release needs its changelog section', () => {
-  assert.equal(changelogHasVersion('# Changelog\n\n## 1.5.0 - 2026-11-02\n', '1.5.0'), true);
-  assert.equal(changelogHasVersion('## 1.5.0 - 2026-11-02\n', '1.5.1'), false);
-  assert.equal(changelogHasVersion('## 1.5.01 - 2026-11-02\n', '1.5.0'), false);
-});
-
-test('extractChangelogSection: extracts the section body for a given version', () => {
-  const changelog =
-    '# Changelog\n\n## 1.5.0 - 2026-11-02\n\n### Added\n- New feature.\n\n## 1.4.0 - 2026-10-26\n\n- Older feature.\n';
-  assert.strictEqual(extractChangelogSection(changelog, '1.5.0'), '### Added\n- New feature.');
-  assert.strictEqual(extractChangelogSection(changelog, '1.4.0'), '- Older feature.');
-  assert.strictEqual(extractChangelogSection(changelog, '9.9.9'), '');
-});
-
-test('Release args: smoke-only runs without the registry', () => {
+test('Release args: smoke-only runs without the registry, optionally on a given tarball', () => {
   assert.deepStrictEqual(parseReleaseArgs(['--smoke-only']), {
     action: 'smoke',
     dryRun: false,
     yes: false,
+    tarball: null,
   });
+  assert.deepStrictEqual(parseReleaseArgs(['--smoke-only', '--tarball', 'pkg.tgz']), {
+    action: 'smoke',
+    dryRun: false,
+    yes: false,
+    tarball: 'pkg.tgz',
+  });
+  assert.throws(() => parseReleaseArgs(['--tarball', 'pkg.tgz']), /--tarball only applies/);
+});
+
+test('Release args: CI helpers check the tag and print release notes', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--check-tag', 'v1.5.0']), {
+    action: 'check-tag',
+    dryRun: false,
+    yes: false,
+    tag: 'v1.5.0',
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['--release-notes', '1.5.0']), {
+    action: 'release-notes',
+    dryRun: false,
+    yes: false,
+    version: '1.5.0',
+  });
+  assert.throws(() => parseReleaseArgs(['--check-tag']), /--check-tag expects a tag/);
+  assert.strictEqual(parseReleaseArgs(['--release-notes', '2.0.0-rc.1']).version, '2.0.0-rc.1');
+  assert.throws(() => parseReleaseArgs(['--release-notes', 'v1.5.0']), /expects a version/);
 });
 
 test('Release args: rejects removed lifecycle flags instead of ignoring them', () => {
@@ -107,7 +126,7 @@ test('Release args: rejects bad values and ambiguous actions', () => {
     () => parseReleaseArgs(['--deprecate', '<1.5.0', '--message', 'x']),
     /--deprecate expects an exact version/,
   );
-  assert.throws(() => parseReleaseArgs(['--deprecate', '1.5.0']), /--deprecate needs --message/);
+  assert.throws(() => parseReleaseArgs(['--deprecate', '1.5.0']), /--message expects/);
   assert.throws(
     () => parseReleaseArgs(['--message', 'x']),
     /--message only applies to --deprecate/,
@@ -115,8 +134,54 @@ test('Release args: rejects bad values and ambiguous actions', () => {
   assert.throws(() => parseReleaseArgs(['--promote', '1.5.0', '--smoke-only']), /one action/);
   assert.throws(
     () => parseReleaseArgs(['--promote', '1.5.0', '--bump', 'patch']),
-    /--bump only applies to a publish/,
+    /--bump only applies/,
   );
+});
+
+test('A release needs its changelog section, in either heading style', () => {
+  assert.equal(changelogHasVersion('# Changelog\n\n## 1.5.0 - 2026-11-02\n', '1.5.0'), true);
+  assert.equal(changelogHasVersion('## [1.5.0] - 2026-11-02\n', '1.5.0'), true);
+  assert.equal(changelogHasVersion('## 1.5.0 - 2026-11-02\n', '1.5.1'), false);
+  assert.equal(changelogHasVersion('## 1.5.01 - 2026-11-02\n', '1.5.0'), false);
+});
+
+test('extractChangelogSection: extracts the section body for a given version', () => {
+  const changelog =
+    '# Changelog\n\n## 1.5.0 - 2026-11-02\n\n### Added\n- New feature.\n\n## 1.4.0 - 2026-10-26\n\n- Older feature.\n';
+  assert.strictEqual(extractChangelogSection(changelog, '1.5.0'), '### Added\n- New feature.');
+  assert.strictEqual(extractChangelogSection(changelog, '1.4.0'), '- Older feature.');
+  assert.strictEqual(extractChangelogSection(changelog, '9.9.9'), '');
+});
+
+test('stampChangelog: unreleased notes become the version section under a fresh Unreleased', () => {
+  const changelog = '# Changelog\n\n## Unreleased\n\n- Fix.\n\n## 1.4.0 - 2026-10-26\n';
+  assert.strictEqual(
+    stampChangelog(changelog, '1.5.0', '2026-11-03'),
+    '# Changelog\n\n## Unreleased\n\n## 1.5.0 - 2026-11-03\n\n- Fix.\n\n## 1.4.0 - 2026-10-26\n',
+  );
+  const done = '## 1.5.0 - 2026-11-02\n';
+  assert.strictEqual(stampChangelog(done, '1.5.0', '2026-11-03'), done);
+  assert.throws(() => stampChangelog('## Unreleased\n\n## 1.4.0 - x\n', '1.5.0', 'd'), /no notes/);
+  assert.throws(() => stampChangelog('# Changelog\n', '1.5.0', 'd'), /no notes/);
+});
+
+test('Tags: CI publishes only when the tag is exactly v<package version>', () => {
+  assert.strictEqual(tagForVersion('1.5.0'), 'v1.5.0');
+  assert.strictEqual(checkTagMatchesVersion('v1.5.0', '1.5.0'), 'v1.5.0');
+  assert.strictEqual(checkTagMatchesVersion('refs/tags/v1.5.0', '1.5.0'), 'v1.5.0');
+  assert.throws(() => checkTagMatchesVersion('v1.5.1', '1.5.0'), /does not match/);
+  assert.throws(() => checkTagMatchesVersion('main', '1.5.0'), /does not match/);
+});
+
+test('parseRegistryState: reads npm 11 objects and npm 12 arrays', () => {
+  const state = { versions: ['1.0.0', '1.1.0'], 'dist-tags': { latest: '1.1.0' } };
+  const expected = { versions: ['1.0.0', '1.1.0'], distTags: { latest: '1.1.0' } };
+  assert.deepStrictEqual(parseRegistryState(JSON.stringify(state)), expected);
+  assert.deepStrictEqual(parseRegistryState(JSON.stringify([state])), expected);
+  assert.deepStrictEqual(parseRegistryState('{"versions":"1.0.0"}'), {
+    versions: ['1.0.0'],
+    distTags: {},
+  });
 });
 
 test('bumpVersion: follows semantic versioning', () => {
@@ -132,35 +197,75 @@ test('nextDistTagAfterPromotion: next is dropped only when it points at the prom
   assert.strictEqual(nextDistTagAfterPromotion({ latest: '1.5.0' }, '1.4.1'), false);
 });
 
+const SMOKE_DIRS: string[] = [];
+
+test.after(() => {
+  for (const dir of SMOKE_DIRS) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 function fakeServer(body: string): string {
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-smoke-')), 'server.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-smoke-'));
+  SMOKE_DIRS.push(dir);
+  const file = path.join(dir, 'server.mjs');
   fs.writeFileSync(file, `#!/usr/bin/env node\n${body}\n`, { mode: 0o755 });
   return file;
 }
 
-const RESPONDER = (version: string, tools: string) => `
+/** A scripted MCP server: answers by method, never answers notifications. */
+const RESPONDER = (answers: Record<string, string>) => `
 import * as readline from 'node:readline';
+const answers = { ${Object.entries(answers)
+  .map(([method, result]) => `'${method}': ${result}`)
+  .join(', ')} };
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const { id, method } = JSON.parse(line);
-  const result = method === 'initialize'
-    ? { serverInfo: { name: 'fake', version: '${version}' } }
-    : { tools: ${tools} };
-  console.log(JSON.stringify({ jsonrpc: '2.0', id, result }));
+  if (id === undefined) return;
+  console.log('not json');
+  console.log(JSON.stringify({ jsonrpc: '2.0', id: 99, result: {} }));
+  console.log(JSON.stringify({ jsonrpc: '2.0', id, result: answers[method] }));
 });`;
 
-test('smokeTestServer: accepts a server that reports the release version and exposes tools', async () => {
-  const bin = fakeServer(RESPONDER('1.5.0', '[{ name: "list_skills" }]'));
+const INIT = (version: string) =>
+  `{ protocolVersion: '${SMOKE_PROTOCOL_VERSION}', serverInfo: { name: 'fake', version: '${version}' } }`;
+const TOOLS = '{ tools: [{ name: "get_version" }] }';
+const GET_VERSION = (version: string) =>
+  `{ content: [{ type: 'text', text: JSON.stringify({ version: '${version}' }, null, 2) }] }`;
+const HEALTHY = {
+  initialize: INIT('1.5.0'),
+  'tools/list': TOOLS,
+  'tools/call': GET_VERSION('1.5.0'),
+};
+
+test('smokeTestServer: accepts a server that completes a full MCP session', async () => {
+  const bin = fakeServer(RESPONDER(HEALTHY));
   assert.deepStrictEqual(await smokeTestServer(bin, '1.5.0'), { tools: 1 });
+  assert.deepStrictEqual(await smokeTestServer(process.execPath, '1.5.0', 10_000, [bin]), {
+    tools: 1,
+  });
+});
+
+test('smokeTestServer: rejects an initialize answer without a protocol version', async () => {
+  const bin = fakeServer(RESPONDER({ ...HEALTHY, initialize: '{}' }));
+  await assert.rejects(smokeTestServer(bin, '1.5.0'), /without a protocolVersion/);
 });
 
 test('smokeTestServer: rejects a version mismatch', async () => {
-  const bin = fakeServer(RESPONDER('1.4.1', '[{ name: "list_skills" }]'));
+  const bin = fakeServer(RESPONDER({ ...HEALTHY, initialize: INIT('1.4.1') }));
   await assert.rejects(smokeTestServer(bin, '1.5.0'), /reports version 1\.4\.1, expected 1\.5\.0/);
 });
 
 test('smokeTestServer: rejects a server without tools', async () => {
-  const bin = fakeServer(RESPONDER('1.5.0', '[]'));
+  const bin = fakeServer(RESPONDER({ ...HEALTHY, 'tools/list': '{}' }));
   await assert.rejects(smokeTestServer(bin, '1.5.0'), /exposes no tools/);
+});
+
+test('smokeTestServer: rejects a failing or wrong get_version call', async () => {
+  const failing = fakeServer(RESPONDER({ ...HEALTHY, 'tools/call': '{ isError: true }' }));
+  await assert.rejects(smokeTestServer(failing, '1.5.0'), /get_version failed/);
+  const stale = fakeServer(RESPONDER({ ...HEALTHY, 'tools/call': GET_VERSION('1.4.1') }));
+  await assert.rejects(smokeTestServer(stale, '1.5.0'), /get_version failed/);
 });
 
 test('smokeTestServer: rejects a server that crashes on start', async () => {
@@ -171,4 +276,50 @@ test('smokeTestServer: rejects a server that crashes on start', async () => {
 test('smokeTestServer: rejects a server that never answers', async () => {
   const bin = fakeServer('setInterval(() => {}, 1000);');
   await assert.rejects(smokeTestServer(bin, '1.5.0', 200), /no answer/);
+});
+
+test('smokeTestServer: rejects a command that cannot start', async () => {
+  await assert.rejects(smokeTestServer('/nonexistent/fqa-server', '1.5.0'), /ENOENT/);
+});
+
+test('githubRepoSlug: reads owner/repo from the usual repository forms', () => {
+  const slug = 'illicomedia/skills-mcp-server';
+  assert.strictEqual(githubRepoSlug({ url: `git+https://github.com/${slug}.git` }), slug);
+  assert.strictEqual(githubRepoSlug(`https://github.com/${slug}`), slug);
+  assert.strictEqual(githubRepoSlug(`git@github.com:${slug}.git`), slug);
+  assert.strictEqual(githubRepoSlug({ url: 'https://gitlab.com/a/b.git' }), null);
+  assert.strictEqual(githubRepoSlug({}), null);
+  assert.strictEqual(githubRepoSlug(undefined), null);
+});
+
+test('ciProblem: a release needs at least one check, all finished, all green', () => {
+  const run = (name: string, status: string, conclusion: string | null) => ({
+    name,
+    status,
+    conclusion,
+  });
+  assert.strictEqual(
+    ciProblem({
+      check_runs: [
+        run('quality', 'completed', 'success'),
+        run('docs', 'completed', 'skipped'),
+        run('info', 'completed', 'neutral'),
+      ],
+    }),
+    null,
+  );
+  assert.match(String(ciProblem({ check_runs: [] })), /no CI checks/);
+  assert.match(String(ciProblem(undefined)), /no CI checks/);
+  assert.match(
+    String(ciProblem({ check_runs: [run('runtime', 'in_progress', null)] })),
+    /still running: runtime/,
+  );
+  assert.match(
+    String(
+      ciProblem({
+        check_runs: [run('quality', 'completed', 'failure'), run('w', 'completed', 'cancelled')],
+      }),
+    ),
+    /not green: quality \(failure\), w \(cancelled\)/,
+  );
 });

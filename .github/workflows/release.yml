@@ -1,74 +1,164 @@
-name: Release & Provenance
+name: Release
+
+# The only way a version reaches npm. A maintainer runs `pnpm release` locally (which refuses
+# unless GitHub CI is green on the commit), and it pushes a v<version> tag. This workflow then:
+#   1. checks the tag matches package.json,
+#   2. runs the whole CI workflow (ci.yml) on the tagged commit,
+#   3. only if every CI job is green: packs once, smoke-tests that tarball,
+#   4. publishes that exact tarball under the `next` dist-tag with a provenance attestation
+#      (npm Trusted Publishing, no npm token),
+#   5. creates the GitHub Release.
+# `latest` moves later, with `pnpm release --promote <version>`.
+#
+# One-time setup: npmjs.com > package settings > Trusted Publisher > GitHub Actions,
+# repository illicomedia/skills-mcp-server, workflow release.yml, environment npm-publish;
+# GitHub environment npm-publish with a deployment rule of type Tag, pattern v*.
 
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Git tag to publish (e.g. v1.4.8)'
+        description: 'Existing tag to (re)publish, e.g. v2.0.0'
         required: true
         type: string
 
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  publish:
-    name: Publish to npm with Provenance
+  tag:
+    name: Tag matches package.json
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
+      name: ${{ steps.meta.outputs.name }}
+      version: ${{ steps.meta.outputs.version }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
-          cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version-file: .nvmrc
+      - run: node scripts/release.mjs --check-tag "$TAG"
+      - id: meta
+        run: |
+          echo "ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$(node -p 'require("./package.json").name')" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+  ci:
+    name: CI
+    needs: tag
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.tag.outputs.ref }}
+    permissions:
+      contents: read
 
-      - name: Verify Code Style & Lint
-        run: pnpm run lint
+  build:
+    name: Pack and smoke-test
+    needs: [tag, ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
 
-      - name: Build Package
-        run: pnpm run build
-
-      - name: Enforce 100% Test Coverage Gate
-        run: pnpm run test:coverage
-
-      - name: Run Release Smoke Test
-        run: pnpm run release:smoke
-
-      - name: Publish to npm with Provenance (SLSA Level 3)
-        run: npm publish --provenance --access public
+      - name: Pack once
+        run: pnpm pack --pack-destination release
+      - name: Smoke-test the exact tarball that will be published
+        run: node scripts/release.mjs --smoke-only --tarball release/*.tgz
+      - name: Release notes from CHANGELOG.md
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: node scripts/release.mjs --release-notes "$VERSION" > release/NOTES.md
 
-      - name: Create GitHub Release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: release/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to npm under next
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing (OIDC) and provenance
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+      - name: Trusted Publishing needs npm 11.5.1 or later
+        run: |
+          npm --version
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      - name: Publish (skipped when this version is already on npm)
+        env:
+          SPEC: ${{ needs.tag.outputs.name }}@${{ needs.tag.outputs.version }}
+        run: |
+          if [ -n "$(npm view "$SPEC" version 2>/dev/null)" ]; then
+            echo "$SPEC is already published; nothing to do."
+            exit 0
+          fi
+          npm publish release/*.tgz --tag next --access public --provenance
+
+  github-release:
+    name: GitHub Release
+    needs: [tag, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      - name: Create the release (skipped when it exists)
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name || inputs.tag }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.tag.outputs.version }}
         run: |
-          VERSION="${TAG_NAME#v}"
-          node -e "
-            import fs from 'node:fs';
-            import { extractChangelogSection } from './scripts/release-lib.mjs';
-            const changelog = fs.readFileSync('CHANGELOG.md', 'utf-8');
-            const notes = extractChangelogSection(changelog, '$VERSION');
-            fs.writeFileSync('RELEASE_NOTES.md', notes || 'Release $TAG_NAME');
-          "
-          gh release create "$TAG_NAME" \
-            --title "Release $TAG_NAME" \
-            --notes-file RELEASE_NOTES.md \
-            --verify-tag || echo "Release already exists"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
+            exit 0
+          fi
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$TAG" release/*.tgz \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file release/NOTES.md \
+            "${prerelease[@]}"

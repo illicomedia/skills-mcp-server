@@ -3,8 +3,21 @@
 
 export type ReleaseArgs = Record<string, unknown>;
 
+export const SMOKE_PROTOCOL_VERSION: string;
 export function parseReleaseArgs(argv: string[]): ReleaseArgs;
-export function changelogHasVersion(changelog: string, version: string): boolean;
 export function bumpVersion(version: string, bump: string): string;
+export function tagForVersion(version: string): string;
+export function checkTagMatchesVersion(tag: string, version: string): string;
+export function changelogHasVersion(changelog: string, version: string): boolean;
+export function extractChangelogSection(changelog: string, version: string): string;
+export function stampChangelog(changelog: string, version: string, date: string): string;
 export function nextDistTagAfterPromotion(distTags: Record<string, string>, promotedVersion: string): boolean;
-export function smokeTestServer(binPath: string, expectedVersion: string, timeoutMs?: number): Promise<{ tools: number }>;
+export function parseRegistryState(raw: string): { versions: string[]; distTags: Record<string, string> };
+export function smokeTestServer(
+  command: string,
+  expectedVersion: string,
+  timeoutMs?: number,
+  args?: string[],
+): Promise<{ tools: number }>;
+export function githubRepoSlug(repository: unknown): string | null;
+export function ciProblem(checkRuns: unknown): string | null;

@@ -264,7 +264,7 @@ import * as readline from 'node:readline';
 console.log('starting up');
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const { id } = JSON.parse(line);
-  console.log(JSON.stringify({ id, result: id === 1 ? { serverInfo: { version: '9.9.9' } } : {} }));
+  console.log(JSON.stringify({ id, result: id === 1 ? { protocolVersion: '2024-11-05', serverInfo: { version: '9.9.9' } } : {} }));
 });`);
   await assert.rejects(smokeTestServer(noise, '9.9.9'), /no tools/);
   await assert.rejects(smokeTestServer(path.join(root, 'absent-binary'), '9.9.9'), /ENOENT/);
@@ -272,7 +272,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const hangsUp = fakeServer(`
 import * as readline from 'node:readline';
 readline.createInterface({ input: process.stdin }).once('line', () => {
-  console.log(JSON.stringify({ id: 1, result: { serverInfo: { version: '9.9.9' } } }));
+  console.log(JSON.stringify({ id: 1, result: { protocolVersion: '2024-11-05', serverInfo: { version: '9.9.9' } } }));
   process.stdin.destroy();
   setTimeout(() => process.exit(0), 600);
 });`);
