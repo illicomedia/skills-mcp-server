@@ -410,3 +410,56 @@ test('expectServerRefusal: accepts only a [FATAL] "not supported" exit with code
   await assert.rejects(expectServerRefusal(hangs, 200), /did not exit within 200 ms/);
   await assert.rejects(expectServerRefusal('/nonexistent/fqa-server'), /ENOENT/);
 });
+
+test('bumpVersion: release candidates, the next candidate, then the final version', () => {
+  assert.strictEqual(bumpVersion('2.0.2', 'major', 'rc'), '3.0.0-rc.0');
+  assert.strictEqual(bumpVersion('2.0.2', 'minor', 'rc'), '2.1.0-rc.0');
+  assert.strictEqual(bumpVersion('2.0.2', 'patch', 'beta'), '2.0.3-beta.0');
+  assert.strictEqual(bumpVersion('3.0.0-rc.0', 'prerelease'), '3.0.0-rc.1');
+  assert.strictEqual(bumpVersion('3.0.0-rc.9', 'prerelease'), '3.0.0-rc.10');
+  assert.strictEqual(bumpVersion('3.0.0-rc.1', 'release'), '3.0.0');
+  assert.throws(() => bumpVersion('3.0.0-rc.1', 'major'), /is a release candidate/);
+  assert.throws(() => bumpVersion('2.0.2', 'prerelease'), /not a release candidate/);
+  assert.throws(() => bumpVersion('2.0.2', 'release'), /not a release candidate/);
+  assert.throws(() => bumpVersion('3.0.0-weird', 'release'), /Cannot parse/);
+});
+
+test('Release args: --preid only with a patch, minor or major bump, in lowercase letters', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--bump', 'major', '--preid', 'rc']), {
+    action: 'prepare',
+    dryRun: false,
+    yes: false,
+    bump: 'major',
+    preid: 'rc',
+  });
+  assert.deepStrictEqual(parseReleaseArgs(['--ship', '--bump', 'major', '--preid', 'rc']), {
+    action: 'ship',
+    dryRun: false,
+    yes: false,
+    bump: 'major',
+    preid: 'rc',
+  });
+  assert.strictEqual(parseReleaseArgs(['--bump', 'prerelease']).bump, 'prerelease');
+  assert.strictEqual(parseReleaseArgs(['--bump', 'release']).bump, 'release');
+  assert.throws(() => parseReleaseArgs(['--preid', 'rc']), /--preid only applies/);
+  assert.throws(() => parseReleaseArgs(['--bump', 'release', '--preid', 'rc']), /--preid only/);
+  assert.throws(() => parseReleaseArgs(['--bump', 'major', '--preid', 'RC1']), /lowercase/);
+});
+
+test('stampChangelog: a release candidate copies the notes and leaves them for the final version', () => {
+  const changelog = '# Changelog\n\n## Unreleased\n\n- Big change.\n\n## 2.0.2 - 2026-11-03\n';
+  const rc = stampChangelog(changelog, '3.0.0-rc.0', '2026-11-10');
+  assert.strictEqual(
+    rc,
+    '# Changelog\n\n## Unreleased\n\n- Big change.\n\n## 3.0.0-rc.0 - 2026-11-10\n\n- Big change.\n\n## 2.0.2 - 2026-11-03\n',
+  );
+  assert.strictEqual(extractChangelogSection(rc, '3.0.0-rc.0'), '- Big change.');
+  const final = stampChangelog(rc, '3.0.0', '2026-11-20');
+  assert.strictEqual(extractChangelogSection(final, '3.0.0'), '- Big change.');
+  assert.match(
+    final,
+    /## Unreleased\n\n## 3\.0\.0 - 2026-11-20\n\n- Big change\.\n\n## 3\.0\.0-rc\.0/,
+  );
+  const last = stampChangelog('## Unreleased\n\n- Only.', '1.0.0-rc.0', 'd');
+  assert.strictEqual(extractChangelogSection(last, '1.0.0-rc.0'), '- Only.');
+});

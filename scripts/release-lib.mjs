@@ -8,9 +8,11 @@ import * as readline from 'node:readline';
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
-const BUMPS = ['patch', 'minor', 'major'];
+const BUMPS = ['patch', 'minor', 'major', 'prerelease', 'release'];
+const PREID = /^[a-z]+$/;
 const FLAGS_WITH_VALUE = [
   '--bump',
+  '--preid',
   '--promote',
   '--deprecate',
   '--message',
@@ -90,6 +92,10 @@ function bumpOf(flags) {
   return bump;
 }
 
+function preidOf(flags) {
+  return flags.has('--preid') ? { preid: flags.get('--preid') } : {};
+}
+
 function requireValue(flags, flag, hint) {
   const value = flags.get(flag);
   if (!value) {
@@ -101,6 +107,14 @@ function requireValue(flags, flag, hint) {
 function checkCombinations(flags, action) {
   if (flags.has('--bump') && !['prepare', '--ship'].includes(action)) {
     throw new Error('--bump only applies to a prepare or --ship');
+  }
+  if (flags.has('--preid')) {
+    if (!['patch', 'minor', 'major'].includes(flags.get('--bump'))) {
+      throw new Error('--preid only applies with --bump patch, minor or major');
+    }
+    if (!PREID.test(flags.get('--preid'))) {
+      throw new Error('--preid expects lowercase letters, such as rc');
+    }
   }
   if (flags.has('--message') && action !== '--deprecate') {
     throw new Error('--message only applies to --deprecate');
@@ -125,7 +139,7 @@ export function parseReleaseArgs(argv) {
   const tarballDir = () => requireValue(flags, '--tarball-dir', 'a folder holding one .tgz');
   switch (action) {
     case '--ship':
-      return { action: 'ship', ...base, bump: bumpOf(flags) };
+      return { action: 'ship', ...base, bump: bumpOf(flags), ...preidOf(flags) };
     case '--promote':
       return { action: 'promote', ...base, version: exactVersion(action, flags.get(action)) };
     case '--deprecate': {
@@ -160,7 +174,7 @@ export function parseReleaseArgs(argv) {
       }
       return { action: 'release-notes', ...base, version: flags.get(action) };
     default:
-      return { action: 'prepare', ...base, bump: bumpOf(flags) };
+      return { action: 'prepare', ...base, bump: bumpOf(flags), ...preidOf(flags) };
   }
 }
 
@@ -187,18 +201,37 @@ export function ciTagOutputs(tag, pkg) {
   return `ref=refs/tags/${name}\nname=${pkg.name}\nversion=${pkg.version}\n`;
 }
 
-export function bumpVersion(currentVersion, type) {
-  if (!EXACT_VERSION.test(currentVersion)) {
+/**
+ * The next version. patch / minor / major from a stable x.y.z, optionally as a first release
+ * candidate (`preid` "rc": 3.0.0-rc.0); `prerelease` moves to the next candidate (rc.0 -> rc.1);
+ * `release` turns a candidate into its final version (3.0.0-rc.1 -> 3.0.0).
+ */
+export function bumpVersion(currentVersion, type, preid = null) {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/.exec(currentVersion);
+  if (!match) {
     throw new Error(`Cannot parse semantic version: ${currentVersion}`);
   }
-  const [major, minor, patch] = currentVersion.split('.').map(Number);
-  if (type === 'major') {
-    return `${major + 1}.0.0`;
+  const [major, minor, patch] = match.slice(1, 4).map(Number);
+  const [candidateId, candidate] = [match[4], Number(match[5])];
+  if (type === 'prerelease' || type === 'release') {
+    if (!candidateId) {
+      throw new Error(`${currentVersion} is not a release candidate; --bump ${type} needs one.`);
+    }
+    const base = `${major}.${minor}.${patch}`;
+    return type === 'release' ? base : `${base}-${candidateId}.${candidate + 1}`;
   }
-  if (type === 'minor') {
-    return `${major}.${minor + 1}.0`;
+  if (candidateId) {
+    throw new Error(
+      `${currentVersion} is a release candidate: use --bump prerelease or --bump release.`,
+    );
   }
-  return `${major}.${minor}.${patch + 1}`;
+  const next =
+    type === 'major'
+      ? `${major + 1}.0.0`
+      : type === 'minor'
+        ? `${major}.${minor + 1}.0`
+        : `${major}.${minor}.${patch + 1}`;
+  return preid ? `${next}-${preid}.0` : next;
 }
 
 /** The git tag a version is released under. CI refuses to publish when they disagree. */
@@ -257,6 +290,16 @@ export function stampChangelog(changelog, version, date) {
     throw new Error(
       `CHANGELOG.md has no "## ${version} - <date>" section and no notes under "## Unreleased".`,
     );
+  }
+  if (version.includes('-')) {
+    // A release candidate copies the notes: they stay under Unreleased for the final version.
+    let end = index + 1;
+    while (end < lines.length && !lines[end].startsWith('## ')) {
+      end += 1;
+    }
+    const notes = sectionAfter(lines, index);
+    lines.splice(end, 0, `## ${version} - ${date}`, '', notes, '');
+    return lines.join('\n');
   }
   lines.splice(index, 1, '## Unreleased', '', `## ${version} - ${date}`);
   return lines.join('\n');

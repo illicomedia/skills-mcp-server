@@ -5,7 +5,7 @@ export type ReleaseArgs = Record<string, unknown>;
 
 export const SMOKE_PROTOCOL_VERSION: string;
 export function parseReleaseArgs(argv: string[]): ReleaseArgs;
-export function bumpVersion(version: string, bump: string): string;
+export function bumpVersion(version: string, bump: string, preid?: string | null): string;
 export function tagForVersion(version: string): string;
 export function checkTagMatchesVersion(tag: string, version: string): string;
 export function changelogHasVersion(changelog: string, version: string): boolean;

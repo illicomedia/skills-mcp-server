@@ -659,3 +659,12 @@ test('expectRefusal: installs the tarball as a user would and requires a [FATAL]
   await assert.rejects(expectRefusal(starts.ctx, PKG, { tarballDir: 'packed' }), /got exit 0/);
   assert.strictEqual(starts.removed.length, 1, 'cleans up after a failure too');
 });
+
+test('prepare: a release candidate keeps the notes under Unreleased and is tagged as such', async () => {
+  const { ctx, files, calls } = fakeWorld();
+  const result = await prepare(ctx, PKG, { bump: 'major', preid: 'rc', yes: true });
+  assert.deepStrictEqual(result, { version: '2.0.0-rc.0', pushed: true });
+  const changelog = files.get('/repo/CHANGELOG.md') as string;
+  assert.match(changelog, /## Unreleased\n\n- Fix\.\n\n## 2\.0\.0-rc\.0 - 2026-11-03\n\n- Fix\./);
+  assert.ok(calls.includes('git push --atomic origin main refs/tags/v2.0.0-rc.0'));
+});

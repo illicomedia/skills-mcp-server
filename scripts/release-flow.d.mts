@@ -50,7 +50,7 @@ export function githubRelease(ctx: ReleaseContext, pkg: Pkg, options: { tag: str
 export function prepare(
   ctx: ReleaseContext,
   pkg: Pkg,
-  options?: { bump?: string | null; dryRun?: boolean; yes?: boolean },
+  options?: { bump?: string | null; preid?: string | null; dryRun?: boolean; yes?: boolean },
 ): Promise<{ version: string; pushed: boolean }>;
 export function waitForPublish(ctx: ReleaseContext, pkg: Pkg, version: string): Promise<void>;
 export function verifyFromRegistry(ctx: ReleaseContext, pkg: Pkg, version: string): Promise<void>;

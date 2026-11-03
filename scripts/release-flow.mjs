@@ -300,8 +300,12 @@ async function runGates(ctx, pkg) {
  * tag, atomic push. The tag push is what makes CI publish. Returns the version, and whether it
  * was pushed.
  */
-export async function prepare(ctx, pkg, { bump = null, dryRun = false, yes = false } = {}) {
-  const version = bump ? bumpVersion(pkg.version, bump) : pkg.version;
+export async function prepare(
+  ctx,
+  pkg,
+  { bump = null, preid = null, dryRun = false, yes = false } = {},
+) {
+  const version = bump ? bumpVersion(pkg.version, bump, preid) : pkg.version;
   const tag = tagForVersion(version);
   const changelogPath = ctx.join(ctx.pkgDir, 'CHANGELOG.md');
   const changelog = ctx.readFile(changelogPath);

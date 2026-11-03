@@ -163,6 +163,19 @@ npm view @illicomedia/skills-mcp-server@2.0.0 dist.attestations   # provenance p
 
 ---
 
+## Release candidates (before a major version)
+
+A major version is first released as candidates under `next`, tried, then finalized:
+
+```bash
+pnpm release --bump major --preid rc      # 3.0.0-rc.0: steps 3 to 6 as usual, never `latest`
+pnpm release --bump prerelease            # 3.0.0-rc.1, if a fix is needed
+pnpm release --bump release               # 3.0.0, after a calm period; then steps 4 to 8
+```
+
+A candidate gets its own changelog section copied from `## Unreleased`, which keeps the notes for
+the final version. `--promote` refuses a candidate: only the final version can become `latest`.
+
 ## One command instead of steps 2 to 7
 
 ```bash

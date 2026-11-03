@@ -10,6 +10,8 @@
  *
  * Usage (add --dry-run to preview):
  *  pnpm release [--bump patch|minor|major]           prepare: gates, commit, tag, push
+ *  pnpm release --bump major --preid rc              a release candidate (3.0.0-rc.0), staged under next
+ *  pnpm release --bump prerelease | release          the next candidate (rc.1) / the final version
  *  pnpm release --ship [--bump patch|minor|major]    prepare, wait for CI, verify, promote
  *  pnpm release --promote <version>                  verify from npm, move `latest` (rollback too)
  *  pnpm release --deprecate <version> --message "<reason>. Use <version>."

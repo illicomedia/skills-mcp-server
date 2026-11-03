@@ -80,6 +80,10 @@ session against it first. The same command rolls back. Versions are never unpubl
 leaked secret, by hand), and deprecation targets one broken version at a time, with the reason
 and the replacement.
 
+A major version is released first as candidates (`3.0.0-rc.N`, `--preid rc`) under `next`;
+candidates can never become `latest` (`--promote` accepts only `x.y.z`). Breaking changes are
+batched into one major instead of released one by one.
+
 Only the newest patch of a supported major receives fixes, so older patches of a major are
 unsupported and may be deprecated toward its newest patch. The last version of the previous major
 stays undeprecated until that major's support ends (1.4.7 until 2027-05-03: it is also the only
