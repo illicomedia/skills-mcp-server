@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { runComplianceAudit } from '../dist/audit/index.js';
+import { expectCheck } from './audit-fixture.ts';
 
 const OVERCLAIMS = /\b(valid|correctly|compliant|ensures?|verified|soundness)\b/i;
 
@@ -18,6 +19,15 @@ function auditOf(files: Record<string, string>): ReturnType<typeof runCompliance
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/** Audits a project with AGENTS.md and `files`, and asserts its CI check passes. */
+function passingCiCheck(files: Record<string, string>) {
+  const report = auditOf({ 'AGENTS.md': '', ...files });
+  return expectCheck(report, 'CI workflow definition present', {
+    passed: true,
+    context: JSON.stringify(files),
+  });
 }
 
 test('Audit: requires confirmation when confirm is false or omitted', () => {
@@ -99,9 +109,10 @@ test('Audit: flags expired exceptions in .qa-exceptions.yaml as blocker', () => 
     '.qa-exceptions.yaml':
       'exceptions:\n  - id: EXC-001\n    expires_at: "2020-01-01"\n    reason: "Old expired exception"\n',
   });
-  const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
-  assert.equal(excCheck?.passed, false);
-  assert.equal(excCheck?.severity, 'blocker');
+  const excCheck = expectCheck(report, '.qa-exceptions.yaml present', {
+    passed: false,
+    severity: 'blocker',
+  });
   assert.match(excCheck?.details || '', /expired entry/i);
   assert.ok(report.recommendations.some((rec) => rec.includes('expired exceptions')));
 });
@@ -115,8 +126,7 @@ test('Audit: active unexpired exceptions in .qa-exceptions.yaml pass without blo
     '.gitignore': 'target/\n',
     '.qa-exceptions.yaml': `exceptions:\n  - id: EXC-002\n    expires_at: "${futureYear}-12-31"\n    reason: "Active temporary exception"\n`,
   });
-  const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
-  assert.equal(excCheck?.passed, true);
+  const excCheck = expectCheck(report, '.qa-exceptions.yaml present', { passed: true });
   assert.match(excCheck?.details || '', /active/i);
 });
 
@@ -124,9 +134,10 @@ test('Audit: Addition 1 - missing root LICENSE flags warning recommendation', ()
   const report = auditOf({
     'AGENTS.md': '# QA\n',
   });
-  const licCheck = report.results.find((r) => r.name === 'LICENSE file present');
-  assert.equal(licCheck?.passed, false);
-  assert.equal(licCheck?.severity, 'warning');
+  expectCheck(report, 'LICENSE file present', {
+    passed: false,
+    severity: 'warning',
+  });
   assert.ok(report.recommendations.some((rec) => rec.includes('LICENSE or COPYING')));
 });
 
@@ -135,9 +146,10 @@ test('Audit: Addition 2 - missing dependency lockfile on Node repo flags warning
     'AGENTS.md': '# QA\n',
     'package.json': JSON.stringify({ name: 'test-app' }),
   });
-  const lockCheck = report.results.find((r) => r.name === 'dependency lockfile present');
-  assert.equal(lockCheck?.passed, false);
-  assert.equal(lockCheck?.severity, 'warning');
+  const lockCheck = expectCheck(report, 'dependency lockfile present', {
+    passed: false,
+    severity: 'warning',
+  });
   assert.match(lockCheck?.details || '', /lockfile/i);
   assert.ok(report.recommendations.some((rec) => rec.includes('lockfile')));
 });
@@ -147,9 +159,10 @@ test('Audit: Addition 3 - missing automated test suite on Node repo flags blocke
     'AGENTS.md': '# QA\n',
     'package.json': JSON.stringify({ name: 'test-app', scripts: {} }),
   });
-  const testCheck = report.results.find((r) => r.name === 'automated test suite declared');
-  assert.equal(testCheck?.passed, false);
-  assert.equal(testCheck?.severity, 'blocker');
+  expectCheck(report, 'automated test suite declared', {
+    passed: false,
+    severity: 'blocker',
+  });
   assert.ok(report.recommendations.some((rec) => rec.includes('automated test runner script')));
 });
 
@@ -157,9 +170,10 @@ test('Audit: Addition 4 - missing CI workflow definition flags advisory info wit
   const report = auditOf({
     'AGENTS.md': '# QA\n',
   });
-  const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
-  assert.equal(ciCheck?.passed, false);
-  assert.equal(ciCheck?.severity, 'info');
+  expectCheck(report, 'CI workflow definition present', {
+    passed: false,
+    severity: 'info',
+  });
   assert.ok(report.recommendations.some((rec) => rec.includes('CI workflow configuration')));
 });
 
@@ -169,11 +183,10 @@ test('Audit: Addition 5 - raw private key file in root flags blocker', () => {
     '.gitignore': '.env\n',
     'server.key': '-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASC\n',
   });
-  const keyCheck = report.results.find(
-    (r) => r.name === 'private key and secret hygiene in .gitignore',
-  );
-  assert.equal(keyCheck?.passed, false);
-  assert.equal(keyCheck?.severity, 'blocker');
+  const keyCheck = expectCheck(report, 'private key and secret hygiene in .gitignore', {
+    passed: false,
+    severity: 'blocker',
+  });
   assert.match(keyCheck?.details || '', /Raw private key/i);
 });
 
@@ -257,9 +270,10 @@ test('Audit: missing AGENTS.md in agent-configured repository flags warning and 
     '.gitignore': '.env\n',
     '.cursor/rules/qa.md': '# Cursor QA rules\n',
   });
-  const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
-  assert.equal(agentsCheck?.passed, false);
-  assert.equal(agentsCheck?.severity, 'warning');
+  const agentsCheck = expectCheck(report, 'AGENTS.md present', {
+    passed: false,
+    severity: 'warning',
+  });
   assert.match(
     agentsCheck?.details || '',
     /Recommended to provide repository-level QA guidelines/i,
@@ -278,9 +292,7 @@ test('Audit: missing AGENTS.md in human-only repository passes with advisory inf
     'Cargo.lock': '# lock\n',
     'deny.toml': '[licenses]\n',
   });
-  const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
-  assert.equal(agentsCheck?.passed, true);
-  assert.equal(agentsCheck?.severity, 'info');
+  const agentsCheck = expectCheck(report, 'AGENTS.md present', { passed: true, severity: 'info' });
   assert.match(agentsCheck?.details || '', /Optional for human-only workflows/i);
   assert.equal(report.status, 'ready');
   assert.equal(report.score, 100);
@@ -292,9 +304,10 @@ test('Audit Robustness: commented .gitignore line (# .env) does not pass as igno
     '.gitignore': '# .env\n# *.key\n',
     '.env': 'SECRET=123',
   });
-  const envCheck = report.results.find((r) => r.name === '.gitignore mentions .env');
-  assert.equal(envCheck?.passed, false);
-  assert.equal(envCheck?.severity, 'blocker');
+  expectCheck(report, '.gitignore mentions .env', {
+    passed: false,
+    severity: 'blocker',
+  });
 });
 
 test('Audit Robustness: negated .gitignore line (!.env) does not pass as ignoring .env', () => {
@@ -303,9 +316,10 @@ test('Audit Robustness: negated .gitignore line (!.env) does not pass as ignorin
     '.gitignore': '.env\n!.env\n',
     '.env': 'SECRET=123',
   });
-  const envCheck = report.results.find((r) => r.name === '.gitignore mentions .env');
-  assert.equal(envCheck?.passed, false);
-  assert.equal(envCheck?.severity, 'blocker');
+  expectCheck(report, '.gitignore mentions .env', {
+    passed: false,
+    severity: 'blocker',
+  });
 });
 
 test('Audit Robustness: private key in subfolder (certs/server.key) flags blocker', () => {
@@ -314,11 +328,10 @@ test('Audit Robustness: private key in subfolder (certs/server.key) flags blocke
     '.gitignore': '.env\n',
     'certs/server.key': '-----BEGIN PRIVATE KEY-----\nMIIE...\n',
   });
-  const keyCheck = report.results.find(
-    (r) => r.name === 'private key and secret hygiene in .gitignore',
-  );
-  assert.equal(keyCheck?.passed, false);
-  assert.equal(keyCheck?.severity, 'blocker');
+  const keyCheck = expectCheck(report, 'private key and secret hygiene in .gitignore', {
+    passed: false,
+    severity: 'blocker',
+  });
   assert.match(keyCheck?.details || '', /certs\/server\.key/);
 });
 
@@ -329,9 +342,10 @@ test('Audit Robustness: alternative expiration syntax (valid_until / expiry) in 
     '.qa-exceptions.yaml':
       'exceptions:\n  - id: EXC-999\n    valid_until: "2021-01-01"\n    reason: "Legacy waiver"\n',
   });
-  const excCheck = report.results.find((r) => r.name === '.qa-exceptions.yaml present');
-  assert.equal(excCheck?.passed, false);
-  assert.equal(excCheck?.severity, 'blocker');
+  const excCheck = expectCheck(report, '.qa-exceptions.yaml present', {
+    passed: false,
+    severity: 'blocker',
+  });
   assert.match(excCheck?.details || '', /expired entry/i);
 });
 
@@ -341,8 +355,7 @@ test('Audit Robustness: polyglot project credits secondary stack test suite', ()
     'package.json': JSON.stringify({ name: 'frontend-and-backend', scripts: {} }),
     'Cargo.toml': '[package]\nname = "backend"\n',
   });
-  const testCheck = report.results.find((r) => r.name === 'automated test suite declared');
-  assert.equal(testCheck?.passed, true);
+  const testCheck = expectCheck(report, 'automated test suite declared', { passed: true });
   assert.match(testCheck?.details || '', /Rust test framework/i);
 });
 
@@ -358,13 +371,7 @@ test('Audit: Multi-Forge CI detection recognizes diverse providers', () => {
   ];
 
   for (const files of providers) {
-    const report = auditOf({
-      'AGENTS.md': '',
-      ...files,
-    });
-    const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
-    assert.equal(ciCheck?.passed, true, JSON.stringify(files));
-    assert.equal(ciCheck?.severity, 'info');
+    assert.equal(passingCiCheck(files).severity, 'info', JSON.stringify(files));
   }
 });
 
@@ -383,13 +390,7 @@ test('Audit: Local QA runners satisfy CI requirement without cloud CI', () => {
   ];
 
   for (const files of runners) {
-    const report = auditOf({
-      'AGENTS.md': '',
-      ...files,
-    });
-    const ciCheck = report.results.find((r) => r.name === 'CI workflow definition present');
-    assert.equal(ciCheck?.passed, true, JSON.stringify(files));
-    assert.match(ciCheck?.details || '', /Local QA automation detected/i);
+    assert.match(passingCiCheck(files).details || '', /Local QA automation detected/i);
   }
 });
 
@@ -437,9 +438,10 @@ test('Audit: Agent configuration folders without AGENTS.md', () => {
     const report = auditOf({
       [folder]: '{}',
     });
-    const agentsCheck = report.results.find((r) => r.name === 'AGENTS.md present');
-    assert.equal(agentsCheck?.passed, false, folder);
-    assert.equal(agentsCheck?.severity, 'warning');
+    expectCheck(report, 'AGENTS.md present', {
+      passed: false,
+      severity: 'warning',
+    });
     assert.ok(report.recommendations.some((r) => r.includes('Create an AGENTS.md')));
   }
 });

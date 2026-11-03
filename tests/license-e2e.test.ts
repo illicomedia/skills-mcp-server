@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { FredoQaMcpServer } from '../dist/server/server.js';
 import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
+import { callToolText as callTool } from './mcp-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 
 const CLI = fileURLToPath(new URL('../dist/index.js', import.meta.url));
@@ -31,31 +32,47 @@ function withWorkspace(run: (ws: Workspace) => void): void {
   }
 }
 
-function callTool(
-  server: FredoQaMcpServer,
-  name: string,
-  args: Record<string, unknown> = {},
-): string {
-  const res = server.handleRequest({
+/** Writes `license` to the user config folder of the workspace and starts a server there. */
+function serverWithUserLicense(ws: Workspace, license: string): FredoQaMcpServer {
+  const file = path.join(ws.home, '.config', 'fredo-qa', 'license.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, license);
+  return new FredoQaMcpServer(undefined, {
+    ...TEST_LICENSE_OPTIONS,
+    homeDir: ws.home,
+    projectRoot: ws.project,
+  });
+}
+
+/** Runs verify_license through the real compiled CLI in the workspace; returns its status. */
+function verifyLicenseThroughCli(
+  ws: Workspace,
+  extraEnv: Record<string, string> = {},
+): { status: string; tier: string; message: string } {
+  const request = {
     jsonrpc: '2.0',
     id: 1,
     method: 'tools/call',
-    params: { name, arguments: args },
+    params: { name: 'verify_license', arguments: {} },
+  };
+  const run = spawnSync(process.execPath, [CLI], {
+    cwd: ws.project,
+    env: { ...process.env, HOME: ws.home, USERPROFILE: ws.home, ...extraEnv },
+    input: `${JSON.stringify(request)}\n`,
+    encoding: 'utf8',
+    timeout: 10_000,
   });
-  return (res.result as { content: Array<{ text: string }> }).content[0].text;
+  assert.equal(run.status, 0, run.stderr);
+  const response = JSON.parse(run.stdout.trim().split('\n').at(-1) as string);
+  return JSON.parse(response.result.content[0].text);
 }
 
 test('E2E: a license file in the user config unlocks enterprise across the tool surface', () => {
   withWorkspace((ws) => {
-    fs.writeFileSync(
-      path.join(ws.home, '.config', 'fredo-qa', 'license.json'),
+    const server = serverWithUserLicense(
+      ws,
       signedLicense({ tier: 'enterprise', licensee: 'Fred V.' }),
     );
-    const server = new FredoQaMcpServer(undefined, {
-      ...TEST_LICENSE_OPTIONS,
-      homeDir: ws.home,
-      projectRoot: ws.project,
-    });
 
     const status = JSON.parse(callTool(server, 'verify_license'));
     assert.equal(status.status, 'ACTIVE');
@@ -84,14 +101,10 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
 
 test('E2E: a license whose updates ended before this release keeps the session free', () => {
   withWorkspace((ws) => {
-    const file = path.join(ws.home, '.config', 'fredo-qa', 'license.json');
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, signedLicense({ updates_until: '2026-01-01T00:00:00Z' }));
-    const server = new FredoQaMcpServer(undefined, {
-      ...TEST_LICENSE_OPTIONS,
-      homeDir: ws.home,
-      projectRoot: ws.project,
-    });
+    const server = serverWithUserLicense(
+      ws,
+      signedLicense({ updates_until: '2026-01-01T00:00:00Z' }),
+    );
 
     const status = JSON.parse(callTool(server, 'verify_license'));
     assert.equal(status.status, 'UPDATES_ENDED');
@@ -129,27 +142,7 @@ test('E2E: the compiled release server ignores licenses signed with the test key
       path.join(ws.project, '.qa-license.json'),
       signedLicense({ tier: 'enterprise' }),
     );
-    const request = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'tools/call',
-      params: { name: 'verify_license', arguments: {} },
-    };
-    const env: Record<string, string | undefined> = {
-      ...process.env,
-      HOME: ws.home,
-      USERPROFILE: ws.home,
-    };
-    const run = spawnSync(process.execPath, [CLI], {
-      cwd: ws.project,
-      env,
-      input: `${JSON.stringify(request)}\n`,
-      encoding: 'utf8',
-      timeout: 10_000,
-    });
-    assert.equal(run.status, 0, run.stderr);
-    const response = JSON.parse(run.stdout.trim().split('\n').at(-1) as string);
-    const status = JSON.parse(response.result.content[0].text);
+    const status = verifyLicenseThroughCli(ws);
     assert.equal(status.status, 'FREE_TIER');
     assert.equal(status.tier, 'FREE');
     assert.match(status.message, /not trusted/);
@@ -160,22 +153,7 @@ test('E2E: FREDO_QA_LICENSE_FILE from 2.x is ignored; licenses come from fixed l
   withWorkspace((ws) => {
     const file = path.join(ws.root, 'env-license.json');
     fs.writeFileSync(file, signedLicense({ tier: 'enterprise' }));
-    const request = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'tools/call',
-      params: { name: 'verify_license', arguments: {} },
-    };
-    const run = spawnSync(process.execPath, [CLI], {
-      cwd: ws.project,
-      env: { ...process.env, HOME: ws.home, USERPROFILE: ws.home, FREDO_QA_LICENSE_FILE: file },
-      input: `${JSON.stringify(request)}\n`,
-      encoding: 'utf8',
-      timeout: 10_000,
-    });
-    assert.equal(run.status, 0, run.stderr);
-    const response = JSON.parse(run.stdout.trim().split('\n').at(-1) as string);
-    const status = JSON.parse(response.result.content[0].text);
+    const status = verifyLicenseThroughCli(ws, { FREDO_QA_LICENSE_FILE: file });
     assert.equal(status.status, 'FREE_TIER');
     assert.match(status.message, /No license file found/);
     assert.match(status.message, /~\/\.config\/fredo-qa\/license\.json/);

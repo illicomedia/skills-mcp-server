@@ -246,3 +246,10 @@ test('D8: pnpm is pinned by version and hash (Corepack verifies the download)', 
   const { packageManager } = JSON.parse(read('package.json')) as { packageManager: string };
   assert.match(packageManager, /^pnpm@\d+\.\d+\.\d+\+sha512\.[0-9a-f]{128}$/);
 });
+
+test('D18: CI runs every quality gate: lint, dead code, duplicates, coverage, package metadata', () => {
+  const runs = (ci.jobs.quality.steps ?? []).map((step) => step.run);
+  for (const gate of ['lint', 'lint:dead', 'lint:duplicates', 'test:coverage', 'lint:package']) {
+    assert.ok(runs.includes(`pnpm run ${gate}`), `quality job must run pnpm run ${gate}`);
+  }
+});

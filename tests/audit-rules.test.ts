@@ -7,34 +7,16 @@ import * as path from 'node:path';
 import { after, test } from 'node:test';
 import {
   createAuditContext,
-  LANGUAGE_RULES,
   resolveLanguageRule,
   runComplianceAudit,
 } from '../dist/audit/index.js';
+import { makeProject, rule } from './audit-fixture.ts';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-rules-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
-/** A throwaway project: names ending in / are directories. */
-function project(...names: string[]): string {
-  const dir = fs.mkdtempSync(path.join(root, 'p-'));
-  for (const name of names) {
-    const full = path.join(dir, name);
-    if (name.endsWith('/')) {
-      fs.mkdirSync(full, { recursive: true });
-    } else {
-      fs.mkdirSync(path.dirname(full), { recursive: true });
-      fs.writeFileSync(full, name === 'Makefile' ? 'test:\n\ttrue\n' : '');
-    }
-  }
-  return dir;
-}
-
-function rule(id: string) {
-  const found = LANGUAGE_RULES.find((candidate) => candidate.id === id);
-  assert.ok(found, id);
-  return found;
-}
+const project = (...names: string[]): string =>
+  makeProject(root, names, (name) => (name === 'Makefile' ? 'test:\n\ttrue\n' : ''));
 
 const passing: [
   string,

@@ -6,7 +6,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, mock, test } from 'node:test';
-import { createAuditContext, LANGUAGE_RULES, runComplianceAudit } from '../dist/audit/index.js';
+import { createAuditContext, runComplianceAudit } from '../dist/audit/index.js';
 import { validateLicense } from '../dist/license/license.js';
 import { getCommercialLicenseText, resolveSkillLicense } from '../dist/license/templates.js';
 import { validateSafeProjectPath, validateSafeWriteTarget } from '../dist/security/path-guard.js';
@@ -20,30 +20,13 @@ import {
   syncWorkspaceSkills,
 } from '../dist/skills/installer.js';
 import { smokeTestServer } from '../scripts/release-lib.mjs';
+import { makeProject, rule } from './audit-fixture.ts';
 import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-edge-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
-function project(...names: string[]): string {
-  const dir = fs.mkdtempSync(path.join(root, 'p-'));
-  for (const name of names) {
-    const full = path.join(dir, name);
-    if (name.endsWith('/')) {
-      fs.mkdirSync(full, { recursive: true });
-    } else {
-      fs.mkdirSync(path.dirname(full), { recursive: true });
-      fs.writeFileSync(full, '');
-    }
-  }
-  return dir;
-}
-
-function rule(id: string) {
-  const found = LANGUAGE_RULES.find((candidate) => candidate.id === id);
-  assert.ok(found, id);
-  return found;
-}
+const project = (...names: string[]): string => makeProject(root, names);
 
 test('context and rules: shell at the root, YAML workflows, default tests, no package.json', () => {
   assert.equal(createAuditContext(project('run.sh')).stack.isBash, true);
