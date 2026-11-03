@@ -12,6 +12,8 @@ import {
   expectServerRefusal,
   extractChangelogSection,
   githubRepoSlug,
+  listingAtVersion,
+  listingProblems,
   nextDistTagAfterPromotion,
   parseRegistryState,
   parseReleaseArgs,
@@ -462,4 +464,60 @@ test('stampChangelog: a release candidate copies the notes and leaves them for t
   );
   const last = stampChangelog('## Unreleased\n\n- Only.', '1.0.0-rc.0', 'd');
   assert.strictEqual(extractChangelogSection(last, '1.0.0-rc.0'), '- Only.');
+});
+
+test('listingProblems: the MCP Registry listing must point at exactly this package and version', () => {
+  const pkg = {
+    name: '@illicomedia/skills-mcp-server',
+    mcpName: 'io.github.illicomedia/skills-mcp-server',
+  };
+  const good = {
+    $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
+    name: 'io.github.illicomedia/skills-mcp-server',
+    description: 'QA skills.',
+    version: '3.0.0',
+    packages: [
+      { registryType: 'npm', identifier: pkg.name, version: '3.0.0', transport: { type: 'stdio' } },
+    ],
+  };
+  assert.deepStrictEqual(listingProblems(good, pkg, '3.0.0'), []);
+  const problems = (change: Record<string, unknown>) =>
+    listingProblems({ ...good, ...change }, pkg, '3.0.0').join(' | ');
+  assert.match(problems({ $schema: 'x' }), /\$schema must be/);
+  assert.match(problems({ name: 'io.github.someone-else/x' }), /name must be/);
+  assert.match(problems({ name: 'com.example/x' }), /name must be/);
+  assert.match(problems({ description: 'x'.repeat(101) }), /1 to 100 characters \(has 101\)/);
+  assert.match(problems({ description: '' }), /has 0/);
+  assert.match(
+    problems({ version: '2.0.2' }),
+    /version and packages\[0\]\.version must be 3\.0\.0/,
+  );
+  assert.match(problems({ packages: [] }), /exactly one npm package/);
+  assert.match(
+    problems({ packages: [{ ...good.packages[0], transport: { type: 'sse' } }] }),
+    /over stdio/,
+  );
+  assert.match(
+    listingProblems({}, pkg, '3.0.0').join(' | '),
+    /name must be.*description.*version.*packages/,
+  );
+  assert.deepStrictEqual(listingAtVersion({ packages: undefined }, '3.0.0'), {
+    packages: [],
+    version: '3.0.0',
+  });
+});
+
+test('Release args: --publish-listing retries the MCP Registry listing alone', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--publish-listing', '--dry-run']), {
+    action: 'publish-listing',
+    dryRun: true,
+    yes: false,
+  });
+});
+
+test('server.json in the repository matches package.json (name, version, npm package)', () => {
+  const root = path.resolve(import.meta.dirname, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const listing = JSON.parse(fs.readFileSync(path.join(root, 'server.json'), 'utf8'));
+  assert.deepStrictEqual(listingProblems(listing, pkg, pkg.version), []);
 });

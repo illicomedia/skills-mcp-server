@@ -66,6 +66,11 @@ test('Package: the manifest users install is complete and pnpm-free', () => {
     assert.ok(manifest[field], `package.json lacks ${field}`);
   }
   assert.strictEqual(manifest.devEngines, undefined, 'devEngines broke npx before (1.4.3)');
+  assert.strictEqual(
+    manifest.mcpName,
+    'io.github.illicomedia/skills-mcp-server',
+    'the MCP Registry checks mcpName in the published package',
+  );
   assert.deepStrictEqual(manifest.dependencies ?? {}, {}, 'zero runtime dependencies');
   const entry = fs.readFileSync(path.join(dir, 'package', 'dist', 'index.js'), 'utf8');
   assert.ok(entry.startsWith('#!/usr/bin/env node\n'), 'bin entry keeps its shebang');

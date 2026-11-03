@@ -42,6 +42,7 @@ the old entry `Superseded by D<n>` instead of deleting it, so the history of why
 | D16 | Every platform in CI is required, macOS included | 2.0.0 |
 | D17 | Minimal capabilities, checked on the shipped code | 2.0.2 |
 | D18 | Workflows are tested like code | 2.0.3 |
+| D19 | Listed in the official MCP Registry, pointing at npm | 3.0.0 |
 
 ---
 
@@ -309,3 +310,24 @@ shell, thin `run:` steps, sealing, staging after full CI, rehearsal, Node.js mat
 `engines`, required platforms, time limits); the `workflows` job (actionlint, zizmor);
 `tests/release-flow.test.ts` (every command the workflows call). The policy tests were checked by
 breaking rules on purpose: each break fails them.
+
+## D19. Listed in the official MCP Registry, pointing at npm
+
+**Decision.** npm stays the only place the package is published. The official MCP Registry
+(registry.modelcontextprotocol.io) gets a listing, `server.json` in this repository, that points
+at the npm package; MCP directories and clients read from it. JSR, GitHub Packages and mirrors are
+not used (a second artifact to secure for no benefit; GitHub Packages needs a token to install).
+A container image is a possible later feature, not a mirror.
+
+The listing is published at the promote step, from the maintainer's machine, because the registry
+checks that the npm version is public and carries `"mcpName"`; staged versions are not. The tool is
+`mcp-publisher` at exactly the pinned version, installed from its release and verified against its
+Sigstore signature. Rollbacks never touch the listing.
+
+**Why.** Discoverability where MCP users look, with no second copy of the code: the registry
+verifies ownership through the npm package itself (`mcpName`) and a GitHub login.
+
+**Enforced by.** `listingProblems` (name equals `mcpName`, version, the one npm package over stdio,
+100-character description); the test that `server.json` matches `package.json`; the package test
+that `mcpName` ships; `publishListing` (public on npm, published `mcpName`, pinned tool version,
+`mcp-publisher validate`, skip when listed); `prepare` keeps `server.json` at the released version.

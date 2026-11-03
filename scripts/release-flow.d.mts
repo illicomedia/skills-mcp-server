@@ -5,7 +5,11 @@ export interface ReleaseContext {
   pkgDir: string;
   interactive: boolean;
   fetchJson(url: string): Promise<unknown>;
-  sh(command: string, args: string[], options?: { cwd?: string; interactive?: boolean }): string;
+  sh(
+    command: string,
+    args: string[],
+    options?: { cwd?: string; interactive?: boolean; withStderr?: boolean },
+  ): string;
   confirm(question: string): Promise<boolean>;
   smokeServer(installDir: string, version: string): Promise<{ tools: number }>;
   refusingServer(installDir: string): Promise<string>;
@@ -36,6 +40,7 @@ export interface Pkg {
 export const RELEASE_BRANCH: string;
 export const REGISTRY_ATTEMPTS: number;
 export const REGISTRY_WAIT_MS: number;
+export const MCP_REGISTRY_API: string;
 export const PUBLISH_ATTEMPTS: number;
 export function registryState(
   ctx: ReleaseContext,
@@ -68,4 +73,9 @@ export function ship(
   ctx: ReleaseContext,
   pkg: Pkg,
   options: { bump?: string | null; dryRun?: boolean; yes?: boolean },
+): Promise<void>;
+export function publishListing(
+  ctx: ReleaseContext,
+  pkg: Pkg,
+  options: { version: string; dryRun?: boolean; yes?: boolean },
 ): Promise<void>;

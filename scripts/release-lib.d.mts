@@ -26,3 +26,7 @@ export function versionAtLeast(version: string, minimum: string): boolean;
 export function tarballFileName(name: string, version: string): string;
 export function ciTagOutputs(tag: string, pkg: { name: string; version: string }): string;
 export function expectServerRefusal(command: string, timeoutMs?: number, args?: string[]): Promise<string>;
+export const MCP_PUBLISHER_VERSION: string;
+export const MCP_SERVER_SCHEMA: string;
+export function listingProblems(listing: Record<string, unknown>, pkg: Record<string, unknown>, version: string): string[];
+export function listingAtVersion(listing: Record<string, unknown>, version: string): Record<string, unknown>;

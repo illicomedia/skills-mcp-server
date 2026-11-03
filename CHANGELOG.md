@@ -15,6 +15,10 @@ keeps receiving security and critical fixes for 6 months.
 
 - The server reads no environment variable. `FREDO_QA_LICENSE_FILE` is ignored: place the license at `~/.config/fredo-qa/license.json` or the project's `.qa-license.json`, or load it with `set_license_key`. Only setups that used the variable are affected.
 
+### Added
+
+- Listed in the official MCP Registry as `io.github.illicomedia/skills-mcp-server` (`server.json`, `mcpName` in `package.json`), pointing at this npm package.
+
 ### Changed
 
 - All file access goes through one audited module (`security/path-guard`). Every write checks its target against the project root before acting, including skill archiving, which previously relied on the caller's checks. Nothing changes for normal use.

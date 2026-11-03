@@ -13,7 +13,8 @@
  *  pnpm release --bump major --preid rc              a release candidate (3.0.0-rc.0), staged under next
  *  pnpm release --bump prerelease | release          the next candidate (rc.1) / the final version
  *  pnpm release --ship [--bump patch|minor|major]    prepare, wait for CI, verify, promote
- *  pnpm release --promote <version>                  verify from npm, move `latest` (rollback too)
+ *  pnpm release --promote <version>                  verify from npm, move `latest`, list in MCP Registry
+ *  pnpm release --publish-listing                     retry the MCP Registry listing of this version
  *  pnpm release --deprecate <version> --message "<reason>. Use <version>."
  *  pnpm release --smoke-only [--tarball-dir <dir>]  pack (or take) a tarball and smoke-test it
  *  pnpm release --rehearse --tarball-dir <dir>       CI, every push: the release path, staging dry-run
@@ -45,6 +46,7 @@ import {
   githubRelease,
   prepare,
   promote,
+  publishListing,
   rehearse,
   ship,
   smoke,
@@ -63,7 +65,7 @@ const color = (code, symbol) => (msg) =>
   console.error(`\x1b[${code}m[release]\x1b[0m ${symbol} ${msg}`);
 
 /** Runs a command without a shell (arguments are never re-parsed); throws on a non-zero exit. */
-function sh(command, args, { cwd = PKG_DIR, interactive = false } = {}) {
+function sh(command, args, { cwd = PKG_DIR, interactive = false, withStderr = false } = {}) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
@@ -77,7 +79,9 @@ function sh(command, args, { cwd = PKG_DIR, interactive = false } = {}) {
     const detail = `${result.stderr ?? ''}${result.stdout ?? ''}`.trim();
     throw new Error(`${command} ${args.join(' ')} failed (exit ${result.status})\n${detail}`);
   }
-  return (result.stdout ?? '').trim();
+  return (
+    withStderr ? `${result.stdout ?? ''}${result.stderr ?? ''}` : (result.stdout ?? '')
+  ).trim();
 }
 
 async function confirm(question) {
@@ -115,7 +119,13 @@ async function fetchJson(url) {
   if (process.env.GITHUB_TOKEN) {
     headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
-  const response = await fetch(url, { headers });
+  let response;
+  try {
+    response = await fetch(url, { headers });
+  } catch (error) {
+    const cause = error.cause?.code ?? error.cause?.message ?? error.message;
+    throw new Error(`Could not reach ${new URL(url).host}: ${cause}`);
+  }
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
@@ -185,6 +195,9 @@ async function main() {
       return;
     case 'promote':
       await promote(ctx, pkg, options);
+      return;
+    case 'publish-listing':
+      await publishListing(ctx, pkg, { ...options, version: pkg.version });
       return;
     case 'deprecate':
       await deprecate(ctx, pkg, options);

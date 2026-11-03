@@ -15,6 +15,9 @@ import {
   ciProblem,
   extractChangelogSection,
   githubRepoSlug,
+  listingAtVersion,
+  listingProblems,
+  MCP_PUBLISHER_VERSION,
   MIN_NPM_FOR_STAGING,
   nextDistTagAfterPromotion,
   parseRegistryState,
@@ -27,6 +30,8 @@ import {
 export const RELEASE_BRANCH = 'main';
 export const REGISTRY_ATTEMPTS = 30;
 export const REGISTRY_WAIT_MS = 10_000;
+export const MCP_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0/servers';
+const LISTING = 'server.json';
 /** CI (about 8 minutes) plus a maintainer approving the staged version with 2FA. */
 export const PUBLISH_ATTEMPTS = 180;
 
@@ -36,6 +41,21 @@ function git(ctx, ...args) {
 
 function npm(ctx, ...args) {
   return ctx.sh('npm', args);
+}
+
+/** server.json, the MCP Registry listing, or null when the package has none. */
+function readListing(ctx) {
+  if (!ctx.listDir(ctx.pkgDir).includes(LISTING)) {
+    return null;
+  }
+  return JSON.parse(ctx.readFile(ctx.join(ctx.pkgDir, LISTING)));
+}
+
+function listingReady(listing, pkg, version) {
+  const problems = listingProblems(listing, pkg, version);
+  if (problems.length > 0) {
+    throw new Error(`server.json is not ready for ${version}:\n  - ${problems.join('\n  - ')}`);
+  }
 }
 
 export function registryState(ctx, packageName) {
@@ -321,17 +341,29 @@ export async function prepare(
 
   const pkgPath = ctx.join(ctx.pkgDir, 'package.json');
   const released = { ...pkg, version };
+  const listing = readListing(ctx);
+  const files = ['package.json', 'CHANGELOG.md'];
   ctx.writeFile(pkgPath, `${JSON.stringify(released, null, 2)}\n`);
   ctx.writeFile(changelogPath, stamped);
+  if (listing) {
+    files.push(LISTING);
+    ctx.writeFile(
+      ctx.join(ctx.pkgDir, LISTING),
+      `${JSON.stringify(listingAtVersion(listing, version), null, 2)}\n`,
+    );
+  }
   try {
+    if (listing) {
+      listingReady(listingAtVersion(listing, version), released, version);
+    }
     await runGates(ctx, released);
   } catch (error) {
-    git(ctx, 'checkout', '--', 'package.json', 'CHANGELOG.md');
+    git(ctx, 'checkout', '--', ...files);
     throw error;
   }
 
   const notes = extractChangelogSection(stamped, version);
-  git(ctx, 'add', 'package.json', 'CHANGELOG.md');
+  git(ctx, 'add', ...files);
   git(ctx, 'commit', '--quiet', '-m', `chore(release): ${version}\n\n${notes}`.trim());
   git(ctx, 'tag', '-a', tag, '-m', `Release ${version}`);
   ctx.ok(`Committed and tagged ${tag}.`);
@@ -425,6 +457,70 @@ export async function promote(ctx, pkg, { version, dryRun = false, yes = false }
     ctx.sh('npm', command, { interactive: true });
   }
   ctx.ok(`\`latest\` now points at v${version} (was v${distTags.latest ?? 'none'}).`);
+  if (readListing(ctx)?.version === version) {
+    await publishListing(ctx, pkg, { version, yes });
+  } else {
+    ctx.log(`MCP Registry listing not touched: server.json is not at ${version} (a rollback?).`);
+  }
+}
+
+/**
+ * Publishes server.json to the official MCP Registry, a listing that points at the npm package.
+ * Runs after the version is public on npm (the registry checks it, and its "mcpName"), with the
+ * exact pinned mcp-publisher, which the maintainer installs and verifies (Sigstore). Skips a
+ * version already listed. Called by --promote; --publish-listing retries it alone.
+ */
+export async function publishListing(ctx, pkg, { version, dryRun = false, yes = false }) {
+  const listing = readListing(ctx);
+  if (!listing) {
+    ctx.log('No server.json: there is no MCP Registry listing to publish.');
+    return;
+  }
+  listingReady(listing, pkg, version);
+  if (!registryState(ctx, pkg.name).versions.includes(version)) {
+    throw new Error(`${pkg.name}@${version} is not public on npm; the MCP Registry checks it.`);
+  }
+  const published = npm(ctx, 'view', `${pkg.name}@${version}`, 'mcpName');
+  if (published !== listing.name) {
+    throw new Error(
+      `${pkg.name}@${version} was published with mcpName "${published}", not "${listing.name}": ` +
+        'the MCP Registry would refuse it. Only versions published with mcpName can be listed.',
+    );
+  }
+  const listed = await ctx.fetchJson(
+    `${MCP_REGISTRY_API}?search=${encodeURIComponent(listing.name)}`,
+  );
+  const servers = listed.servers ?? [];
+  if (servers.some(({ server }) => server.name === listing.name && server.version === version)) {
+    ctx.ok(`${listing.name} ${version} is already listed in the MCP Registry.`);
+    return;
+  }
+  if (dryRun) {
+    ctx.log(`[dry-run] Would publish ${listing.name} ${version} to the MCP Registry.`);
+    return;
+  }
+  let reported = '';
+  try {
+    // mcp-publisher prints its version on stderr (Go's log package).
+    reported = ctx.sh('mcp-publisher', ['--version'], { withStderr: true });
+  } catch {
+    // Not installed: reported stays empty.
+  }
+  if (
+    !new RegExp(`mcp-publisher v?${MCP_PUBLISHER_VERSION.replaceAll('.', '\\.')} `).test(reported)
+  ) {
+    throw new Error(
+      `mcp-publisher ${MCP_PUBLISHER_VERSION} is required (found: ${reported || 'none'}). ` +
+        'Install it as the release runbook shows, verified against its Sigstore signature.',
+    );
+  }
+  ctx.sh('mcp-publisher', ['validate'], { interactive: true });
+  if (!(await approve(ctx, `Publish ${listing.name} ${version} to the MCP Registry?`, { yes }))) {
+    ctx.log(`Listing not published. Later: pnpm release --publish-listing`);
+    return;
+  }
+  ctx.sh('mcp-publisher', ['publish'], { interactive: true });
+  ctx.ok(`Published ${listing.name} ${version} to the MCP Registry.`);
 }
 
 /** Marks ONE broken or unsupported version as "do not use", with the reason and the fix. */

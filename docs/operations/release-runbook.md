@@ -151,6 +151,13 @@ It installs 2.0.0 from npm into an empty folder, runs an MCP session against it,
 Answer `y`. It then runs two npm commands, `dist-tag add … latest` and `dist-tag rm … next`;
 npm asks for 2FA for them (once each, unless npm reuses your recent confirmation).
 
+Then it lists the version in the **official MCP Registry** (a listing that points at the npm
+package): it checks `server.json`, that the version is public on npm with the right `mcpName`, and
+the pinned `mcp-publisher`, runs `mcp-publisher validate`, then asks
+`Publish io.github.illicomedia/skills-mcp-server <version> to the MCP Registry? [y/N]`. A rollback
+(promoting an older version) leaves the listing alone. If this step fails, `latest` has still
+moved; fix the cause and run `pnpm release --publish-listing`.
+
 ## 8. Check the result (YOU)
 
 ```bash
@@ -186,6 +193,28 @@ It runs steps 3, 4 (waiting), 7, and prints the step 5 commands while it waits: 
 second terminal. It waits up to 30 minutes for the approval, then promotes after your `y`.
 
 ---
+
+## MCP Registry publisher (once per machine)
+
+The listing is published with the registry's official tool, `mcp-publisher`, at exactly version
+1.8.7 (the release script refuses any other). Install it from its GitHub release and verify its
+Sigstore signature before use; do not install it if verification fails:
+
+```bash
+V=1.8.7; F=mcp-publisher_linux_amd64.tar.gz      # darwin_arm64 on Apple silicon
+curl -fsSLO "https://github.com/modelcontextprotocol/registry/releases/download/v$V/$F"
+curl -fsSLO "https://github.com/modelcontextprotocol/registry/releases/download/v$V/$F.sigstore.json"
+cosign verify-blob --bundle "$F.sigstore.json" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/modelcontextprotocol/registry/' "$F"
+tar -xzf "$F" mcp-publisher && sudo install mcp-publisher /usr/local/bin/
+mcp-publisher --version                            # mcp-publisher v1.8.7 (...)
+mcp-publisher login github                         # once: a browser confirmation with GitHub
+```
+
+The listing's name, `io.github.illicomedia/skills-mcp-server`, requires a GitHub login that can
+publish for `illicomedia`. Versions published to npm without `mcpName` (2.0.2 and older) cannot be
+listed; 3.0.0 is the first.
 
 ## First release with Trusted Publishing only (once)
 

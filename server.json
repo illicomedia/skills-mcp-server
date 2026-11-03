@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.illicomedia/skills-mcp-server",
+  "title": "Fredo QA Skills",
+  "description": "QA skills and an offline code audit for AI coding agents: security, GDPR, accessibility, DevOps.",
+  "repository": {
+    "url": "https://github.com/illicomedia/skills-mcp-server",
+    "source": "github"
+  },
+  "websiteUrl": "https://www.illicomedia.com/qa-skills/mcp",
+  "version": "2.0.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@illicomedia/skills-mcp-server",
+      "version": "2.0.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

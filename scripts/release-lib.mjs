@@ -23,6 +23,7 @@ const FLAGS_WITH_VALUE = [
 ];
 const FLAGS = [
   '--dry-run',
+  '--publish-listing',
   '--smoke-only',
   '--expect-refusal',
   '--ship',
@@ -33,6 +34,7 @@ const FLAGS = [
 ];
 const ACTIONS = [
   '--ship',
+  '--publish-listing',
   '--promote',
   '--deprecate',
   '--smoke-only',
@@ -147,6 +149,8 @@ export function parseReleaseArgs(argv) {
       const message = requireValue(flags, '--message', '"<reason>. Use <version>."');
       return { action: 'deprecate', ...base, version, message };
     }
+    case '--publish-listing':
+      return { action: 'publish-listing', ...base };
     case '--smoke-only':
       return { action: 'smoke', ...base, tarballDir: flags.get('--tarball-dir') ?? null };
     case '--expect-refusal':
@@ -481,4 +485,56 @@ export function expectServerRefusal(command, timeoutMs = DEFAULT_SMOKE_TIMEOUT_M
       }
     });
   });
+}
+
+/** The official MCP Registry publisher the release accepts: installed by the maintainer, verified. */
+export const MCP_PUBLISHER_VERSION = '1.8.7';
+
+/** The schema of server.json, the MCP Registry listing. */
+export const MCP_SERVER_SCHEMA =
+  'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json';
+
+const MCP_NAME = /^io\.github\.[A-Za-z0-9-]+\/[a-zA-Z0-9._-]+$/;
+
+/**
+ * What is wrong with the MCP Registry listing (server.json) for this package at this version.
+ * The registry checks that the npm package's "mcpName" equals the listing's name; the rest keeps
+ * the listing pointing at exactly the npm package and version being released.
+ */
+export function listingProblems(listing, pkg, version) {
+  const problems = [];
+  const npmPackage = (listing.packages ?? [])[0] ?? {};
+  if (listing.$schema !== MCP_SERVER_SCHEMA) {
+    problems.push(`$schema must be ${MCP_SERVER_SCHEMA}`);
+  }
+  if (!MCP_NAME.test(listing.name ?? '') || listing.name !== pkg.mcpName) {
+    problems.push(
+      `name must be package.json "mcpName" (io.github.<owner>/<name>): ${listing.name}`,
+    );
+  }
+  const description = listing.description ?? '';
+  if (description.length < 1 || description.length > 100) {
+    problems.push(`description must be 1 to 100 characters (has ${description.length})`);
+  }
+  if (listing.version !== version || npmPackage.version !== version) {
+    problems.push(`version and packages[0].version must be ${version}`);
+  }
+  if (
+    (listing.packages ?? []).length !== 1 ||
+    npmPackage.registryType !== 'npm' ||
+    npmPackage.identifier !== pkg.name ||
+    npmPackage.transport?.type !== 'stdio'
+  ) {
+    problems.push(`packages must be exactly one npm package ${pkg.name} over stdio`);
+  }
+  return problems;
+}
+
+/** The listing with its version (and its npm package's) set to `version`. */
+export function listingAtVersion(listing, version) {
+  return {
+    ...listing,
+    version,
+    packages: (listing.packages ?? []).map((entry) => ({ ...entry, version })),
+  };
 }

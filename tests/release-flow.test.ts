@@ -9,6 +9,7 @@ import {
   githubRelease,
   prepare,
   promote,
+  publishListing,
   REGISTRY_ATTEMPTS,
   registryState,
   rehearse,
@@ -45,6 +46,9 @@ interface World {
   npmVersion: string;
   ghReleaseExists: boolean;
   refuses: boolean;
+  publisher: string | null;
+  listedVersions: string[] | null;
+  npmMcpName: string;
   env: Record<string, string | undefined>;
 }
 
@@ -72,6 +76,9 @@ function fakeWorld(overrides: Partial<World> = {}) {
     npmVersion: '11.6.0',
     ghReleaseExists: false,
     refuses: true,
+    publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.7 (commit: abc, built: x)',
+    listedVersions: [],
+    npmMcpName: 'io.github.illicomedia/skills-mcp-server',
     env: {},
     ...overrides,
   };
@@ -115,8 +122,8 @@ function fakeWorld(overrides: Partial<World> = {}) {
     return '';
   };
 
-  const npm = (args: string[]): string => {
-    if (args[0] === 'view' && args.includes('dist-tags')) {
+  const npmView = (args: string[]): string => {
+    if (args.includes('dist-tags')) {
       if (world.registryBroken) {
         throw new Error('npm view failed: ETIMEDOUT');
       }
@@ -128,24 +135,34 @@ function fakeWorld(overrides: Partial<World> = {}) {
         polls > world.publishAfterPolls ? world.versions : world.versions.slice(0, -1);
       return JSON.stringify([{ versions, 'dist-tags': world.distTags }]);
     }
-    if (args[0] === 'view') {
-      return world.deprecated[args[1].split('@').at(-1) as string] ?? '';
+    if (args[2] === 'mcpName') {
+      return world.npmMcpName;
     }
-    if (args[0] === 'whoami') {
-      if (!world.loggedIn) {
-        throw new Error('ENEEDAUTH');
-      }
-      return 'illicomedia';
+    return world.deprecated[args[1].split('@').at(-1) as string] ?? '';
+  };
+
+  const npmWhoami = (): string => {
+    if (!world.loggedIn) {
+      throw new Error('ENEEDAUTH');
     }
-    if (args[0] === 'install' && world.installFailures > 0) {
+    return 'illicomedia';
+  };
+
+  const npmInstall = (): string => {
+    if (world.installFailures > 0) {
       world.installFailures -= 1;
       throw new Error('ETARGET No matching version');
     }
-    if (args[0] === '--version') {
-      return world.npmVersion;
-    }
     return '';
   };
+
+  const npmHandlers: Record<string, (args: string[]) => string> = {
+    view: npmView,
+    whoami: npmWhoami,
+    install: npmInstall,
+    '--version': () => world.npmVersion,
+  };
+  const npm = (args: string[]): string => npmHandlers[args[0]]?.(args) ?? '';
 
   const pnpm = (args: string[]): string => {
     if (args[0] === 'run' && args[1] === world.failScript) {
@@ -168,6 +185,16 @@ function fakeWorld(overrides: Partial<World> = {}) {
     pkgDir: PKG_DIR,
     async fetchJson(url) {
       calls.push(`fetch ${url}`);
+      if (url.startsWith('https://registry.modelcontextprotocol.io/')) {
+        if (world.listedVersions === null) {
+          return {};
+        }
+        return {
+          servers: world.listedVersions.map((version) => ({
+            server: { name: 'io.github.illicomedia/skills-mcp-server', version },
+          })),
+        };
+      }
       if (world.ci === 'unreachable') {
         throw new Error('403 rate limit exceeded');
       }
@@ -188,6 +215,12 @@ function fakeWorld(overrides: Partial<World> = {}) {
       }
       if (command === 'gh') {
         return gh(args);
+      }
+      if (command === 'mcp-publisher') {
+        if (world.publisher === null) {
+          throw new Error('mcp-publisher: command not found');
+        }
+        return args[0] === '--version' && options.withStderr ? world.publisher : '';
       }
       return pnpm(args);
     },
@@ -667,4 +700,128 @@ test('prepare: a release candidate keeps the notes under Unreleased and is tagge
   const changelog = files.get('/repo/CHANGELOG.md') as string;
   assert.match(changelog, /## Unreleased\n\n- Fix\.\n\n## 2\.0\.0-rc\.0 - 2026-11-03\n\n- Fix\./);
   assert.ok(calls.includes('git push --atomic origin main refs/tags/v2.0.0-rc.0'));
+});
+
+const LISTED_PKG: Pkg = { ...PKG, mcpName: 'io.github.illicomedia/skills-mcp-server' };
+
+function listingFor(version: string): string {
+  return JSON.stringify({
+    $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
+    name: 'io.github.illicomedia/skills-mcp-server',
+    description: 'QA skills for AI coding agents.',
+    version,
+    packages: [{ registryType: 'npm', identifier: NAME, version, transport: { type: 'stdio' } }],
+  });
+}
+
+function withListing(version: string, overrides: Partial<World> = {}) {
+  const world = fakeWorld(overrides);
+  world.dirs.set('/repo', ['server.json']);
+  world.files.set('/repo/server.json', listingFor(version));
+  return world;
+}
+
+test('prepare: the MCP Registry listing follows the new version and is committed with it', async () => {
+  const { ctx, files, calls } = withListing('1.4.0');
+  await prepare(ctx, LISTED_PKG, { bump: 'minor', yes: true });
+  const listing = JSON.parse(files.get('/repo/server.json') as string);
+  assert.strictEqual(listing.version, '1.5.0');
+  assert.strictEqual(listing.packages[0].version, '1.5.0');
+  assert.ok(calls.includes('git add package.json CHANGELOG.md server.json'));
+});
+
+test('prepare: a broken listing stops the release and restores it', async () => {
+  const { ctx, calls } = withListing('1.4.0');
+  await assert.rejects(
+    prepare(ctx, PKG, { bump: 'minor', yes: true }),
+    /server\.json is not ready/,
+  );
+  assert.ok(calls.includes('git checkout -- package.json CHANGELOG.md server.json'));
+  assert.ok(!has(calls, 'git commit'));
+});
+
+const PUBLIC_150 = { versions: ['1.4.0', '1.5.0'], distTags: { latest: '1.4.0', next: '1.5.0' } };
+
+test('promote: lists the version in the MCP Registry right after moving latest', async () => {
+  const { ctx, calls, questions } = withListing('1.5.0', PUBLIC_150);
+  await promote(ctx, LISTED_PKG, { version: '1.5.0' });
+  const latest = calls.indexOf(`npm dist-tag add ${NAME}@1.5.0 latest`);
+  const publish = calls.indexOf('mcp-publisher publish');
+  assert.ok(latest >= 0 && publish > latest, 'listed only once latest moved');
+  assert.ok(calls.indexOf('mcp-publisher validate') < publish);
+  assert.ok(
+    questions.includes(
+      'Publish io.github.illicomedia/skills-mcp-server 1.5.0 to the MCP Registry?',
+    ),
+  );
+});
+
+test('promote: a rollback leaves the listing alone', async () => {
+  const { ctx, calls, logs } = withListing('1.5.0', {
+    versions: ['1.4.0', '1.5.0'],
+    distTags: { latest: '1.5.0' },
+  });
+  await promote(ctx, LISTED_PKG, { version: '1.4.0', yes: true });
+  assert.ok(!has(calls, 'mcp-publisher'));
+  assert.ok(logs.some((line) => line.includes('listing not touched')));
+});
+
+test('publishListing: skips a listed version; refuses an unpublished one or a broken listing', async () => {
+  const listed = withListing('1.5.0', { ...PUBLIC_150, listedVersions: ['1.5.0'] });
+  await publishListing(listed.ctx, LISTED_PKG, { version: '1.5.0' });
+  assert.ok(!has(listed.calls, 'mcp-publisher'));
+  assert.ok(listed.logs.some((line) => line.includes('already listed')));
+
+  const staged = withListing('1.5.0');
+  await assert.rejects(
+    publishListing(staged.ctx, LISTED_PKG, { version: '1.5.0' }),
+    /not public on npm/,
+  );
+
+  const stale = withListing('1.4.0', PUBLIC_150);
+  await assert.rejects(publishListing(stale.ctx, LISTED_PKG, { version: '1.5.0' }), /not ready/);
+});
+
+test('publishListing: requires exactly the pinned mcp-publisher', async () => {
+  const missing = withListing('1.5.0', { ...PUBLIC_150, publisher: null });
+  await assert.rejects(
+    publishListing(missing.ctx, LISTED_PKG, { version: '1.5.0' }),
+    /mcp-publisher 1\.8\.7 is required \(found: none\)/,
+  );
+  const newer = withListing('1.5.0', { ...PUBLIC_150, publisher: 'mcp-publisher v1.8.70 (x' });
+  await assert.rejects(
+    publishListing(newer.ctx, LISTED_PKG, { version: '1.5.0' }),
+    /is required \(found: mcp-publisher v1\.8\.70/,
+  );
+  assert.ok(!has(newer.calls, 'mcp-publisher publish'));
+});
+
+test('publishListing: a dry run, a no, and a package without a listing publish nothing', async () => {
+  const dry = withListing('1.5.0', PUBLIC_150);
+  await publishListing(dry.ctx, LISTED_PKG, { version: '1.5.0', dryRun: true });
+  assert.ok(!has(dry.calls, 'mcp-publisher'));
+
+  const no = withListing('1.5.0', { ...PUBLIC_150, answer: false });
+  await publishListing(no.ctx, LISTED_PKG, { version: '1.5.0' });
+  assert.ok(!has(no.calls, 'mcp-publisher publish'));
+  assert.ok(no.logs.some((line) => line.includes('--publish-listing')));
+
+  const none = fakeWorld(PUBLIC_150);
+  await publishListing(none.ctx, PKG, { version: '1.5.0' });
+  assert.ok(none.logs.some((line) => line.includes('No server.json')));
+});
+
+test('publishListing: an empty registry answer means not listed yet', async () => {
+  const { ctx, calls } = withListing('1.5.0', { ...PUBLIC_150, listedVersions: null });
+  await publishListing(ctx, LISTED_PKG, { version: '1.5.0', yes: true });
+  assert.ok(calls.includes('mcp-publisher publish'));
+});
+
+test('publishListing: a version published without mcpName cannot be listed', async () => {
+  const { ctx, calls } = withListing('1.5.0', { ...PUBLIC_150, npmMcpName: '' });
+  await assert.rejects(
+    publishListing(ctx, LISTED_PKG, { version: '1.5.0', yes: true }),
+    /published with mcpName "", not "io\.github\.illicomedia\/skills-mcp-server"/,
+  );
+  assert.ok(!has(calls, 'mcp-publisher'));
 });
