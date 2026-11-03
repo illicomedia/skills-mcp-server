@@ -24,6 +24,7 @@ jobs:
   quality:
     name: Lint, build, test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +55,7 @@ jobs:
     name: Pack the release tarball
     needs: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,6 +96,7 @@ jobs:
     name: Installed package runs (Node ${{ matrix.node-version }}, ${{ matrix.os }})
     needs: package
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -125,6 +128,7 @@ jobs:
     name: Installed package refuses Node ${{ matrix.node-version }} (no security fixes)
     needs: package
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +156,7 @@ jobs:
   workflows:
     name: Lint GitHub workflows
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

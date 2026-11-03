@@ -79,8 +79,14 @@ session against it first. The same command rolls back. Versions are never unpubl
 leaked secret, by hand), and deprecation targets one broken version at a time, with the reason
 and the replacement.
 
+Only the newest patch of a supported major receives fixes, so older patches of a major are
+unsupported and may be deprecated toward its newest patch. The last version of the previous major
+stays undeprecated until that major's support ends (1.4.7 until 2027-05-03: it is also the only
+version for Node.js 18 and 20, which 2.x refuses).
+
 **Why.** Users pinning exact versions (as the README recommends) must not be warned off working
-versions. A bad release is undone by moving `latest` back and fixing forward.
+versions without a reason they can act on. A bad release is undone by moving `latest` back and
+fixing forward. Unpublishing breaks pinned users and removes nothing already downloaded.
 
 **Enforced by.** `promote` and `deprecate` in `scripts/release-flow.mjs` (tests: "verifies from
 the registry, asks, then moves latest", "never deprecates anything"); `deprecate` refuses `latest`.
@@ -92,6 +98,10 @@ commit has finished green. `release.yml` runs the whole `ci.yml` on the release 
 npm depends on it.
 
 **Why.** The commit that ships must be the commit that passed, on every platform and Node.js line.
+CI therefore runs twice on a release commit (once for the push to `main`, once inside the release
+workflow), by design: the release's gate is produced by the release run itself, so no other
+workflow, app check or stale result can satisfy it, and a re-run or a manually published tag is
+always tested again. Do not replace it with a lookup of the `main` run's result.
 
 **Enforced by.** `ciGate` in `scripts/release-flow.mjs` (reads
 `/repos/{slug}/commits/{sha}/check-runs`; tests for red, pending, unreadable, non-GitHub);
@@ -238,7 +248,11 @@ can queue for several minutes.
 **Why.** "Fully green" (D4) means every platform users run the server on. A few minutes of queue
 per release is cheaper than discovering a platform break after it shipped.
 
-**Enforced by.** `ci.yml` job `runtime` (no `continue-on-error`).
+When GitHub has no macOS runner available, the job is cancelled after waiting ("not acquired by
+Runner"). That is GitHub's capacity, not the code: re-run the failed job. `timeout-minutes` limits
+how long a running job may take; it does not shorten the wait for a runner.
+
+**Enforced by.** `ci.yml` job `runtime` (no `continue-on-error`); `timeout-minutes` on every job.
 
 ## D17. Minimal capabilities, checked on the shipped code
 
@@ -247,6 +261,11 @@ audits and skill installs; one environment variable, `FREDO_QA_LICENSE_FILE`, re
 network, no child processes, no dynamic code. Unused capability code is removed, not kept
 "for later" (`FREDO_QA_API_URL` configured an API the server never called). The build starts from
 an empty `dist/`, so no stale file can ship.
+
+`FREDO_QA_LICENSE_FILE` is kept on purpose (2026-11-03): it is the documented way to point an MCP
+client at a paid license, it holds a path and no secret, and removing it would break paid setups.
+Socket's `envVars` alert for that one variable is accepted. Removing it would only be considered
+in a future major, in favour of a command-line argument or file discovery only.
 
 **Why.** Every capability is attack surface and a supply-chain alert (Socket `envVars` flagged the
 whole-environment read and the unused API override). What is declared in README and SECURITY.md

@@ -95,7 +95,13 @@ When it is green, the run's summary page shows the approval commands of step 5.
 npm stage list @illicomedia/skills-mcp-server
 ```
 
-Copy the stage id of version 2.0.0. Optionally inspect the exact tarball first:
+Copy the stage id of the new version. Follow its status with `npm stage view <stage-id>`
+(reading needs no 2FA):
+- `validating`: npm is still checking the upload, usually a few minutes after staging;
+- `staged`: ready to approve or reject.
+
+Optionally confirm it is the tarball CI tested: its `shasum` equals the SHA-1 of the `.tgz`
+attached to the GitHub Release (`sha1sum <file>.tgz`). Optionally inspect the exact tarball:
 
 ```bash
 npm stage download <stage-id>
@@ -187,7 +193,7 @@ After the first release has been staged and approved:
 | Step 2 or 3 | `Release preflight failed` with reasons | Fix each reason; nothing changed yet |
 | Step 3 | A gate fails (lint, tests, smoke) | Files are restored; fix in a normal commit, wait for green CI, redo step 3 |
 | Step 3 | You answered `n` to the push | The commit and tag are local only: `git push --atomic origin main v2.0.0` when ready, or drop them with `git tag -d v2.0.0 && git reset --hard origin/main` |
-| Step 4 | A CI job failed because of the runner (timeout, queue, network) | Open the run, **Re-run failed jobs** |
+| Step 4 | A CI job failed because of the runner (timeout, queue, network), e.g. macOS "not acquired by Runner … after multiple attempts" | Open the run, **Re-run failed jobs** |
 | Step 4 | A CI job failed because of the code | Nothing is on npm. Fix in a new commit, then release the next patch version (2.0.1); the changelog keeps 2.0.0 as never published |
 | Step 4 | Staging failed with `403`, `404` or "not authorized" | Trusted Publisher fields differ from `illicomedia` / `skills-mcp-server` / `release.yml` / `npm-publish`, or "Publish directly" was expected: fix on npmjs.com, then **Re-run failed jobs** |
 | Step 4 | Staging failed with a git error (`ls-remote`, exit code 128) | npm read the tarball path as a GitHub repository; the workflow must pass an absolute path. CI's "Dry-run the npm staging command" catches this on every push |
