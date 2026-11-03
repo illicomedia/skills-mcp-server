@@ -8,6 +8,7 @@ import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { runComplianceAudit } from '../dist/audit/index.js';
 import { canonicalJson, validateLicense } from '../dist/license/license.js';
+import { licenseLockProblem } from '../dist/license/lock.js';
 import { resolveSkillLicense } from '../dist/license/templates.js';
 import { ToolExecutor } from '../dist/server/executor.js';
 import { FredoQaMcpServer } from '../dist/server/server.js';
@@ -547,36 +548,22 @@ test('Installer: error handling in fileContains and readdirSync', () => {
   }
 });
 
-test('CLI: Pre-flight lock triggers fatal exit when LICENSE is missing', async () => {
-  const licensePath = path.resolve('LICENSE');
-  const backupLicense = path.resolve('LICENSE.coverage_bak');
-  let renamed = false;
-  if (fs.existsSync(licensePath)) {
-    fs.renameSync(licensePath, backupLicense);
-    renamed = true;
-  }
+test('License lock: needs a non-empty LICENSE in the working or the package directory', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-no-lic-'));
+  const cwd = path.join(tmp, 'project');
+  const pkg = path.join(tmp, 'package');
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(pkg);
   try {
-    const cliPath = path.resolve('dist/index.js');
-    const child = spawn(process.execPath, [cliPath], {
-      cwd: tmp,
-      env: { ...process.env, NODE_ENV: 'test' },
-    });
-
-    let stderrOutput = '';
-    child.stderr.on('data', (d) => {
-      stderrOutput += d.toString();
-    });
-    const exitCode = await new Promise((resolve) => {
-      child.on('close', resolve);
-    });
-
-    assert.strictEqual(exitCode, 1);
-    assert.match(stderrOutput, /License Pre-Flight Security Lock failed/);
+    assert.match(String(licenseLockProblem(cwd, pkg)), /License Pre-Flight Security Lock failed/);
+    fs.writeFileSync(path.join(cwd, 'LICENSE'), '');
+    assert.match(String(licenseLockProblem(cwd, pkg)), /missing or empty LICENSE/);
+    fs.writeFileSync(path.join(pkg, 'LICENSE'), 'MIT License');
+    assert.strictEqual(licenseLockProblem(cwd, pkg), null);
+    fs.rmSync(path.join(pkg, 'LICENSE'));
+    fs.writeFileSync(path.join(cwd, 'LICENSE'), 'MIT License');
+    assert.strictEqual(licenseLockProblem(cwd, pkg), null);
   } finally {
-    if (renamed && fs.existsSync(backupLicense)) {
-      fs.renameSync(backupLicense, licensePath);
-    }
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
@@ -593,12 +580,30 @@ test('Security Guard: validateSafeProjectPath blocks root and sensitive system d
     /cannot target system directory/,
   );
 
-  const sshDir = path.join(os.homedir(), '.ssh');
-  if (fs.existsSync(sshDir)) {
-    assert.throws(
-      () => validateSafeProjectPath(sshDir, 'test_ssh'),
-      /cannot target credential directory/,
-    );
+  // A home of our own, so the credential-store refusal is tested on every machine (CI runners
+  // have no ~/.ssh). os.homedir() reads HOME (USERPROFILE on Windows) at each call.
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-home-'));
+  const sshDir = path.join(fakeHome, '.ssh');
+  fs.mkdirSync(path.join(sshDir, 'keys'), { recursive: true });
+  const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = fakeHome;
+  process.env.USERPROFILE = fakeHome;
+  try {
+    for (const target of [sshDir, path.join(sshDir, 'keys')]) {
+      assert.throws(
+        () => validateSafeProjectPath(target, 'test_ssh'),
+        /cannot target credential directory/,
+      );
+    }
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    fs.rmSync(fakeHome, { recursive: true, force: true });
   }
 
   // Path escaping in write target

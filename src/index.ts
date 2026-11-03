@@ -8,38 +8,22 @@
  * ~/.config/fredo-qa/license.json, or .qa-license.json in the working directory.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { licenseLockProblem } from './license/lock.js';
 import { unsupportedRuntimeReason } from './security/runtime-guard.js';
 import { FredoQaMcpServer } from './server/server.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// Refuse to read any codebase on a Node.js line without security fixes.
-const runtimeProblem = unsupportedRuntimeReason(process.version);
-if (runtimeProblem) {
-  process.stderr.write(`[FATAL] ${runtimeProblem}\n`);
+// Refuse to start, before reading any codebase, on a Node.js line without security fixes
+// or without the MIT LICENSE next to the server.
+const startupProblem =
+  unsupportedRuntimeReason(process.version) ?? licenseLockProblem(process.cwd(), packageDir);
+if (startupProblem) {
+  process.stderr.write(`[FATAL] ${startupProblem}\n`);
   process.exit(1);
 }
-
-// Pre-flight License Security Lock (Rule 7)
-function verifyLicenseLock(): void {
-  const rootLicense = path.resolve(process.cwd(), 'LICENSE');
-  const pkgLicense = path.resolve(__dirname, '..', 'LICENSE');
-  const hasValidLicense =
-    (fs.existsSync(rootLicense) && fs.statSync(rootLicense).size > 0) ||
-    (fs.existsSync(pkgLicense) && fs.statSync(pkgLicense).size > 0);
-
-  if (!hasValidLicense) {
-    process.stderr.write(
-      '[FATAL] License Pre-Flight Security Lock failed: missing or empty LICENSE file. Halting execution.\n',
-    );
-    process.exit(1);
-  }
-}
-
-verifyLicenseLock();
 
 const server = new FredoQaMcpServer();
 
