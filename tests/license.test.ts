@@ -132,11 +132,6 @@ test('License: discovery order is env file, user config, then project file', () 
       signedLicense({ licensee: 'U' }),
     );
     assert.equal(validateLicense(undefined, base).customerName, 'U');
-
-    const envFile = path.join(dir, 'env-license.json');
-    fs.writeFileSync(envFile, signedLicense({ licensee: 'E' }));
-    const withEnv = { ...base, env: { FREDO_QA_LICENSE_FILE: envFile } };
-    assert.equal(validateLicense(undefined, withEnv).customerName, 'E');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

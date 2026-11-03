@@ -6,6 +6,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Breaking
+
+- The server reads no environment variable. `FREDO_QA_LICENSE_FILE` is ignored: place the license at `~/.config/fredo-qa/license.json` or the project's `.qa-license.json`, or load it with `set_license_key`. Only setups that used the variable are affected.
+
 ### Changed
 
 - All file access goes through one audited module (`security/path-guard`). Every write checks its target against the project root before acting, including skill archiving, which previously relied on the caller's checks. Nothing changes for normal use.

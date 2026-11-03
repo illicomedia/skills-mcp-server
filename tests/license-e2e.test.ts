@@ -84,11 +84,11 @@ test('E2E: a license file in the user config unlocks enterprise across the tool 
 
 test('E2E: a license whose updates ended before this release keeps the session free', () => {
   withWorkspace((ws) => {
-    const file = path.join(ws.root, 'old-license.json');
+    const file = path.join(ws.home, '.config', 'fredo-qa', 'license.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, signedLicense({ updates_until: '2026-01-01T00:00:00Z' }));
     const server = new FredoQaMcpServer(undefined, {
       ...TEST_LICENSE_OPTIONS,
-      env: { FREDO_QA_LICENSE_FILE: file },
       homeDir: ws.home,
       projectRoot: ws.project,
     });
@@ -139,7 +139,6 @@ test('E2E: the compiled release server ignores licenses signed with the test key
       ...process.env,
       HOME: ws.home,
       USERPROFILE: ws.home,
-      FREDO_QA_LICENSE_FILE: undefined,
     };
     const run = spawnSync(process.execPath, [CLI], {
       cwd: ws.project,
@@ -154,5 +153,31 @@ test('E2E: the compiled release server ignores licenses signed with the test key
     assert.equal(status.status, 'FREE_TIER');
     assert.equal(status.tier, 'FREE');
     assert.match(status.message, /not trusted/);
+  });
+});
+
+test('E2E: FREDO_QA_LICENSE_FILE from 2.x is ignored; licenses come from fixed locations only', () => {
+  withWorkspace((ws) => {
+    const file = path.join(ws.root, 'env-license.json');
+    fs.writeFileSync(file, signedLicense({ tier: 'enterprise' }));
+    const request = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'verify_license', arguments: {} },
+    };
+    const run = spawnSync(process.execPath, [CLI], {
+      cwd: ws.project,
+      env: { ...process.env, HOME: ws.home, USERPROFILE: ws.home, FREDO_QA_LICENSE_FILE: file },
+      input: `${JSON.stringify(request)}\n`,
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    const response = JSON.parse(run.stdout.trim().split('\n').at(-1) as string);
+    const status = JSON.parse(response.result.content[0].text);
+    assert.equal(status.status, 'FREE_TIER');
+    assert.match(status.message, /No license file found/);
+    assert.match(status.message, /~\/\.config\/fredo-qa\/license\.json/);
   });
 });

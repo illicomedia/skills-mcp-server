@@ -4,7 +4,7 @@
  * Fredo QA Skills — Model Context Protocol (MCP) Server CLI
  *
  * Runs an MCP server on stdio for Cursor, Claude Desktop, Antigravity, and Copilot.
- * Paid tiers need a signed license file, discovered from FREDO_QA_LICENSE_FILE,
+ * Paid tiers need a signed license file, discovered from
  * ~/.config/fredo-qa/license.json, or .qa-license.json in the working directory.
  */
 

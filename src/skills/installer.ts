@@ -118,7 +118,7 @@ export function installSkill(
       message:
         `Authentication required: '${skillId}' (${meta.name}) is a Pro Production skill.\n` +
         `Current active tier: ${license.tier.toUpperCase()}.\n` +
-        `To install, provide a signed Pro or Enterprise license file via the 'set_license_key' tool or FREDO_QA_LICENSE_FILE.\n` +
+        `To install, provide a signed Pro or Enterprise license file via the 'set_license_key' tool or at ~/.config/fredo-qa/license.json.\n` +
         `Purchase or manage licenses at: ${PRICING_URL}`,
     };
   }
@@ -135,7 +135,7 @@ export function installSkill(
       message:
         `Authentication required: '${skillId}' (${meta.name}) is an Enterprise Assurance skill.\n` +
         `Current active tier: ${license.tier.toUpperCase()}.\n` +
-        `To install, provide a signed Enterprise license file via the 'set_license_key' tool or FREDO_QA_LICENSE_FILE.\n` +
+        `To install, provide a signed Enterprise license file via the 'set_license_key' tool or at ~/.config/fredo-qa/license.json.\n` +
         `Contact enterprise licensing at: ${PRICING_URL}`,
     };
   }

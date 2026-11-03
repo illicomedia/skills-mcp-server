@@ -258,15 +258,17 @@ how long a running job may take; it does not shorten the wait for a runner.
 ## D17. Minimal capabilities, checked on the shipped code
 
 **Decision.** The server keeps only the capabilities its features need: file system access for
-audits and skill installs; one environment variable, `FREDO_QA_LICENSE_FILE`, read by name; no
-network, no child processes, no dynamic code. Unused capability code is removed, not kept
+audits and skill installs; no environment variables; no network, no child processes, no dynamic
+code. Unused capability code is removed, not kept
 "for later" (`FREDO_QA_API_URL` configured an API the server never called). The build starts from
 an empty `dist/`, so no stale file can ship.
 
-`FREDO_QA_LICENSE_FILE` is kept on purpose (2026-11-03): it is the documented way to point an MCP
-client at a paid license, it holds a path and no secret, and removing it would break paid setups.
-Socket's `envVars` alert for that one variable is accepted. Removing it would only be considered
-in a future major, in favour of a command-line argument or file discovery only.
+The server reads **no environment variable** (since 3.0.0). Licenses are found only at fixed
+locations (`~/.config/fredo-qa/license.json`, the project's `.qa-license.json`) or loaded with
+`set_license_key`. `FREDO_QA_LICENSE_FILE` was removed as a breaking change, batched into 3.0.0
+with the other breaking changes rather than released alone.
+*Superseded (2026-11-03): an earlier choice kept `FREDO_QA_LICENSE_FILE` and accepted Socket's
+`envVars` alert; the owner chose zero environment access instead.*
 
 **Why.** Every capability is attack surface and a supply-chain alert (Socket `envVars` flagged the
 whole-environment read and the unused API override). What is declared in README and SECURITY.md

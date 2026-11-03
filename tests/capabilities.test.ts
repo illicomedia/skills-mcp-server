@@ -17,11 +17,11 @@ function shippedCode(): Array<{ file: string; code: string }> {
     .map((file) => ({ file, code: fs.readFileSync(path.join(DIST, file), 'utf8') }));
 }
 
-test('Capabilities: the only environment access is FREDO_QA_LICENSE_FILE, read by name', () => {
+test('Capabilities: no environment access at all', () => {
   const reads = shippedCode().flatMap(({ file, code }) =>
     [...code.matchAll(/process\.env\b(\.[A-Za-z_][A-Za-z0-9_]*)?/g)].map((m) => `${file}: ${m[0]}`),
   );
-  assert.deepStrictEqual(reads, ['license/license.js: process.env.FREDO_QA_LICENSE_FILE']);
+  assert.deepStrictEqual(reads, []);
 });
 
 test('Capabilities: no network, no child processes, no dynamic code', () => {

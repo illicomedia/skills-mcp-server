@@ -15,7 +15,7 @@ export class FredoQaMcpServer {
 
   /**
    * @param licenseSource Signed license JSON or a path to it. When omitted, the license file
-   *   is discovered (FREDO_QA_LICENSE_FILE, user config, then project `.qa-license.json`).
+   *   is discovered (user config, then project `.qa-license.json`).
    */
   constructor(licenseSource?: string, licenseOptions: LicenseOptions = {}) {
     this.licenseKey = licenseSource;

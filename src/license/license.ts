@@ -32,14 +32,12 @@ const ALLOWED_FIELDS = new Set<string>([
 export const LICENSE_SCHEMA_VERSION = 1;
 export const LICENSE_SCHEMA_URL = 'https://www.illicomedia.com/schemas/qa-license-v1.schema.json';
 
-export const LICENSE_FILE_ENV = 'FREDO_QA_LICENSE_FILE';
 export const USER_LICENSE_PATH = ['.config', 'fredo-qa', 'license.json'];
 export const PROJECT_LICENSE_FILE = '.qa-license.json';
 
 export interface LicenseOptions {
   trustedKeys?: Readonly<Record<string, string>>;
   releaseDate?: string;
-  env?: Readonly<Record<string, string | undefined>>;
   homeDir?: string;
   projectRoot?: string;
 }
@@ -98,10 +96,8 @@ function readLicenseFile(file: string): string {
 }
 
 function discoverLicenseFile(options: LicenseOptions): string | undefined {
-  // The only environment variable the server reads, by name: never the whole environment.
-  const fromEnv = options.env ? options.env[LICENSE_FILE_ENV] : process.env.FREDO_QA_LICENSE_FILE;
+  // Fixed locations only: the server reads no environment variable (decision D17).
   const candidates = [
-    fromEnv,
     path.join(options.homeDir ?? os.homedir(), ...USER_LICENSE_PATH),
     path.join(options.projectRoot ?? process.cwd(), PROJECT_LICENSE_FILE),
   ];
@@ -187,7 +183,7 @@ function verifySignature(
 /**
  * Verifies an Ed25519-signed license file and returns the tier it unlocks for this build.
  * `source` is the license JSON itself or a path to it; when omitted, the license file is
- * discovered from FREDO_QA_LICENSE_FILE, ~/.config/fredo-qa/license.json, then
+ * discovered from ~/.config/fredo-qa/license.json, then
  * .qa-license.json at the project root. Any failure degrades to the free tier.
  */
 export function validateLicense(
@@ -203,7 +199,7 @@ export function validateLicense(
       const file = trimmed ? path.resolve(trimmed) : discoverLicenseFile(options);
       if (!file) {
         return freeTier(
-          `No license file found. Free tier active: all MIT skills are available. To unlock Pro or Enterprise skills, provide a signed license file (${LICENSE_FILE_ENV}, ~/.config/fredo-qa/license.json, or ${PROJECT_LICENSE_FILE}).`,
+          `No license file found. Free tier active: all MIT skills are available. To unlock Pro or Enterprise skills, place a signed license file at ~/.config/fredo-qa/license.json or ${PROJECT_LICENSE_FILE} in the project, or load it with the 'set_license_key' tool.`,
         );
       }
       text = readLicenseFile(file);

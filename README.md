@@ -259,10 +259,7 @@ npx -y @illicomedia/skills-mcp-server@1.4.3
   "mcpServers": {
     "fredo-qa": {
       "command": "fredo-qa-mcp-server",
-      "args": [],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
+      "args": []
     }
   }
 }
@@ -279,10 +276,7 @@ Add to your project's `.cursor/mcp.json` or global Cursor settings:
   "mcpServers": {
     "fredo-qa": {
       "command": "fredo-qa-mcp-server",
-      "args": [],
-      "env": {
-        "FREDO_QA_LICENSE_FILE": "/absolute/path/to/license.json"
-      }
+      "args": []
     }
   }
 }
@@ -385,10 +379,13 @@ rm -rf ~/.config/fredo-qa
 Pro and Enterprise skills require an Ed25519-signed license file (`license.json`).
 
 ### License Resolution Order:
-1. Environment variable: `FREDO_QA_LICENSE_FILE=/path/to/license.json`
-2. User config path: `~/.config/fredo-qa/license.json`
-3. Project root: `.qa-license.json` (ensure this is added to `.gitignore`)
-4. Dynamic session key: Set dynamically via the `set_license_key` tool.
+1. User config path: `~/.config/fredo-qa/license.json` (recommended: applies to every project)
+2. Project root: `.qa-license.json` (ensure this is added to `.gitignore`)
+3. Dynamic session key: Set dynamically via the `set_license_key` tool.
+
+The server reads no environment variable. **Upgrading from 2.x:** if your MCP configuration sets
+`FREDO_QA_LICENSE_FILE`, move that file to `~/.config/fredo-qa/license.json` (or the project's
+`.qa-license.json`) and remove the `env` entry; the variable is ignored since 3.0.
 
 ### Lifetime Version Retention:
 A license unlocks all releases published on or before its `updates_until` date **permanently**. Later server releases gracefully run in free community mode (all MIT skills accessible) without breaking, and without any remote clock or telemetry checks.
@@ -400,7 +397,7 @@ A license unlocks all releases published on or before its `updates_until` date *
 ### Declared Node.js Capabilities (Least Privilege)
 To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenSSF):
 - **Filesystem Access (`node:fs`)**: one module, `security/path-guard`, is the only code that touches the disk (a test fails if any other shipped file imports `node:fs`). Reads serve workspace preflight audits (`quick_check`), local `SKILL.md` documents and license files. Every write goes through a helper that refuses, before acting, any target outside the project root or reached through a symlink leading outside it; writes only happen under `.agents/skills/` and `.agents/.archive/`, and only when a mutating tool is called with explicit user confirmation (`confirm: true`).
-- **Environment Variables (`process.env`)**: exactly one, read by name: `FREDO_QA_LICENSE_FILE`, the optional path to a license file. The server never reads the whole environment, and never reads tokens or credentials (such as `NPM_TOKEN`, `AWS_*`, `GITHUB_*`). The home directory comes from Node.js `os.homedir()`. A test checks the built package for any other environment access.
+- **Environment Variables (`process.env`)**: none. Licenses are found at fixed locations (`~/.config/fredo-qa/license.json`, the project's `.qa-license.json`) or loaded with `set_license_key`; the home directory comes from Node.js `os.homedir()`. A test fails if the built package reads any environment variable.
 - **Links (URL strings)**: four `illicomedia.com` links shown to people (pricing, skill pages, the license schema, the product page). They are text in messages and the license; the server never fetches them. A test rejects any other URL in the built package.
 - **Network & Shell Spawning**: The runtime contains **zero outbound network calls** (`fetch`, `http`, `net`) and **zero shell or child process executions** (`child_process`, `exec`, `spawn`). Execution occurs entirely in-memory over stdio.
 

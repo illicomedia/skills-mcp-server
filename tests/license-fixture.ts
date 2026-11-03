@@ -15,7 +15,6 @@ export const TEST_LICENSE_OPTIONS: LicenseOptions = {
     [TEST_KEY_ID]: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   },
   releaseDate: '2026-10-07T00:00:00Z',
-  env: {},
   homeDir: '/nonexistent-home',
   projectRoot: '/nonexistent-project',
 };
