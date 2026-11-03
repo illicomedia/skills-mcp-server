@@ -1,0 +1,50 @@
+{
+  "$comment": "Repository settings, as code. Check: pnpm run github:check. Apply: pnpm run github:apply. See docs/engineering/decisions.md (D20).",
+  "repository": "illicomedia/skills-mcp-server",
+  "rulesets": [
+    {
+      "name": "main",
+      "target": "branch",
+      "include": ["~DEFAULT_BRANCH"],
+      "rules": ["deletion", "non_fast_forward"],
+      "bypassAdmins": false
+    },
+    {
+      "name": "release tags: who creates",
+      "target": "tag",
+      "include": ["refs/tags/v*"],
+      "rules": ["creation"],
+      "bypassAdmins": true
+    },
+    {
+      "name": "release tags: immutable",
+      "target": "tag",
+      "include": ["refs/tags/v*"],
+      "rules": ["deletion", "non_fast_forward", "update"],
+      "bypassAdmins": false
+    }
+  ],
+  "environment": {
+    "name": "npm-publish",
+    "reviewers": ["illicomedia"],
+    "preventSelfReview": false,
+    "adminsBypass": false,
+    "tagPolicies": ["v*"]
+  },
+  "actions": {
+    "shaPinningRequired": true,
+    "githubOwnedAllowed": true,
+    "verifiedAllowed": false,
+    "patternsAllowed": ["ossf/scorecard-action@*", "pnpm/action-setup@*"],
+    "defaultWorkflowPermissions": "read",
+    "canApprovePullRequestReviews": false,
+    "forkPrApproval": "all_external_contributors"
+  },
+  "security": {
+    "privateVulnerabilityReporting": true,
+    "vulnerabilityAlerts": true,
+    "automatedSecurityFixes": true,
+    "secretScanning": true,
+    "pushProtection": true
+  }
+}

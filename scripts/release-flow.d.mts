@@ -75,3 +75,4 @@ export function publishListing(
   pkg: Pkg,
   options: { version: string; dryRun?: boolean; yes?: boolean },
 ): Promise<void>;
+export function approve(ctx: ReleaseContext, question: string, options: { yes: boolean }): Promise<boolean>;

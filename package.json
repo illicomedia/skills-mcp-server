@@ -47,7 +47,9 @@
     "check": "pnpm run lint && pnpm run lint:dead && pnpm run lint:duplicates && pnpm run test:coverage && pnpm run release:smoke",
     "check:clean": "node scripts/check-clean.mjs",
     "release": "node scripts/release.mjs",
-    "release:smoke": "node scripts/release.mjs --smoke-only"
+    "release:smoke": "node scripts/release.mjs --smoke-only",
+    "github:check": "node scripts/github-settings.mjs --check",
+    "github:apply": "node scripts/github-settings.mjs --apply"
   },
   "keywords": [
     "mcp",

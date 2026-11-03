@@ -194,6 +194,28 @@ second terminal. It waits up to 30 minutes for the approval, then promotes after
 
 ---
 
+## Repository settings (as code)
+
+The GitHub settings this process relies on (rulesets protecting `main` and the `v*` tags, the
+`npm-publish` reviewer, Actions permissions, security features) are declared in
+`.github/settings.json` and checked or applied with a short-lived token (decision D20).
+
+1. On github.com, signed in as `illicomedia`: Settings → Developer settings → Personal access
+   tokens → Fine-grained tokens → Generate new token. Expiration **1 day**; resource owner
+   `illicomedia`; **Only select repositories** → `illicomedia/skills-mcp-server`; repository
+   permissions **Administration: Read and write** and **Environments: Read and write**, nothing else.
+2. Store it in a file only you can read, never in a chat or a command line:
+   ```bash
+   (umask 077; mkdir -p ~/.config/gh-setup; read -rsp 'Token: ' T; echo; printf '%s' "$T" > ~/.config/gh-setup/token)
+   ```
+3. Run:
+   ```bash
+   pnpm run github:check     # read-only: lists every difference; nothing changes
+   pnpm run github:apply     # shows the changes, asks, applies them, reads everything back
+   ```
+   Undeclared rulesets or deployment policies are reported, never deleted.
+4. Delete the token on github.com, then `rm ~/.config/gh-setup/token`.
+
 ## MCP Registry publisher (once per machine)
 
 The listing is published with the registry's official tool, `mcp-publisher`, at exactly version

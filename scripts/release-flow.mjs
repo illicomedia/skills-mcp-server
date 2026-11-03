@@ -82,7 +82,7 @@ function requireLogin(ctx) {
 }
 
 /** A step that changes shared state: refused unless someone said yes (or passed --yes). */
-async function approve(ctx, question, { yes }) {
+export async function approve(ctx, question, { yes }) {
   if (yes) {
     return true;
   }

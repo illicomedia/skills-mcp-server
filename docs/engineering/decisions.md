@@ -43,6 +43,7 @@ the old entry `Superseded by D<n>` instead of deleting it, so the history of why
 | D17 | Minimal capabilities, checked on the shipped code | 2.0.2 |
 | D18 | Workflows are tested like code | 2.0.3 |
 | D19 | Listed in the official MCP Registry, pointing at npm | 3.0.0 |
+| D20 | GitHub settings as code | 3.0.0 |
 
 ---
 
@@ -340,3 +341,28 @@ verifies ownership through the npm package itself (`mcpName`) and a GitHub login
 100-character description); the test that `server.json` matches `package.json`; the package test
 that `mcpName` ships; `publishListing` (public on npm, published `mcpName`, pinned tool version,
 `mcp-publisher validate`, skip when listed); `prepare` keeps `server.json` at the released version.
+
+## D20. GitHub settings as code
+
+**Decision.** The repository's GitHub settings are declared in `.github/settings.json`, reviewed
+like code, and checked or applied by `scripts/github-settings.mjs` through the GitHub API:
+- rulesets: `main` cannot be deleted or force-pushed (no bypass); only admins create `v*` tags;
+  no one, admins included, moves or deletes them (two rulesets, because a bypass actor bypasses
+  every rule of its ruleset);
+- `npm-publish`: `illicomedia` reviews each publish, admins cannot bypass, only `v*` tags deploy;
+- Actions: only GitHub-owned actions and the listed ones, pinned to a full commit SHA; read-only
+  default token; Actions cannot approve pull requests; fork pull requests need approval;
+- security: private vulnerability reporting, Dependabot alerts and security updates, secret
+  scanning and push protection.
+
+The script uses a fine-grained token limited to this repository (Administration and Environments),
+valid one day, in a file only its owner can read; it refuses a readable file and never prints the
+token. `--check` is read-only; `--apply` asks, applies in a safe order, and reads everything back.
+It never deletes: undeclared rulesets or policies are reported as drift.
+
+**Why.** Settings clicked in a UI are invisible, unreviewed and drift silently; as code they are
+reviewed, repeatable and checkable.
+
+**Enforced by.** `tests/github-settings.test.ts` (a stateful fake GitHub: configuration from scratch
+in a safe order, nothing to do when matching, updates in place, drift reported and never deleted,
+confirmation and fail-closed, API errors, sparse answers, every action the workflows use allowed).
