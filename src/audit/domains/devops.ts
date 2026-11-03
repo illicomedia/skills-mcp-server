@@ -1,11 +1,11 @@
-import * as fs from 'node:fs';
+import { isDirectory, listDir } from '../../security/path-guard.js';
 import type { AuditCheckResult, AuditContext } from '../types.js';
 
 export function checkCiWorkflows(ctx: AuditContext): AuditCheckResult {
   const checkCiDir = (fullDir: string | null): boolean =>
     fullDir !== null &&
-    fs.statSync(fullDir).isDirectory() &&
-    fs.readdirSync(fullDir).some((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
+    isDirectory(fullDir) &&
+    listDir(fullDir).some((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
 
   const hasGithubCi = checkCiDir(ctx.findUp('.github/workflows'));
   const hasGitlabCi =

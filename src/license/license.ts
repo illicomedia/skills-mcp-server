@@ -1,7 +1,7 @@
 import * as crypto from 'node:crypto';
-import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { exists, fileSize, readText } from '../security/path-guard.js';
 import type { LicenseValidationResult } from '../types.js';
 import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './keys.js';
 
@@ -90,11 +90,11 @@ function freeTier(
 }
 
 function readLicenseFile(file: string): string {
-  const size = fs.statSync(file).size;
+  const size = fileSize(file);
   if (size > MAX_LICENSE_BYTES) {
     throw new Error(`license file exceeds ${MAX_LICENSE_BYTES} bytes`);
   }
-  return fs.readFileSync(file, 'utf8');
+  return readText(file);
 }
 
 function discoverLicenseFile(options: LicenseOptions): string | undefined {
@@ -105,7 +105,7 @@ function discoverLicenseFile(options: LicenseOptions): string | undefined {
     path.join(options.homeDir ?? os.homedir(), ...USER_LICENSE_PATH),
     path.join(options.projectRoot ?? process.cwd(), PROJECT_LICENSE_FILE),
   ];
-  return candidates.find((file): file is string => Boolean(file) && fs.existsSync(file as string));
+  return candidates.find((file): file is string => Boolean(file) && exists(file as string));
 }
 
 function parseLicense(text: string): LicenseDocument | string {

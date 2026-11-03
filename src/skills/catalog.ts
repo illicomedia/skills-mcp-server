@@ -1,6 +1,6 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveSkillLicense } from '../license/templates.js';
+import { exists, readText } from '../security/path-guard.js';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from '../types.js';
 
 export const SKILLS_CATALOG: SkillMetadata[] = [
@@ -336,9 +336,9 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
   ];
 
   for (const p of candidatePaths) {
-    if (fs.existsSync(p)) {
+    if (exists(p)) {
       try {
-        return fs.readFileSync(p, 'utf-8');
+        return readText(p);
       } catch {
         // Fallback
       }

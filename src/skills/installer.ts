@@ -1,7 +1,21 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { generateCanaryWatermark, PRICING_URL, validateLicense } from '../license/license.js';
-import { validateSafeProjectPath, validateSafeWriteTarget } from '../security/path-guard.js';
+import {
+  copyDirInside,
+  exists,
+  isDirectory,
+  isSymbolicLink,
+  listDir,
+  makeDirInside,
+  readText,
+  realPath,
+  removeInside,
+  renameInside,
+  unlinkInside,
+  validateSafeProjectPath,
+  validateSafeWriteTarget,
+  writeTextInside,
+} from '../security/path-guard.js';
 import type { LicenseValidationResult, SkillTier } from '../types.js';
 import { findSkill, loadSkillContent, loadSkillLicense } from './catalog.js';
 
@@ -31,7 +45,6 @@ export interface SyncWorkspaceOptions {
 export interface PruneSkillsOptions {
   confirm?: boolean;
   keepSkills?: string[];
-  archiveDirName?: string;
 }
 
 export interface PruneSkillsResult {
@@ -181,14 +194,13 @@ export function installSkill(
 
   try {
     try {
-      const stat = fs.lstatSync(targetDir);
-      if (stat.isSymbolicLink()) {
-        fs.unlinkSync(targetDir);
+      if (isSymbolicLink(targetDir)) {
+        unlinkInside(safeProjectPath, targetDir);
       }
     } catch {
       // Not an existing file or symlink
     }
-    fs.mkdirSync(targetDir, { recursive: true });
+    makeDirInside(safeProjectPath, targetDir);
 
     const skillContent =
       meta.tier === 'free'
@@ -197,8 +209,8 @@ export function installSkill(
 
     const licenseContent = loadSkillLicense(skillId, license, projectPath);
 
-    fs.writeFileSync(skillFilePath, skillContent, 'utf-8');
-    fs.writeFileSync(licenseFilePath, licenseContent, 'utf-8');
+    writeTextInside(safeProjectPath, skillFilePath, skillContent);
+    writeTextInside(safeProjectPath, licenseFilePath, licenseContent);
 
     return {
       success: true,
@@ -254,7 +266,7 @@ const PHP_DIRECTORIES = ['.', 'public/api', 'website/public/api', 'tests/php', '
 /** Reads a directory for detection: an unreadable one simply holds nothing. */
 function namesIn(directory: string): string[] {
   try {
-    return fs.readdirSync(directory);
+    return listDir(directory);
   } catch {
     return [];
   }
@@ -262,7 +274,7 @@ function namesIn(directory: string): string[] {
 
 function fileMentions(file: string, text: string): boolean {
   try {
-    return fs.readFileSync(file, 'utf-8').includes(text);
+    return readText(file).includes(text);
   } catch {
     return false;
   }
@@ -276,7 +288,7 @@ export function detectProjectSkills(projectPath: string = process.cwd()): string
   const inProject = (rel: string) => path.join(projectPath, rel);
 
   for (const { files, skills } of FILE_INDICATORS) {
-    if (files.some((file) => fs.existsSync(inProject(file)))) {
+    if (files.some((file) => exists(inProject(file)))) {
       for (const skill of skills) {
         detected.add(skill);
       }
@@ -402,28 +414,28 @@ export function syncWorkspaceSkills(
 function isInstalledSkill(skillsDir: string, name: string): boolean {
   const fullPath = path.join(skillsDir, name);
   try {
-    if (!fs.statSync(fullPath).isDirectory()) {
+    if (!isDirectory(fullPath)) {
       return false;
     }
-    if (fs.lstatSync(fullPath).isSymbolicLink()) {
-      validateSafeProjectPath(fs.realpathSync(fullPath), 'prune_skills symlink target');
+    if (isSymbolicLink(fullPath)) {
+      validateSafeProjectPath(realPath(fullPath), 'prune_skills symlink target');
     }
-    return fs.existsSync(path.join(fullPath, 'SKILL.md')) || findSkill(name) !== undefined;
+    return exists(path.join(fullPath, 'SKILL.md')) || findSkill(name) !== undefined;
   } catch {
     return false;
   }
 }
 
-/** Moves a skill, copying when a move is impossible (another device). */
-function archiveSkill(src: string, dest: string): boolean {
+/** Moves a skill inside the project, copying when a move is impossible (another device). */
+function archiveSkill(root: string, src: string, dest: string): boolean {
   try {
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.renameSync(src, dest);
+    removeInside(root, dest);
+    renameInside(root, src, dest);
     return true;
   } catch {
     try {
-      fs.cpSync(src, dest, { recursive: true });
-      fs.rmSync(src, { recursive: true, force: true });
+      copyDirInside(root, src, dest);
+      removeInside(root, src);
       return true;
     } catch {
       return false;
@@ -443,11 +455,11 @@ export function pruneSkills(
 ): PruneSkillsResult {
   const safeProjectPath = validateSafeProjectPath(projectPath, 'prune_skills');
   const skillsDir = path.join(safeProjectPath, '.agents', 'skills');
-  const archiveDir = path.join(safeProjectPath, '.agents', options?.archiveDirName || '.archive');
+  const archiveDir = path.join(safeProjectPath, '.agents', '.archive');
   const isConfirmed = Boolean(options?.confirm);
 
   // If no skills dir exists, nothing to prune
-  if (!fs.existsSync(skillsDir)) {
+  if (!exists(skillsDir)) {
     return {
       projectPath: safeProjectPath,
       success: true,
@@ -479,9 +491,7 @@ export function pruneSkills(
   // Discover currently installed skills in .agents/skills/
   let installedEntries: string[];
   try {
-    installedEntries = fs
-      .readdirSync(skillsDir)
-      .filter((name) => isInstalledSkill(skillsDir, name));
+    installedEntries = listDir(skillsDir).filter((name) => isInstalledSkill(skillsDir, name));
   } catch (err) {
     return {
       projectPath: safeProjectPath,
@@ -551,7 +561,7 @@ export function pruneSkills(
 
   // Execution: Move unneeded skills to .agents/.archive/
   try {
-    fs.mkdirSync(archiveDir, { recursive: true });
+    makeDirInside(safeProjectPath, archiveDir);
   } catch (err) {
     return {
       projectPath: safeProjectPath,
@@ -570,7 +580,11 @@ export function pruneSkills(
   const failedToArchive: string[] = [];
 
   for (const skillId of unneededSkills) {
-    const archived = archiveSkill(path.join(skillsDir, skillId), path.join(archiveDir, skillId));
+    const archived = archiveSkill(
+      safeProjectPath,
+      path.join(skillsDir, skillId),
+      path.join(archiveDir, skillId),
+    );
     (archived ? successfullyArchived : failedToArchive).push(skillId);
   }
 

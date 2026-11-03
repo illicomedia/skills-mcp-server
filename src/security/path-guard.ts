@@ -1,3 +1,9 @@
+/**
+ * The only module of the server that touches the disk (decision D17): path checks, read helpers,
+ * and write helpers that refuse any target outside the project root before acting. A test fails
+ * if any other shipped module imports node:fs.
+ */
+
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -105,4 +111,93 @@ export function validateSafeWriteTarget(projectRoot: string, targetPath: string)
     }
     current = parent;
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Reads. The server reads the audited project, its own package files and the user's license
+// folder; these helpers return safe defaults instead of throwing where callers expect a probe.
+
+export type DirEntry = fs.Dirent;
+
+export function exists(target: string): boolean {
+  return fs.existsSync(target);
+}
+
+export function isDirectory(target: string): boolean {
+  return fs.existsSync(target) && fs.statSync(target).isDirectory();
+}
+
+export function isSymbolicLink(target: string): boolean {
+  return fs.lstatSync(target).isSymbolicLink();
+}
+
+export function realPath(target: string): string {
+  return fs.realpathSync(target);
+}
+
+export function fileSize(target: string): number {
+  return fs.statSync(target).size;
+}
+
+export function readText(file: string): string {
+  return fs.readFileSync(file, 'utf8');
+}
+
+export function listDir(directory: string): string[] {
+  return fs.readdirSync(directory);
+}
+
+export function listDirEntries(directory: string): DirEntry[] {
+  return fs.readdirSync(directory, { withFileTypes: true });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Writes. Each one checks its target with validateSafeWriteTarget first: a write outside the
+// project root, or through a symlink leading outside it, throws before anything is touched.
+
+/**
+ * For operations on a directory entry itself (remove, move, unlink): the entry must sit inside
+ * root, and the folders above it must not lead outside through a symlink. The entry may itself be
+ * a symlink: removing or moving a link never touches what it points to.
+ */
+function validateEntryInside(root: string, entry: string): void {
+  const rel = path.relative(path.resolve(root), path.resolve(entry));
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`Security restriction: '${entry}' is not inside project root '${root}'.`);
+  }
+  validateSafeWriteTarget(root, path.dirname(entry));
+}
+
+export function makeDirInside(root: string, directory: string): void {
+  validateSafeWriteTarget(root, directory);
+  fs.mkdirSync(directory, { recursive: true });
+}
+
+export function writeTextInside(root: string, file: string, text: string): void {
+  validateSafeWriteTarget(root, file);
+  fs.writeFileSync(file, text, 'utf8');
+}
+
+/** Removes an entry (a symlink is removed as a link; rmSync never follows links). */
+export function removeInside(root: string, target: string): void {
+  validateEntryInside(root, target);
+  fs.rmSync(target, { recursive: true, force: true });
+}
+
+/** Removes a symbolic link itself (never what it points to). */
+export function unlinkInside(root: string, link: string): void {
+  validateEntryInside(root, link);
+  fs.unlinkSync(link);
+}
+
+/** Moves a directory entry (a symlink moves as a link); both locations must be inside root. */
+export function renameInside(root: string, from: string, to: string): void {
+  validateEntryInside(root, from);
+  validateEntryInside(root, to);
+  fs.renameSync(from, to);
+}
+
+export function copyDirInside(root: string, from: string, to: string): void {
+  validateEntryInside(root, to);
+  fs.cpSync(from, to, { recursive: true });
 }

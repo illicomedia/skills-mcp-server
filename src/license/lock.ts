@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { exists, fileSize } from '../security/path-guard.js';
 
 /**
  * Pre-flight License Security Lock (Rule 7): the server refuses to run without a non-empty
@@ -9,7 +9,7 @@ import * as path from 'node:path';
 export function licenseLockProblem(cwd: string, packageDir: string): string | null {
   const present = [cwd, packageDir].some((dir) => {
     const file = path.join(dir, 'LICENSE');
-    return fs.existsSync(file) && fs.statSync(file).size > 0;
+    return exists(file) && fileSize(file) > 0;
   });
   return present
     ? null

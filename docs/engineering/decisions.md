@@ -272,8 +272,14 @@ in a future major, in favour of a command-line argument or file discovery only.
 whole-environment read and the unused API override). What is declared in README and SECURITY.md
 must be exactly what ships.
 
+All disk access goes through one module, `src/security/path-guard.ts`: read helpers, and write
+helpers (`*Inside`) that check their target against the project root before acting, so a write
+cannot forget the check. Moving or removing a symlink acts on the link, never on its target.
+
 **Enforced by.** `tests/capabilities.test.ts` (scans `dist/` for environment, network, process
-and dynamic-code access, and allows only the four declared links shown to people); `tests/package-e2e.test.ts` (every shipped file has a current source);
+and dynamic-code access, allows only the four declared links shown to people, and allows
+`node:fs` only in `security/path-guard.js`); `tests/path-guard-writes.test.ts` (each write helper
+refuses targets outside the root and through outside symlinks); `tests/package-e2e.test.ts` (every shipped file has a current source);
 `scripts/clean-dist.mjs` (`prebuild`).
 
 ## D18. Workflows are tested like code

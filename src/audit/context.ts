@@ -1,5 +1,12 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+  type DirEntry,
+  exists,
+  isDirectory,
+  listDir,
+  listDirEntries,
+  readText,
+} from '../security/path-guard.js';
 import type { AuditContext, GitForge, StackDetection } from './types.js';
 
 const IGNORED_SCAN_DIRS = new Set([
@@ -19,9 +26,9 @@ const IGNORED_SCAN_DIRS = new Set([
   '.cache',
 ]);
 
-function readEntries(directory: string): fs.Dirent[] {
+function readEntries(directory: string): DirEntry[] {
   try {
-    return fs.readdirSync(directory, { withFileTypes: true });
+    return listDirEntries(directory);
   } catch {
     return [];
   }
@@ -31,20 +38,20 @@ export function createAuditContext(projectPath: string): AuditContext {
   const resolvedPath = path.resolve(projectPath);
   const parentPath = path.dirname(resolvedPath);
 
-  const fileExists = (rel: string): boolean => fs.existsSync(path.join(resolvedPath, rel));
+  const fileExists = (rel: string): boolean => exists(path.join(resolvedPath, rel));
 
   const findUp = (rel: string): string | null => {
     let curr = resolvedPath;
     while (true) {
       const candidate = path.join(curr, rel);
-      if (fs.existsSync(candidate)) {
+      if (exists(candidate)) {
         return candidate;
       }
       const parent = path.dirname(curr);
       if (parent === curr) {
         break;
       }
-      if (fs.existsSync(path.join(curr, '.git'))) {
+      if (exists(path.join(curr, '.git'))) {
         break;
       }
       curr = parent;
@@ -59,16 +66,16 @@ export function createAuditContext(projectPath: string): AuditContext {
 
   const hasDir = (rel: string): boolean => {
     const p = path.join(resolvedPath, rel);
-    return fs.existsSync(p) && fs.statSync(p).isDirectory();
+    return exists(p) && isDirectory(p);
   };
 
   const readFile = (rel: string): string | null => {
     try {
       const p = path.join(resolvedPath, rel);
-      if (!fs.existsSync(p)) {
+      if (!exists(p)) {
         return null;
       }
-      return fs.readFileSync(p, 'utf-8');
+      return readText(p);
     } catch {
       return null;
     }
@@ -80,7 +87,7 @@ export function createAuditContext(projectPath: string): AuditContext {
       return null;
     }
     try {
-      return fs.readFileSync(found, 'utf-8');
+      return readText(found);
     } catch {
       return null;
     }
@@ -89,10 +96,10 @@ export function createAuditContext(projectPath: string): AuditContext {
   const readDir = (rel: string): string[] => {
     try {
       const p = path.join(resolvedPath, rel);
-      if (!fs.existsSync(p)) {
+      if (!exists(p)) {
         return [];
       }
-      return fs.readdirSync(p);
+      return listDir(p);
     } catch {
       return [];
     }
@@ -125,7 +132,7 @@ export function createAuditContext(projectPath: string): AuditContext {
   const hasPhpFiles = (relDir: string): boolean => {
     try {
       const fullDir = path.join(resolvedPath, relDir);
-      return fs.existsSync(fullDir) && fs.readdirSync(fullDir).some((f) => f.endsWith('.php'));
+      return exists(fullDir) && listDir(fullDir).some((f) => f.endsWith('.php'));
     } catch {
       return false;
     }
@@ -133,15 +140,15 @@ export function createAuditContext(projectPath: string): AuditContext {
 
   const hasShellScripts = (): boolean => {
     try {
-      const rootFiles = fs.readdirSync(resolvedPath);
+      const rootFiles = listDir(resolvedPath);
       if (rootFiles.some((f) => f.endsWith('.sh'))) {
         return true;
       }
       const scriptsDir = path.join(resolvedPath, 'scripts');
       return (
-        fs.existsSync(scriptsDir) &&
-        fs.statSync(scriptsDir).isDirectory() &&
-        fs.readdirSync(scriptsDir).some((f) => f.endsWith('.sh'))
+        exists(scriptsDir) &&
+        isDirectory(scriptsDir) &&
+        listDir(scriptsDir).some((f) => f.endsWith('.sh'))
       );
     } catch {
       return false;
@@ -221,7 +228,7 @@ export function createAuditContext(projectPath: string): AuditContext {
   let gitConfigContent = '';
   if (gitConfigPath) {
     try {
-      gitConfigContent = fs.readFileSync(gitConfigPath, 'utf-8');
+      gitConfigContent = readText(gitConfigPath);
     } catch {
       gitConfigContent = '';
     }

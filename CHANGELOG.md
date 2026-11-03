@@ -6,6 +6,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Changed
+
+- All file access goes through one audited module (`security/path-guard`). Every write checks its target against the project root before acting, including skill archiving, which previously relied on the caller's checks. Nothing changes for normal use.
+
 ## 2.0.2 - 2026-11-03
 
 ### Changed

@@ -46,3 +46,10 @@ test('Capabilities: the only URLs shipped are the declared links shown to people
     'https://www.illicomedia.com/schemas/qa-license-v1.schema.json',
   ]);
 });
+
+test('Capabilities: only the path guard touches the disk (one audited module)', () => {
+  const importers = shippedCode()
+    .filter(({ code }) => /from 'node:fs'|from "node:fs"|require\(['"]node:fs['"]\)/.test(code))
+    .map(({ file }) => file);
+  assert.deepStrictEqual(importers, [path.join('security', 'path-guard.js')]);
+});

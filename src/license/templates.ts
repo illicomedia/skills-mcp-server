@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { exists, readText } from '../security/path-guard.js';
 import type { LicenseValidationResult, SkillMetadata } from '../types.js';
 
 export const DEFAULT_MIT_LICENSE = `MIT License
@@ -71,9 +71,9 @@ export function resolveSkillLicense(
   ];
 
   for (const p of candidatePaths) {
-    if (fs.existsSync(p)) {
+    if (exists(p)) {
       try {
-        const content = fs.readFileSync(p, 'utf-8').trim();
+        const content = readText(p).trim();
         if (content.length > 0) {
           if (meta.tier === 'free') {
             return content;
