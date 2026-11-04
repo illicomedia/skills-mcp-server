@@ -6,6 +6,13 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Fixed
+
+- Security: strict validation of the `confirm` boolean parameter and runtime schema types in `validateToolParams`. Passing non-boolean values (such as string `"false"` or number `0`) no longer coerces to `true`, preventing dry-run confirmation bypass.
+- Security: `validateSafeProjectPath` resolves the canonical realpath to prevent symlink traversal to root and sensitive credential directories (`~/.ssh`, `~/.aws`, etc.).
+- Security: release preparation automatically stamps `SERVER_RELEASE_DATE` in `src/license/keys.ts` with the release date, and a continuous policy test enforces that `SERVER_RELEASE_DATE` matches `CHANGELOG.md` to prevent license version retention bypass.
+- Cleaned up private repository deployment script references in skill detection heuristics.
+
 ## 3.0.0 - 2026-11-04
 
 **Why 3.0:** a supply-chain hardening release. The server now reads no environment variable and all

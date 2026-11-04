@@ -253,3 +253,23 @@ test('D18: CI runs every quality gate: lint, dead code, duplicates, coverage, pa
     assert.ok(runs.includes(`pnpm run ${gate}`), `quality job must run pnpm run ${gate}`);
   }
 });
+
+test('D21 / License Retention: SERVER_RELEASE_DATE matches current version date in CHANGELOG.md', async () => {
+  const { version } = JSON.parse(read('package.json')) as { version: string };
+  const changelog = read('CHANGELOG.md');
+  const match = new RegExp(
+    `^## \\[?${version.replace(/\\./g, '\\.')}\\]?\\s*-\\s*(\\d{4}-\\d{2}-\\d{2})`,
+    'm',
+  ).exec(changelog);
+  assert.ok(
+    match,
+    `CHANGELOG.md must contain a section for version ${version} with its release date`,
+  );
+  const changelogDate = match[1];
+  const { SERVER_RELEASE_DATE } = await import('../dist/license/keys.js');
+  assert.strictEqual(
+    SERVER_RELEASE_DATE,
+    `${changelogDate}T00:00:00Z`,
+    `SERVER_RELEASE_DATE (${SERVER_RELEASE_DATE}) must equal CHANGELOG release date (${changelogDate}T00:00:00Z)`,
+  );
+});

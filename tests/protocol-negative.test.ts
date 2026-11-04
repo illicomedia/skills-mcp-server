@@ -99,6 +99,30 @@ test('MCP Protocol Negative: String passed where boolean is expected returns cod
   );
 });
 
+test('MCP Protocol Negative: Number 0 passed where boolean is expected returns code -32602', () => {
+  const server = new FredoQaMcpServer();
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 1051,
+    method: 'tools/call',
+    params: {
+      name: 'install_skill',
+      arguments: {
+        skill_id: 'qa-core',
+        confirm: 0, // Number instead of boolean
+      },
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.id, 1051);
+  assert.ok(res.error);
+  assert.strictEqual(res.error.code, -32602);
+  assert.match(
+    res.error.message,
+    /Invalid type for parameter 'confirm': expected boolean, received number/i,
+  );
+});
+
 test('MCP Protocol Negative: Number passed where string is expected returns code -32602', () => {
   const server = new FredoQaMcpServer();
   const req: JsonRpcRequest = {

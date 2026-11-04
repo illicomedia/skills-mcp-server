@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
 import { generateCanaryWatermark } from '../dist/license/license.js';
+import { ToolExecutor } from '../dist/server/executor.js';
 import { FredoQaMcpServer } from '../dist/server/server.js';
 import type { JsonRpcRequest } from '../dist/types.js';
 import { SERVER_VERSION } from '../dist/version.js';
@@ -250,6 +251,35 @@ test('MCP Server: install_skill without confirm returns preview and writes 0 fil
     assert.match(result.message, /PREVIEW ONLY - 0 files written to disk/);
     assert.match(result.message, /USER CONFIRMATION REQUIRED/);
     assert.ok(!fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go')));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('ToolExecutor: non-boolean confirm values ("false", "no", 0, 1, "true", null) never trigger writes', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-test-confirm-coercion-'));
+  writeSkillSources(tmpDir, ['qa-go']);
+  try {
+    for (const badConfirm of ['false', 'no', 0, 1, 'true', null, undefined, {}]) {
+      const text = ToolExecutor.execute(
+        'install_skill',
+        { skill_id: 'qa-go', project_path: tmpDir, confirm: badConfirm as never },
+        undefined,
+        () => undefined,
+        TEST_LICENSE_OPTIONS,
+      );
+      const result = JSON.parse(text);
+      assert.strictEqual(
+        result.previewOnly,
+        true,
+        `confirm=${String(badConfirm)} must stay previewOnly`,
+      );
+      assert.strictEqual(result.requiresConfirmation, true);
+      assert.ok(
+        !fs.existsSync(path.join(tmpDir, '.agents', 'skills', 'qa-go', 'SKILL.md')),
+        `confirm=${String(badConfirm)} must write zero files`,
+      );
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

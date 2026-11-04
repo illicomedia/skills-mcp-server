@@ -84,7 +84,7 @@ export function validateSafeProjectPath(projectPath: string, operationName: stri
     }
   }
 
-  return resolved;
+  return real;
 }
 
 /**
