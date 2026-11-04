@@ -132,13 +132,14 @@ Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecat
 
 ### Deprecation Registry
 
-Applied by the npm account owner (2FA). The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`.
+Applied by the npm account owner (2FA) on 2026-11-04, and checked the same day: all ten versions
+return these exact messages. The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`.
 
 | Versions | Message | Applied |
 | :--- | :--- | :--- |
-| `1.4.0`, `1.4.1`, `1.4.3`, `1.4.4`, `1.4.5`, `1.4.6`, `1.4.7` | `End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | pending |
-| `1.4.2` | `Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | pending |
-| `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | pending |
+| `1.4.0`, `1.4.1`, `1.4.3`, `1.4.4`, `1.4.5`, `1.4.6`, `1.4.7` | `End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
+| `1.4.2` | `Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
+| `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | 2026-11-04 |
 
 These replace earlier messages that sent 1.4.x users to 1.4.7 (or 2.0.2) and 2.0.1 users to 2.0.2,
 both now end of life. Each command asks for confirmation; with npm's web login, the 2FA page's
