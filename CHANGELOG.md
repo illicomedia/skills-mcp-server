@@ -21,6 +21,7 @@ keeps receiving security and critical fixes for 6 months.
 
 ### Changed
 
+- Uninstall guide: a notice about QA files an AI agent may have created (`scripts/qa.sh`, `scripts/qa/<profile>.d/`), from server versions before 1.4.5 or the `qa-core` skill's optional template, and how to check whether anything still uses them before removing them.
 - All file access goes through one audited module (`security/path-guard`). Every write checks its target against the project root before acting, including skill archiving, which previously relied on the caller's checks. Nothing changes for normal use.
 
 ## 2.0.2 - 2026-11-03

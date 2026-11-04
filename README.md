@@ -367,11 +367,39 @@ rm -f .qa-license.json .qa-exceptions.yaml
 rm -rf ~/.config/fredo-qa
 ```
 
+### Step 4: Check for QA Files Your AI Agent May Have Created
+
+> [!WARNING]
+> The server itself only writes under `.agents/`. Your **AI agent**, however, may have added QA
+> files to your project while following the skills, most commonly a QA command wrapper:
+> **`scripts/qa.sh`** and its gate folders **`scripts/qa/<profile>.d/`**.
+>
+> - **Server versions before 1.4.5** reported a missing `scripts/qa.sh` in `quick_check`, which
+>   could lead an agent to create one. Since 1.4.5 the server never asks for it: native commands
+>   (`npm test`, `cargo test`, `pytest`, `make`, ...) count as first-class QA.
+> - The **`qa-core` skill** describes this wrapper as an optional template, so an agent applying
+>   it may still create one, whatever the server version.
+
+These files are now part of your project, and other tools (CI, a `Makefile`, git hooks) may call
+them. Check before removing anything:
+
+```bash
+# Who added them, and when:
+git log --diff-filter=A --format='%h %ad %an  %s' --date=short -- scripts/qa.sh scripts/qa
+
+# What still uses them:
+grep -rn "scripts/qa" .github .gitlab-ci.yml Makefile justfile package.json .githooks 2>/dev/null
+
+# Only if nothing uses them and you do not want them:
+git rm -r scripts/qa.sh scripts/qa
+```
+
 ### Verification
 
 1. Restart your editor or MCP client.
 2. Confirm the `fredo-qa` tools are no longer listed in the client's tools menu.
-3. Your workspace is completely clean with 0 leftover dependencies or configuration.
+3. Nothing from the server remains: no dependency, configuration or background process. Files
+   your agent created (Step 4) stay until you decide to remove them.
 
 ---
 
