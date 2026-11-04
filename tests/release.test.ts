@@ -9,6 +9,7 @@ import {
   checkTagMatchesVersion,
   ciProblem,
   ciTagOutputs,
+  deprecationProblems,
   expectServerRefusal,
   extractChangelogSection,
   githubRepoSlug,
@@ -569,4 +570,28 @@ test('parseStageList: reads npm stage list blocks; "no staged versions" is empty
   ]);
   assert.deepStrictEqual(parseStageList('No staged versions of package name "@x/y".'), []);
   assert.deepStrictEqual(parseStageList('status: orphan\nid: s3'), [{ id: 's3' }]);
+});
+
+test('Deprecation messages follow D21: cause, range to use, prerequisites; short; no command', () => {
+  const name = '@illicomedia/skills-mcp-server';
+  const valid = `End of life: 1.x no longer receives fixes. Upgrade to ${name}@^3.0.0 (requires Node.js 22+).`;
+  assert.deepEqual(deprecationProblems(valid, name), []);
+  assert.deepEqual(deprecationProblems(`Broken. Upgrade to ${name}@1.5.1 (none).`, name), []);
+  assert.match(deprecationProblems('Broken. Use 1.5.1.', name).join(), /<Cause>\. Upgrade to/);
+  assert.match(
+    deprecationProblems(`Broken. Upgrade to other-pkg@^3.0.0 (none).`, name).join(),
+    /<Cause>/,
+  );
+  assert.match(
+    deprecationProblems(`Broken. Upgrade to ${name}@^3.0.0.`, name).join(),
+    /<prerequisites>/,
+  );
+  const long = `${'Long cause '.repeat(22)}. Upgrade to ${name}@^3.0.0 (none).`;
+  assert.match(deprecationProblems(long, name).join(), /256 at most/);
+  const command = `Broken. Upgrade to ${name}@^3.0.0 (run npm install -g ${name}).`;
+  assert.match(deprecationProblems(command, name).join(), /shell command/);
+  assert.match(
+    deprecationProblems(`Broken. Upgrade to ${name}@^3.0.0 (curl it).`, name).join(),
+    /shell/,
+  );
 });

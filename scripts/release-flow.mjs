@@ -13,6 +13,7 @@
 import {
   bumpVersion,
   ciProblem,
+  deprecationProblems,
   extractChangelogSection,
   githubRepoSlug,
   listingAtVersion,
@@ -610,6 +611,10 @@ export async function publishListing(ctx, pkg, { version, dryRun = false, yes = 
 
 /** Marks ONE broken or unsupported version as "do not use", with the reason and the fix. */
 export async function deprecate(ctx, pkg, { version, message, dryRun = false, yes = false }) {
+  const problems = deprecationProblems(message, pkg.name);
+  if (problems.length > 0) {
+    throw new Error(`The deprecation message does not follow D21: ${problems.join('; ')}.`);
+  }
   const { versions, distTags } = registryState(ctx, pkg.name);
   if (!versions.includes(version)) {
     throw new Error(`${pkg.name}@${version} is not published.`);

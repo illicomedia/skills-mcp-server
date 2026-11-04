@@ -730,25 +730,33 @@ test('promote: refuses unpublished, deprecated or unauthenticated promotions', a
   await assert.rejects(promote(loggedOut.ctx, PKG, { version: '1.5.0' }), /npm login/);
 });
 
-test('deprecate: one version, never latest, after a yes', async () => {
+test('deprecate: one version, never latest, a D21 message, after a yes', async () => {
+  const message = `Broken install. Upgrade to ${NAME}@^1.5.1 (no other change).`;
   const live = fakeWorld(STAGED);
-  await deprecate(live.ctx, PKG, { version: '1.5.0', message: 'Broken. Use 1.5.1.' });
-  assert.ok(live.calls.includes(`npm deprecate ${NAME}@1.5.0 Broken. Use 1.5.1.`));
+  await deprecate(live.ctx, PKG, { version: '1.5.0', message });
+  assert.ok(live.calls.includes(`npm deprecate ${NAME}@1.5.0 ${message}`));
 
   const no = fakeWorld({ ...STAGED, answer: false });
-  await deprecate(no.ctx, PKG, { version: '1.5.0', message: 'x' });
+  await deprecate(no.ctx, PKG, { version: '1.5.0', message });
   assert.ok(!has(no.calls, 'npm deprecate'));
 
   const dry = fakeWorld(STAGED);
-  await deprecate(dry.ctx, PKG, { version: '1.5.0', message: 'x', dryRun: true });
+  await deprecate(dry.ctx, PKG, { version: '1.5.0', message, dryRun: true });
   assert.ok(!has(dry.calls, 'npm deprecate'));
 
+  const vague = fakeWorld(STAGED);
   await assert.rejects(
-    deprecate(fakeWorld().ctx, PKG, { version: '1.4.0', message: 'x' }),
+    deprecate(vague.ctx, PKG, { version: '1.5.0', message: 'Broken. Use 1.5.1.' }),
+    /does not follow D21/,
+  );
+  assert.ok(!has(vague.calls, 'npm'), 'a bad message is refused before any registry call');
+
+  await assert.rejects(
+    deprecate(fakeWorld().ctx, PKG, { version: '1.4.0', message }),
     /is `latest`/,
   );
   await assert.rejects(
-    deprecate(fakeWorld().ctx, PKG, { version: '9.9.9', message: 'x' }),
+    deprecate(fakeWorld().ctx, PKG, { version: '9.9.9', message }),
     /not published/,
   );
 });

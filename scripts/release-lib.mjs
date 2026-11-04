@@ -534,6 +534,31 @@ const MCP_SERVER_SCHEMA =
 
 const MCP_NAME = /^io\.github\.[A-Za-z0-9-]+\/[a-zA-Z0-9._-]+$/;
 
+/** A command in a deprecation message: an AI agent reading the warning could run it unasked. */
+const SHELL_COMMAND =
+  /\b(npm|npx|pnpm|yarn|bunx?)\s+(i|install|add|exec|dlx|x)\b|\bcurl\b|\|\s*(ba)?sh\b/i;
+
+/**
+ * D21: a deprecation names its cause, the range to use instead and what the upgrade needs:
+ * "<Cause>. Upgrade to <package>@<range> (<prerequisites>)." Under 256 characters, and no shell
+ * command: an AI agent reading the warning could run it without asking.
+ */
+export function deprecationProblems(message, packageName) {
+  const problems = [];
+  const target = packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const shape = new RegExp(`^\\S.*\\. Upgrade to ${target}@[\\^~]?\\d+\\.\\d+\\.\\d+ \\(.+\\)\\.$`);
+  if (!shape.test(message)) {
+    problems.push(`write it as "<Cause>. Upgrade to ${packageName}@<range> (<prerequisites>)."`);
+  }
+  if (message.length > 256) {
+    problems.push(`${message.length} characters, 256 at most`);
+  }
+  if (SHELL_COMMAND.test(message)) {
+    problems.push('it prescribes a shell command');
+  }
+  return problems;
+}
+
 /**
  * What is wrong with the MCP Registry listing (server.json) for this package at this version.
  * The registry checks that the npm package's "mcpName" equals the listing's name; the rest keeps
