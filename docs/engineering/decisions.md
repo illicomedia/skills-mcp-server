@@ -398,6 +398,11 @@ as active consumers whose operational interfaces must not be broken arbitrarily.
    - External endpoints (pricing, schema downloads): query parameters such as `?mcp_v=${SERVER_VERSION}`
      are additive. Web APIs and routers MUST handle legacy clients that omit `?mcp_v` gracefully without
      redirect loops or errors.
+   - **Sensitive API Calls Enforcement (POST Payload Priority):** All programmatic API endpoints handling
+     sensitive metadata (version checks, license validation, update notices, skill delivery) MUST use
+     HTTP `POST` with a JSON body (`Content-Type: application/json`), never `GET` query strings. This ensures
+     payloads remain encrypted in TLS transit and are shielded from server access logs, CDN logs, proxy
+     inspectors, and log-sniffing pipelines.
 
 4. **Normalized Deprecation Specification:**
    - Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecate` must follow
