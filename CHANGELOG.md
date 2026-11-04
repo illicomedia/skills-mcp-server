@@ -15,10 +15,6 @@ keeps receiving security and critical fixes for 6 months.
 
 - The server reads no environment variable. `FREDO_QA_LICENSE_FILE` is ignored: place the license at `~/.config/fredo-qa/license.json` or the project's `.qa-license.json`, or load it with `set_license_key`. Only setups that used the variable are affected.
 
-### Added
-
-- Listed in the official MCP Registry as `io.github.illicomedia/skills-mcp-server` (`server.json`, `mcpName` in `package.json`), pointing at this npm package.
-
 ### Changed
 
 - Uninstall guide: a notice about QA files an AI agent may have created (`scripts/qa.sh`, `scripts/qa/<profile>.d/`), from server versions before 1.4.5 or the `qa-core` skill's optional template, and how to check whether anything still uses them before removing them.

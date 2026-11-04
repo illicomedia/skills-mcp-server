@@ -151,8 +151,8 @@ It installs 2.0.0 from npm into an empty folder, runs an MCP session against it,
 Answer `y`. It then runs two npm commands, `dist-tag add … latest` and `dist-tag rm … next`;
 npm asks for 2FA for them (once each, unless npm reuses your recent confirmation).
 
-Then it lists the version in the **official MCP Registry** (a listing that points at the npm
-package): it checks `server.json`, that the version is public on npm with the right `mcpName`, and
+With `--with-listing` (opt-in; the listing is postponed for now, D19), it then lists the version in
+the **official MCP Registry** (a listing that points at the npm package): it checks `server.json`, that the version is public on npm with the right `mcpName`, and
 the pinned `mcp-publisher`, runs `mcp-publisher validate`, then asks
 `Publish io.github.illicomedia/skills-mcp-server <version> to the MCP Registry? [y/N]`. A rollback
 (promoting an older version) leaves the listing alone. If this step fails, `latest` has still

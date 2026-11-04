@@ -334,6 +334,10 @@ checks that the npm version is public and carries `"mcpName"`; staged versions a
 `mcp-publisher` at exactly the pinned version, installed from its release and verified against its
 Sigstore signature. Rollbacks never touch the listing.
 
+The listing is **opt-in** (`--promote <version> --with-listing`, or `--publish-listing` later): a
+plain promote never contacts the registry. *Postponed (2026-11-04): not published yet while the
+listing is tested; 3.0.0 ships `mcpName` so it can be listed later.*
+
 **Why.** Discoverability where MCP users look, with no second copy of the code: the registry
 verifies ownership through the npm package itself (`mcpName`) and a GitHub login.
 

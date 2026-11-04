@@ -58,7 +58,7 @@ export function verifyFromRegistry(ctx: ReleaseContext, pkg: Pkg, version: strin
 export function promote(
   ctx: ReleaseContext,
   pkg: Pkg,
-  options: { version: string; dryRun?: boolean; yes?: boolean },
+  options: { version: string; dryRun?: boolean; yes?: boolean; withListing?: boolean },
 ): Promise<void>;
 export function deprecate(
   ctx: ReleaseContext,
@@ -68,7 +68,7 @@ export function deprecate(
 export function ship(
   ctx: ReleaseContext,
   pkg: Pkg,
-  options: { bump?: string | null; dryRun?: boolean; yes?: boolean },
+  options: { bump?: string | null; dryRun?: boolean; yes?: boolean; withListing?: boolean },
 ): Promise<void>;
 export function publishListing(
   ctx: ReleaseContext,

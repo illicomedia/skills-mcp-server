@@ -423,7 +423,11 @@ export async function verifyFromRegistry(ctx, pkg, version) {
 }
 
 /** Points `latest` at a published, verified version. The same command rolls back. */
-export async function promote(ctx, pkg, { version, dryRun = false, yes = false }) {
+export async function promote(
+  ctx,
+  pkg,
+  { version, dryRun = false, yes = false, withListing = false },
+) {
   const { versions, distTags } = registryState(ctx, pkg.name);
   if (!versions.includes(version)) {
     throw new Error(`${pkg.name}@${version} is not published. Published: ${versions.join(', ')}`);
@@ -457,7 +461,9 @@ export async function promote(ctx, pkg, { version, dryRun = false, yes = false }
     ctx.sh('npm', command, { interactive: true });
   }
   ctx.ok(`\`latest\` now points at v${version} (was v${distTags.latest ?? 'none'}).`);
-  if (readListing(ctx)?.version === version) {
+  if (!withListing) {
+    ctx.log('MCP Registry listing skipped (opt-in: --with-listing, or later --publish-listing).');
+  } else if (readListing(ctx)?.version === version) {
     await publishListing(ctx, pkg, { version, yes });
   } else {
     ctx.log(`MCP Registry listing not touched: server.json is not at ${version} (a rollback?).`);

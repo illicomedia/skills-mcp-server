@@ -521,3 +521,20 @@ test('server.json in the repository matches package.json (name, version, npm pac
   const listing = JSON.parse(fs.readFileSync(path.join(root, 'server.json'), 'utf8'));
   assert.deepStrictEqual(listingProblems(listing, pkg, pkg.version), []);
 });
+
+test('Release args: --with-listing opts in to the MCP Registry, only for --promote or --ship', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--promote', '3.0.0', '--with-listing']), {
+    action: 'promote',
+    dryRun: false,
+    yes: false,
+    version: '3.0.0',
+    withListing: true,
+  });
+  assert.strictEqual(parseReleaseArgs(['--ship', '--with-listing']).withListing, true);
+  assert.strictEqual(parseReleaseArgs(['--promote', '3.0.0']).withListing, undefined);
+  assert.throws(() => parseReleaseArgs(['--with-listing']), /only applies to --promote or --ship/);
+  assert.throws(
+    () => parseReleaseArgs(['--deprecate', '1.0.0', '--message', 'x', '--with-listing']),
+    /only applies to --promote or --ship/,
+  );
+});

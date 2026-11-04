@@ -744,7 +744,7 @@ const PUBLIC_150 = { versions: ['1.4.0', '1.5.0'], distTags: { latest: '1.4.0', 
 
 test('promote: lists the version in the MCP Registry right after moving latest', async () => {
   const { ctx, calls, questions } = withListing('1.5.0', PUBLIC_150);
-  await promote(ctx, LISTED_PKG, { version: '1.5.0' });
+  await promote(ctx, LISTED_PKG, { version: '1.5.0', withListing: true });
   const latest = calls.indexOf(`npm dist-tag add ${NAME}@1.5.0 latest`);
   const publish = calls.indexOf('mcp-publisher publish');
   assert.ok(latest >= 0 && publish > latest, 'listed only once latest moved');
@@ -761,7 +761,7 @@ test('promote: a rollback leaves the listing alone', async () => {
     versions: ['1.4.0', '1.5.0'],
     distTags: { latest: '1.5.0' },
   });
-  await promote(ctx, LISTED_PKG, { version: '1.4.0', yes: true });
+  await promote(ctx, LISTED_PKG, { version: '1.4.0', yes: true, withListing: true });
   assert.ok(!has(calls, 'mcp-publisher'));
   assert.ok(logs.some((line) => line.includes('listing not touched')));
 });
@@ -824,4 +824,13 @@ test('publishListing: a version published without mcpName cannot be listed', asy
     /published with mcpName "", not "io\.github\.illicomedia\/skills-mcp-server"/,
   );
   assert.ok(!has(calls, 'mcp-publisher'));
+});
+
+test('promote: the MCP Registry listing is opt-in; a plain promote never touches it', async () => {
+  const { ctx, calls, logs } = withListing('1.5.0', PUBLIC_150);
+  await promote(ctx, LISTED_PKG, { version: '1.5.0', yes: true });
+  assert.ok(calls.includes(`npm dist-tag add ${NAME}@1.5.0 latest`));
+  assert.ok(!has(calls, 'mcp-publisher'));
+  assert.ok(!calls.some((call) => call.includes('modelcontextprotocol')));
+  assert.ok(logs.some((line) => line.includes('listing skipped (opt-in: --with-listing')));
 });

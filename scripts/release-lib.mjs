@@ -23,6 +23,7 @@ const FLAGS_WITH_VALUE = [
 ];
 const FLAGS = [
   '--dry-run',
+  '--with-listing',
   '--publish-listing',
   '--smoke-only',
   '--expect-refusal',
@@ -94,6 +95,11 @@ function bumpOf(flags) {
   return bump;
 }
 
+/** The MCP Registry listing is opt-in: published at promotion only with --with-listing. */
+function listingOf(flags) {
+  return flags.has('--with-listing') ? { withListing: true } : {};
+}
+
 function preidOf(flags) {
   return flags.has('--preid') ? { preid: flags.get('--preid') } : {};
 }
@@ -118,6 +124,9 @@ function checkCombinations(flags, action) {
       throw new Error('--preid expects lowercase letters, such as rc');
     }
   }
+  if (flags.has('--with-listing') && !['--promote', '--ship'].includes(action)) {
+    throw new Error('--with-listing only applies to --promote or --ship');
+  }
   if (flags.has('--message') && action !== '--deprecate') {
     throw new Error('--message only applies to --deprecate');
   }
@@ -141,9 +150,20 @@ export function parseReleaseArgs(argv) {
   const tarballDir = () => requireValue(flags, '--tarball-dir', 'a folder holding one .tgz');
   switch (action) {
     case '--ship':
-      return { action: 'ship', ...base, bump: bumpOf(flags), ...preidOf(flags) };
+      return {
+        action: 'ship',
+        ...base,
+        bump: bumpOf(flags),
+        ...preidOf(flags),
+        ...listingOf(flags),
+      };
     case '--promote':
-      return { action: 'promote', ...base, version: exactVersion(action, flags.get(action)) };
+      return {
+        action: 'promote',
+        ...base,
+        version: exactVersion(action, flags.get(action)),
+        ...listingOf(flags),
+      };
     case '--deprecate': {
       const version = exactVersion(action, flags.get(action));
       const message = requireValue(flags, '--message', '"<reason>. Use <version>."');
