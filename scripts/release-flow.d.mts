@@ -4,7 +4,8 @@
 export interface ReleaseContext {
   pkgDir: string;
   interactive: boolean;
-  fetchJson(url: string): Promise<unknown>;
+  fetchJson(url: string): Promise<any>;
+  downloadSha1(url: string): Promise<string | null>;
   sh(
     command: string,
     args: string[],
@@ -53,7 +54,7 @@ export function prepare(
   pkg: Pkg,
   options?: { bump?: string | null; preid?: string | null; dryRun?: boolean; yes?: boolean },
 ): Promise<{ version: string; pushed: boolean }>;
-export function waitForPublish(ctx: ReleaseContext, pkg: Pkg, version: string): Promise<void>;
+export function approveStaged(ctx: ReleaseContext, pkg: Pkg, options: { version: string; yes?: boolean }): Promise<void>;
 export function verifyFromRegistry(ctx: ReleaseContext, pkg: Pkg, version: string): Promise<void>;
 export function promote(
   ctx: ReleaseContext,

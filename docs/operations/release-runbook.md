@@ -92,6 +92,16 @@ When it is green, the run's summary page shows the approval commands of step 5.
 ## 5. Approve the staged version (YOU + 2FA)
 
 ```bash
+pnpm release --approve <version>
+```
+
+It waits until CI has staged the version (showing the release workflow link, where you approve the
+`npm-publish` deployment in your browser), checks that the staged tarball's SHA-1 equals the
+tarball attached to the GitHub Release, asks, runs `npm stage approve` (2FA), and waits until the
+version is public under `next`. A mismatch is refused, with the `npm stage reject` command to run.
+`pnpm release --ship` runs this step itself. The manual equivalent:
+
+```bash
 npm stage list @illicomedia/skills-mcp-server
 ```
 

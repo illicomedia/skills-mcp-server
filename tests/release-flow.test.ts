@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import test from 'node:test';
 import type { Pkg, ReleaseContext } from '../scripts/release-flow.mjs';
 import {
+  approveStaged,
   deprecate,
   expectRefusal,
   findTarball,
@@ -17,7 +18,6 @@ import {
   smoke,
   stage,
   verifyFromRegistry,
-  waitForPublish,
 } from '../scripts/release-flow.mjs';
 
 const NAME = '@illicomedia/skills-mcp-server';
@@ -49,6 +49,14 @@ interface World {
   publisher: string | null;
   listedVersions: string[] | null;
   npmMcpName: string;
+  stage: { id: string; version: string; shasum: string; afterPolls: number } | null;
+  run:
+    | { status: string; conclusion: string | null; html_url: string }
+    | null
+    | 'unreachable'
+    | 'empty';
+  releaseSha1: string | null;
+  approvedPublic: boolean;
   env: Record<string, string | undefined>;
 }
 
@@ -79,6 +87,10 @@ function fakeWorld(overrides: Partial<World> = {}) {
     publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.7 (commit: abc, built: x)',
     listedVersions: [],
     npmMcpName: 'io.github.illicomedia/skills-mcp-server',
+    stage: null,
+    run: null,
+    releaseSha1: null,
+    approvedPublic: true,
     env: {},
     ...overrides,
   };
@@ -156,7 +168,24 @@ function fakeWorld(overrides: Partial<World> = {}) {
     return '';
   };
 
+  let stagePolls = 0;
+  const npmStage = (args: string[]): string => {
+    const stage = world.stage;
+    if (args[1] === 'approve') {
+      if (world.approvedPublic && stage) {
+        world.versions.push(stage.version);
+      }
+      return '';
+    }
+    stagePolls += 1;
+    if (!stage || stagePolls <= stage.afterPolls) {
+      return `No staged versions of package name "${NAME}".`;
+    }
+    return `id: ${stage.id}\npackage name: ${NAME}\nversion: ${stage.version}\nstatus: staged\ntag: next\nshasum: ${stage.shasum}`;
+  };
+
   const npmHandlers: Record<string, (args: string[]) => string> = {
+    stage: npmStage,
     view: npmView,
     whoami: npmWhoami,
     install: npmInstall,
@@ -183,8 +212,21 @@ function fakeWorld(overrides: Partial<World> = {}) {
 
   const ctx: ReleaseContext = {
     pkgDir: PKG_DIR,
+    async downloadSha1(url) {
+      calls.push(`download ${url}`);
+      return world.releaseSha1;
+    },
     async fetchJson(url) {
       calls.push(`fetch ${url}`);
+      if (url.includes('/actions/workflows/release.yml/runs')) {
+        if (world.run === 'unreachable') {
+          throw new Error('403 rate limit exceeded');
+        }
+        if (world.run === 'empty') {
+          return {};
+        }
+        return { workflow_runs: world.run ? [world.run] : [] };
+      }
       if (url.startsWith('https://registry.modelcontextprotocol.io/')) {
         if (world.listedVersions === null) {
           return {};
@@ -533,19 +575,100 @@ test('githubRelease: an existing release is left alone, so re-runs are harmless'
   assert.ok(!has(calls, 'gh release create'));
 });
 
-test('waitForPublish: explains the 2FA approval, polls until public, then gives up with a pointer', async () => {
-  const late = fakeWorld({ versions: ['1.4.0', '1.5.0'], publishAfterPolls: 2 });
-  await waitForPublish(late.ctx, PKG, '1.5.0');
-  assert.ok(late.logs.includes(`  npm stage list ${NAME}`));
-  assert.ok(late.logs.includes('  npm stage approve <stage-id>'));
-  assert.ok(late.logs.some((line) => line.includes('(1/')));
-  assert.ok(!late.logs.some((line) => line.includes('(2/')), 'progress is logged once a minute');
-  assert.ok(late.logs.includes(`${NAME}@1.5.0 is public on npm.`));
+const STAGE_ENTRY = {
+  id: 'stage-1',
+  version: '1.5.0',
+  shasum: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  afterPolls: 2,
+};
+const RUN = { status: 'waiting', conclusion: null, html_url: 'https://github.com/run/1' };
 
-  const never = fakeWorld();
+test('approveStaged: waits for staging, checks the tarball, approves with npm, waits until public', async () => {
+  const { ctx, calls, logs, questions } = fakeWorld({
+    stage: STAGE_ENTRY,
+    run: RUN,
+    releaseSha1: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  });
+  await approveStaged(ctx, PKG, { version: '1.5.0' });
+  assert.strictEqual(logs.filter((line) => line.includes('https://github.com/run/1')).length, 1);
+  assert.ok(logs.some((line) => line.includes('approve the "npm-publish" deployment')));
+  assert.ok(
+    calls.includes(
+      'download https://github.com/illicomedia/skills-mcp-server/releases/download/v1.5.0/illicomedia-skills-mcp-server-1.5.0.tgz',
+    ),
+  );
+  assert.deepStrictEqual(questions, [
+    `Approve ${NAME}@1.5.0 on npm (2FA)? It becomes public under \`next\`.`,
+  ]);
+  assert.ok(calls.includes('npm stage approve stage-1'));
+  assert.ok(
+    logs.some(
+      (line) => line.includes('is public under `next`') && line.includes('--promote 1.5.0'),
+    ),
+  );
+});
+
+test('approveStaged: refuses a staged tarball that is not the GitHub Release one', async () => {
+  const { ctx, calls } = fakeWorld({
+    stage: STAGE_ENTRY,
+    run: RUN,
+    releaseSha1: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  });
   await assert.rejects(
-    waitForPublish(never.ctx, PKG, '1.5.0'),
-    /npm stage approve.*--promote 1\.5\.0/,
+    approveStaged(ctx, PKG, { version: '1.5.0' }),
+    /Do not approve; reject it: npm stage reject stage-1/,
+  );
+  assert.ok(!has(calls, 'npm stage approve'));
+});
+
+test('approveStaged: stops on a failed workflow, a missing tarball, a timeout, or a no', async () => {
+  const failed = fakeWorld({
+    run: { status: 'completed', conclusion: 'failure', html_url: 'https://github.com/run/2' },
+  });
+  await assert.rejects(
+    approveStaged(failed.ctx, PKG, { version: '1.5.0' }),
+    /ended "failure": https:\/\/github\.com\/run\/2/,
+  );
+
+  const noTarball = fakeWorld({ stage: STAGE_ENTRY, run: RUN });
+  await assert.rejects(
+    approveStaged(noTarball.ctx, PKG, { version: '1.5.0' }),
+    /tarball is not available/,
+  );
+
+  for (const run of ['unreachable', 'empty'] as const) {
+    const never = fakeWorld({ run });
+    await assert.rejects(
+      approveStaged(never.ctx, PKG, { version: '1.5.0' }),
+      /not staged within the hour/,
+    );
+  }
+
+  const declined = fakeWorld({
+    stage: STAGE_ENTRY,
+    run: RUN,
+    releaseSha1: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    answer: false,
+  });
+  await approveStaged(declined.ctx, PKG, { version: '1.5.0' });
+  assert.ok(!has(declined.calls, 'npm stage approve'));
+  assert.ok(declined.logs.some((line) => line.includes('Later: pnpm release --approve 1.5.0')));
+});
+
+test('approveStaged: an already public version needs nothing; an approval that never lands fails', async () => {
+  const done = fakeWorld();
+  await approveStaged(done.ctx, PKG, { version: '1.4.0' });
+  assert.ok(!has(done.calls, 'npm stage'));
+
+  const stuck = fakeWorld({
+    stage: STAGE_ENTRY,
+    run: RUN,
+    releaseSha1: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    approvedPublic: false,
+  });
+  await assert.rejects(
+    approveStaged(stuck.ctx, PKG, { version: '1.5.0', yes: true }),
+    /approved but is not public yet/,
   );
 });
 
@@ -632,13 +755,31 @@ test('deprecate: one version, never latest, after a yes', async () => {
 
 test('ship: prepare, wait for CI, verify, promote; never deprecates anything', async () => {
   const { ctx, calls } = fakeWorld({
-    versions: ['1.4.0', '1.4.1'],
     distTags: { latest: '1.4.0', next: '1.4.1' },
-    publishAfterPolls: 1,
+    stage: { ...STAGE_ENTRY, version: '1.4.1' },
+    run: RUN,
+    releaseSha1: STAGE_ENTRY.shasum,
   });
   await ship(ctx, PKG, { bump: 'patch', yes: true });
-  assert.ok(calls.includes(`npm dist-tag add ${NAME}@1.4.1 latest`));
+  assert.ok(
+    calls.indexOf('npm stage approve stage-1') <
+      calls.indexOf(`npm dist-tag add ${NAME}@1.4.1 latest`),
+  );
   assert.ok(!has(calls, 'npm deprecate'));
+
+  const declined = fakeWorld({
+    stage: { ...STAGE_ENTRY, version: '1.4.1' },
+    run: RUN,
+    releaseSha1: STAGE_ENTRY.shasum,
+  });
+  declined.ctx.interactive = true;
+  let asked = 0;
+  declined.ctx.confirm = async () => {
+    asked += 1;
+    return asked === 1;
+  };
+  await ship(declined.ctx, PKG, { bump: 'patch' });
+  assert.ok(!has(declined.calls, 'npm dist-tag'), 'no promotion without the npm approval');
 });
 
 test('ship: stops after a dry-run or when nothing was pushed', async () => {

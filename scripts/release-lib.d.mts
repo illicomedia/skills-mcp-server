@@ -29,3 +29,4 @@ export function expectServerRefusal(command: string, timeoutMs?: number, args?: 
 export const MCP_PUBLISHER_VERSION: string;
 export function listingProblems(listing: Record<string, unknown>, pkg: Record<string, unknown>, version: string): string[];
 export function listingAtVersion(listing: Record<string, unknown>, version: string): Record<string, unknown>;
+export function parseStageList(text: string): Record<string, string>[];

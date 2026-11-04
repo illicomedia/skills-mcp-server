@@ -17,6 +17,7 @@ import {
   nextDistTagAfterPromotion,
   parseRegistryState,
   parseReleaseArgs,
+  parseStageList,
   SMOKE_PROTOCOL_VERSION,
   smokeTestServer,
   stampChangelog,
@@ -537,4 +538,26 @@ test('Release args: --with-listing opts in to the MCP Registry, only for --promo
     () => parseReleaseArgs(['--deprecate', '1.0.0', '--message', 'x', '--with-listing']),
     /only applies to --promote or --ship/,
   );
+});
+
+test('Release args: --approve takes a version (candidates included)', () => {
+  assert.deepStrictEqual(parseReleaseArgs(['--approve', '3.0.0']), {
+    action: 'approve',
+    dryRun: false,
+    yes: false,
+    version: '3.0.0',
+  });
+  assert.strictEqual(parseReleaseArgs(['--approve', '3.0.0-rc.1']).version, '3.0.0-rc.1');
+  assert.throws(() => parseReleaseArgs(['--approve', 'latest']), /--approve expects a version/);
+});
+
+test('parseStageList: reads npm stage list blocks; "no staged versions" is empty', () => {
+  const text =
+    'id: s1\npackage name: @x/y\nversion: 1.0.0\nstatus: validating\nshasum: aa\n\nid: s2\nversion: 1.0.1\nstatus: staged';
+  assert.deepStrictEqual(parseStageList(text), [
+    { id: 's1', packageName: '@x/y', version: '1.0.0', status: 'validating', shasum: 'aa' },
+    { id: 's2', version: '1.0.1', status: 'staged' },
+  ]);
+  assert.deepStrictEqual(parseStageList('No staged versions of package name "@x/y".'), []);
+  assert.deepStrictEqual(parseStageList('status: orphan\nid: s3'), [{ id: 's3' }]);
 });

@@ -13,6 +13,7 @@
  *  pnpm release --bump major --preid rc              a release candidate (3.0.0-rc.0), staged under next
  *  pnpm release --bump prerelease | release          the next candidate (rc.1) / the final version
  *  pnpm release --ship [--bump patch|minor|major]    prepare, wait for CI, verify, promote
+ *  pnpm release --approve <version>                  wait for staging, check the tarball, npm approve (2FA)
  *  pnpm release --promote <version>                  verify from npm, move `latest`, list in MCP Registry
  *  pnpm release --publish-listing                     retry the MCP Registry listing of this version
  *  pnpm release --deprecate <version> --message "<reason>. Use <version>."
@@ -26,6 +27,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   cpSync,
@@ -41,6 +43,7 @@ import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import {
+  approveStaged,
   deprecate,
   expectRefusal,
   githubRelease,
@@ -132,9 +135,24 @@ async function fetchJson(url) {
   return response.json();
 }
 
+/** SHA-1 of a downloaded file (the GitHub Release tarball), or null when it is not there yet. */
+async function downloadSha1(url) {
+  const response = await fetch(url, { redirect: 'follow' });
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`Could not download ${url}: ${response.status}`);
+  }
+  return createHash('sha1')
+    .update(Buffer.from(await response.arrayBuffer()))
+    .digest('hex');
+}
+
 const ctx = {
   pkgDir: PKG_DIR,
   fetchJson,
+  downloadSha1,
   interactive: Boolean(process.stdin.isTTY),
   sh,
   confirm,
@@ -192,6 +210,9 @@ async function main() {
       return;
     case 'smoke':
       await smoke(ctx, pkg, options);
+      return;
+    case 'approve':
+      await approveStaged(ctx, pkg, options);
       return;
     case 'promote':
       await promote(ctx, pkg, options);

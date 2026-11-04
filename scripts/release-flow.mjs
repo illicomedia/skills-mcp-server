@@ -21,6 +21,7 @@ import {
   MIN_NPM_FOR_STAGING,
   nextDistTagAfterPromotion,
   parseRegistryState,
+  parseStageList,
   stampChangelog,
   tagForVersion,
   tarballFileName,
@@ -32,8 +33,9 @@ export const REGISTRY_ATTEMPTS = 30;
 const REGISTRY_WAIT_MS = 10_000;
 const MCP_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0/servers';
 const LISTING = 'server.json';
-/** CI (about 8 minutes) plus a maintainer approving the staged version with 2FA. */
-const PUBLISH_ATTEMPTS = 180;
+/** How long --approve waits for CI to stage a version: 40 polls of 90 s, one hour. */
+const STAGE_ATTEMPTS = 40;
+const STAGE_POLL_MS = 90_000;
 
 function git(ctx, ...args) {
   return ctx.sh('git', args);
@@ -379,28 +381,98 @@ export async function prepare(
   return { version, pushed: true };
 }
 
-/**
- * Waits until the version is public on npm. CI only stages it (npm Trusted Publishing may not
- * publish directly); it goes public when a maintainer approves the staged version with 2FA.
- */
-export async function waitForPublish(ctx, pkg, version) {
-  ctx.log(`When CI is green, it stages v${version}. Approve it with 2FA in another terminal:`);
-  ctx.log(`  npm stage list ${pkg.name}`);
-  ctx.log('  npm stage approve <stage-id>');
-  for (let attempt = 1; attempt <= PUBLISH_ATTEMPTS; attempt += 1) {
-    if (registryState(ctx, pkg.name).versions.includes(version)) {
-      ctx.ok(`${pkg.name}@${version} is public on npm.`);
-      return;
+/** The latest Release workflow run for a tag (public GitHub API), or null when unknown. */
+async function releaseRun(ctx, slug, tag) {
+  try {
+    const runs = await ctx.fetchJson(
+      `https://api.github.com/repos/${slug}/actions/workflows/release.yml/runs?branch=${encodeURIComponent(tag)}&per_page=1`,
+    );
+    return (runs.workflow_runs ?? [])[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function waitForStage(ctx, pkg, version, slug) {
+  const tag = tagForVersion(version);
+  let linked = false;
+  for (let attempt = 1; attempt <= STAGE_ATTEMPTS; attempt += 1) {
+    const staged = parseStageList(npm(ctx, 'stage', 'list', pkg.name)).find(
+      (entry) => entry.version === version && entry.status === 'staged',
+    );
+    if (staged) {
+      return staged;
     }
-    if (attempt % 6 === 1) {
+    const run = await releaseRun(ctx, slug, tag);
+    if (run?.status === 'completed' && run.conclusion !== 'success') {
+      throw new Error(`The release workflow for ${tag} ended "${run.conclusion}": ${run.html_url}`);
+    }
+    if (run && !linked) {
+      linked = true;
+      ctx.log(`Release workflow for ${tag}: ${run.html_url}`);
       ctx.log(
-        `Waiting for v${version} to be staged and approved (${attempt}/${PUBLISH_ATTEMPTS})...`,
+        'When its CI is green, approve the "npm-publish" deployment there (Review deployments).',
       );
+    }
+    ctx.log(`Waiting for ${tag} to be staged on npm (${attempt}/${STAGE_ATTEMPTS})...`);
+    await ctx.sleep(STAGE_POLL_MS);
+  }
+  throw new Error(`${tag} was not staged within the hour; check the release workflow, then retry.`);
+}
+
+async function releaseTarballSha1(ctx, pkg, version, slug) {
+  const url = `https://github.com/${slug}/releases/download/${tagForVersion(version)}/${tarballFileName(pkg.name, version)}`;
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const sha1 = await ctx.downloadSha1(url);
+    if (sha1) {
+      return sha1;
     }
     await ctx.sleep(REGISTRY_WAIT_MS);
   }
   throw new Error(
-    `v${version} is not public yet. Check the release workflow run, approve the staged version (npm stage approve), then run --promote ${version}.`,
+    `The GitHub Release tarball is not available (${url}); the staged version cannot be verified.`,
+  );
+}
+
+/**
+ * The maintainer's npm step of a release: waits until CI has staged the version (showing the
+ * workflow link, where the npm-publish deployment is approved in the browser), checks that the
+ * staged tarball is the one attached to the GitHub Release, asks, approves it with npm (2FA),
+ * and waits until it is public under `next`. The GitHub approval itself stays a human click.
+ */
+export async function approveStaged(ctx, pkg, { version, yes = false }) {
+  if (registryState(ctx, pkg.name).versions.includes(version)) {
+    ctx.ok(`${pkg.name}@${version} is already public on npm.`);
+    return;
+  }
+  const slug = githubRepoSlug(pkg.repository);
+  const staged = await waitForStage(ctx, pkg, version, slug);
+  const sha1 = await releaseTarballSha1(ctx, pkg, version, slug);
+  if (sha1 !== staged.shasum) {
+    throw new Error(
+      `Staged shasum ${staged.shasum} is not the GitHub Release tarball (${sha1}). Do not approve; reject it: npm stage reject ${staged.id}`,
+    );
+  }
+  ctx.ok(
+    `Staged ${version} is the tarball CI tested and attached to the GitHub Release (sha1 ${sha1}).`,
+  );
+  const question = `Approve ${pkg.name}@${version} on npm (2FA)? It becomes public under \`next\`.`;
+  if (!(await approve(ctx, question, { yes }))) {
+    ctx.log(`Not approved. Later: pnpm release --approve ${version}`);
+    return;
+  }
+  ctx.sh('npm', ['stage', 'approve', staged.id], { interactive: true });
+  for (let attempt = 1; attempt <= REGISTRY_ATTEMPTS; attempt += 1) {
+    if (registryState(ctx, pkg.name).versions.includes(version)) {
+      ctx.ok(
+        `${pkg.name}@${version} is public under \`next\`. After trying it: pnpm release --promote ${version}`,
+      );
+      return;
+    }
+    await ctx.sleep(REGISTRY_WAIT_MS);
+  }
+  throw new Error(
+    `${pkg.name}@${version} was approved but is not public yet; check npm stage list.`,
   );
 }
 
@@ -556,13 +628,15 @@ export async function deprecate(ctx, pkg, { version, message, dryRun = false, ye
 export async function ship(ctx, pkg, options) {
   const { version, pushed } = await prepare(ctx, pkg, options);
   if (options.dryRun) {
-    ctx.log(`[dry-run] Would wait for CI to publish v${version}, verify it, then promote it.`);
+    ctx.log(`[dry-run] Would wait for CI to stage v${version}, approve it, verify it, promote it.`);
     return;
   }
   if (!pushed) {
     ctx.log('Stopped before publishing: nothing was pushed, so CI has nothing to release.');
     return;
   }
-  await waitForPublish(ctx, pkg, version);
-  await promote(ctx, pkg, { ...options, version });
+  await approveStaged(ctx, pkg, { version, yes: options.yes });
+  if (registryState(ctx, pkg.name).versions.includes(version)) {
+    await promote(ctx, pkg, { ...options, version });
+  }
 }

@@ -12,6 +12,7 @@ const BUMPS = ['patch', 'minor', 'major', 'prerelease', 'release'];
 const PREID = /^[a-z]+$/;
 const FLAGS_WITH_VALUE = [
   '--bump',
+  '--approve',
   '--preid',
   '--promote',
   '--deprecate',
@@ -35,6 +36,7 @@ const FLAGS = [
 ];
 const ACTIONS = [
   '--ship',
+  '--approve',
   '--publish-listing',
   '--promote',
   '--deprecate',
@@ -157,6 +159,11 @@ export function parseReleaseArgs(argv) {
         ...preidOf(flags),
         ...listingOf(flags),
       };
+    case '--approve':
+      if (!SEMVER.test(flags.get(action))) {
+        throw new Error(`${action} expects a version such as 3.0.0 or 3.0.0-rc.1`);
+      }
+      return { action: 'approve', ...base, version: flags.get(action) };
     case '--promote':
       return {
         action: 'promote',
@@ -557,4 +564,28 @@ export function listingAtVersion(listing, version) {
     version,
     packages: (listing.packages ?? []).map((entry) => ({ ...entry, version })),
   };
+}
+
+/**
+ * Parses `npm stage list <package>` output (blocks of "key: value" lines, each starting with
+ * "id:") into entries: { id, packageName, version, status, tag, shasum, ... }. No staged
+ * version gives [].
+ */
+export function parseStageList(text) {
+  const entries = [];
+  let current = null;
+  for (const line of text.split('\n')) {
+    const match = /^\s*([a-z][a-z ]*?):\s*(.*)$/.exec(line);
+    if (!match) {
+      continue;
+    }
+    const key = match[1].replace(/ (\w)/g, (_, letter) => letter.toUpperCase());
+    if (key === 'id') {
+      current = { id: match[2].trim() };
+      entries.push(current);
+    } else if (current) {
+      current[key] = match[2].trim();
+    }
+  }
+  return entries;
 }
