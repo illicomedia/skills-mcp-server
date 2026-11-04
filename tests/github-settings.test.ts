@@ -17,6 +17,16 @@ const REPO = '/repos/illicomedia/skills-mcp-server';
 const ENV = `${REPO}/environments/npm-publish`;
 const USER_ID = 4242;
 
+const LEGACY_RULESET: Ruleset = {
+  id: 99,
+  name: 'legacy',
+  target: 'branch',
+  enforcement: 'active',
+  conditions: { ref_name: { include: ['refs/heads/release'] } },
+  rules: [{ type: 'required_signatures' }],
+  bypass_actors: [{ actor_id: 7, actor_type: 'User', bypass_mode: 'always' }],
+};
+
 interface Ruleset {
   id: number;
   name: string;
@@ -48,6 +58,20 @@ function fakeGitHub(start: { configured?: boolean } = {}) {
       secret_scanning: { status: 'disabled' },
       secret_scanning_push_protection: { status: 'disabled' },
     },
+    features: {
+      has_issues: false,
+      has_projects: true,
+      has_wiki: true,
+      has_discussions: true,
+      delete_branch_on_merge: false,
+      allow_update_branch: false,
+      allow_squash_merge: false,
+      allow_merge_commit: false,
+      allow_rebase_merge: false,
+      web_commit_signoff_required: true,
+    },
+    topics: [] as string[],
+    keys: [] as { id: number; title: string }[],
     failOn: null as null | string,
     getStatus: {} as Record<string, number>,
     requests: [] as string[],
@@ -117,9 +141,21 @@ function fakeGitHub(start: { configured?: boolean } = {}) {
     [`PUT ${REPO}/automated-security-fixes`]: () => {
       gh.fixes = true;
     },
-    [`GET ${REPO}`]: () => ({ security_and_analysis: gh.analysis }),
+    [`GET ${REPO}/topics`]: () => ({ names: gh.topics }),
+    [`PUT ${REPO}/topics`]: (body) => {
+      gh.topics = [...((body.names as string[]) ?? [])];
+      return { names: gh.topics };
+    },
+    [`GET ${REPO}/keys`]: () => gh.keys,
+    [`GET ${REPO}`]: () => ({
+      ...gh.features,
+      security_and_analysis: gh.analysis,
+    }),
     [`PATCH ${REPO}`]: (body) => {
-      gh.analysis = (body as { security_and_analysis: typeof gh.analysis }).security_and_analysis;
+      if ('security_and_analysis' in body) {
+        gh.analysis = (body as { security_and_analysis: typeof gh.analysis }).security_and_analysis;
+      }
+      Object.assign(gh.features, body);
       return {};
     },
   };
@@ -213,7 +249,7 @@ test('A bare repository is configured in a safe order, then read back as matchin
   const { gh, ctx, writes, questions } = fakeGitHub();
   assert.strictEqual(await checkSettings(ctx, DECLARED), false);
   assert.strictEqual(await applySettings(ctx, DECLARED), true);
-  assert.deepStrictEqual(questions, ['Apply 13 change(s) to GitHub?']);
+  assert.deepStrictEqual(questions, ['Apply 15 change(s) to GitHub?']);
   const order = writes();
   const before = (a: string, b: string) =>
     assert.ok(order.indexOf(a) < order.indexOf(b), `${a} < ${b}`);
@@ -235,6 +271,10 @@ test('A bare repository is configured in a safe order, then read back as matchin
   assert.deepStrictEqual(gh.policies, [{ name: 'v*', type: 'tag' }]);
   assert.strictEqual(gh.actions.sha_pinning_required, true);
   assert.strictEqual(gh.workflow.default_workflow_permissions, 'read');
+  assert.strictEqual(gh.features.has_issues, true);
+  assert.strictEqual(gh.features.has_projects, false);
+  assert.strictEqual(gh.features.delete_branch_on_merge, true);
+  assert.deepStrictEqual(gh.topics, DECLARED.features.topics);
   assert.ok(!order.some((request) => request.startsWith('DELETE')), 'nothing deleted');
 });
 
@@ -255,15 +295,7 @@ test('An already configured repository needs nothing; a changed ruleset is updat
 test('Undeclared rulesets and deployment policies are reported, never deleted', async () => {
   const world = fakeGitHub({ configured: true });
   await world.ready;
-  world.gh.rulesets.push({
-    id: 99,
-    name: 'legacy',
-    target: 'branch',
-    enforcement: 'active',
-    conditions: { ref_name: { include: ['refs/heads/release'] } },
-    rules: [{ type: 'required_signatures' }],
-    bypass_actors: [{ actor_id: 7, actor_type: 'User', bypass_mode: 'always' }],
-  });
+  world.gh.rulesets.push({ ...LEGACY_RULESET });
   world.gh.policies.push({ name: 'x*', type: 'tag' });
   world.gh.policies.push({ name: 'v*', type: 'branch' });
   assert.strictEqual(await checkSettings(world.ctx, DECLARED), false);
@@ -341,7 +373,7 @@ test('Settings can also be switched off: features are disabled, not left as they
   const { changes } = planSettings(declared, state);
   const pvr = changes.find((change) => change.path.endsWith('private-vulnerability-reporting'));
   assert.strictEqual(pvr?.method, 'DELETE');
-  const patch = changes.find((change) => change.method === 'PATCH');
+  const patch = changes.find((change) => change.summary === 'secret scanning and push protection');
   assert.deepStrictEqual(patch?.body, {
     security_and_analysis: {
       secret_scanning: { status: 'disabled' },
@@ -382,6 +414,8 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
     [`${REPO}/private-vulnerability-reporting`]: { status: 200, data: { enabled: false } },
     [`${REPO}/vulnerability-alerts`]: { status: 404, data: null },
     [`${REPO}/automated-security-fixes`]: { status: 200, data: { enabled: false } },
+    [`${REPO}/topics`]: { status: 200, data: {} },
+    [`${REPO}/keys`]: { status: 200, data: [] },
     [REPO]: { status: 200, data: {} },
   };
   const ctx = {
@@ -435,15 +469,7 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
 test('The report speaks plainly: areas, "now -> after", and what needs a person', async () => {
   const world = fakeGitHub({ configured: true });
   await world.ready;
-  world.gh.rulesets.push({
-    id: 99,
-    name: 'legacy',
-    target: 'branch',
-    enforcement: 'active',
-    conditions: { ref_name: { include: ['refs/heads/release'] } },
-    rules: [{ type: 'required_signatures' }],
-    bypass_actors: [{ actor_id: 7, actor_type: 'User', bypass_mode: 'always' }],
-  });
+  world.gh.rulesets.push({ ...LEGACY_RULESET });
   world.gh.policies.push({ name: 'v*', type: 'branch' }, { name: 'x*', type: 'tag' });
   world.gh.rulesets[0].rules = [{ type: 'deletion' }];
   world.gh.analysis.secret_scanning_push_protection = { status: 'disabled' };
@@ -533,5 +559,63 @@ test('A bare undeclared ruleset is described, and a single item is counted as on
         line,
       ),
     ),
+  );
+});
+
+test('When features are not declared, features are skipped and keys/topics are not fetched', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  const noFeatures = { ...DECLARED, features: undefined };
+  const state = await readState(world.ctx, noFeatures);
+  assert.deepStrictEqual(state.deployKeys, []);
+  assert.deepStrictEqual(state.features.topics, []);
+  const plan = planSettings(noFeatures, state);
+  assert.strictEqual(
+    plan.changes.some((c) => c.summary.startsWith('update repository')),
+    false,
+  );
+});
+
+test('Deploy keys are reported as drift and never deleted', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  world.gh.keys.push({ id: 10, title: 'deploy-key-ci' });
+  world.logs.length = 0;
+  assert.strictEqual(await checkSettings(world.ctx, DECLARED), false);
+  assert.ok(
+    world.logs.some((line) =>
+      /^features › deploy key "deploy-key-ci"\s+present\s+\(not declared/.test(line),
+    ),
+  );
+});
+
+test('Removing all topics plans clearing topics', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  const state = await readState(world.ctx, DECLARED);
+  const declared = { ...DECLARED, features: { ...DECLARED.features, topics: [] } };
+  const plan = planSettings(declared, state);
+  const change = plan.changes.find((c) => c.summary === 'update repository topics');
+  assert.strictEqual(change?.rows[0].required, '(none)');
+});
+
+test('Partial feature declaration diffs only declared features', async () => {
+  const world = fakeGitHub({ configured: true });
+  await world.ready;
+  const state = await readState(world.ctx, DECLARED);
+  const declared = { ...DECLARED, features: { hasIssues: false } };
+  const plan = planSettings(declared, state);
+  const change = plan.changes.find((c) => c.summary === 'update repository features');
+  assert.deepStrictEqual(change?.body, { has_issues: false });
+});
+
+test('When declared features omit topics, topics are not planned', async () => {
+  const world = fakeGitHub();
+  const state = await readState(world.ctx, DECLARED);
+  const declared = { ...DECLARED, features: { ...DECLARED.features, topics: undefined } };
+  const plan = planSettings(declared, state);
+  assert.strictEqual(
+    plan.changes.some((c) => c.summary === 'update repository topics'),
+    false,
   );
 });

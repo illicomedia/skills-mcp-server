@@ -120,10 +120,10 @@ async function readEnvironment(ctx, repo, declared) {
   };
 }
 
-async function readSecurity(ctx, repo) {
+async function readSecurity(ctx, repo, base) {
   const alerts = await ctx.api('GET', `${repo}/vulnerability-alerts`);
   const fixes = await ctx.api('GET', `${repo}/automated-security-fixes`);
-  const analysis = (await get(ctx, repo)).security_and_analysis ?? {};
+  const analysis = base.security_and_analysis ?? {};
   return {
     privateVulnerabilityReporting: (await get(ctx, `${repo}/private-vulnerability-reporting`))
       .enabled,
@@ -134,9 +134,28 @@ async function readSecurity(ctx, repo) {
   };
 }
 
+function readFeatures(base, topics) {
+  return {
+    hasIssues: base.has_issues === true,
+    hasProjects: base.has_projects === true,
+    hasWiki: base.has_wiki === true,
+    hasDiscussions: base.has_discussions === true,
+    deleteBranchOnMerge: base.delete_branch_on_merge === true,
+    allowUpdateBranch: base.allow_update_branch === true,
+    allowSquashMerge: base.allow_squash_merge === true,
+    allowMergeCommit: base.allow_merge_commit === true,
+    allowRebaseMerge: base.allow_rebase_merge === true,
+    webCommitSignoffRequired: base.web_commit_signoff_required === true,
+    topics: sorted(topics.names ?? []),
+  };
+}
+
 /** The live settings, in the same normalized shape the declaration is compared with. */
 export async function readState(ctx, declared) {
   const repo = `/repos/${declared.repository}`;
+  const base = await get(ctx, repo);
+  const topics = declared.features?.topics ? await get(ctx, `${repo}/topics`) : { names: [] };
+  const keys = declared.features ? await get(ctx, `${repo}/keys`) : [];
   const rulesets = [];
   for (const { id } of await get(ctx, `${repo}/rulesets?includes_parents=false`)) {
     rulesets.push(normalizeRuleset(await get(ctx, `${repo}/rulesets/${id}`)));
@@ -162,7 +181,9 @@ export async function readState(ctx, declared) {
     workflow: await get(ctx, `${repo}/actions/permissions/workflow`),
     forkApproval: (await get(ctx, `${repo}/actions/permissions/fork-pr-contributor-approval`))
       .approval_policy,
-    security: await readSecurity(ctx, repo),
+    security: await readSecurity(ctx, repo, base),
+    features: readFeatures(base, topics),
+    deployKeys: keys,
   };
 }
 
@@ -460,6 +481,73 @@ function planSecurity(declared, state, repo, changes) {
   }
 }
 
+const FEATURE_FLAGS = [
+  ['hasIssues', 'has_issues', 'issues enabled'],
+  ['hasProjects', 'has_projects', 'projects enabled'],
+  ['hasWiki', 'has_wiki', 'wiki enabled'],
+  ['hasDiscussions', 'has_discussions', 'discussions enabled'],
+  ['deleteBranchOnMerge', 'delete_branch_on_merge', 'delete branch on merge'],
+  ['allowUpdateBranch', 'allow_update_branch', 'suggest updating PR branch'],
+  ['allowSquashMerge', 'allow_squash_merge', 'allow squash merge'],
+  ['allowMergeCommit', 'allow_merge_commit', 'allow merge commit'],
+  ['allowRebaseMerge', 'allow_rebase_merge', 'allow rebase merge'],
+  ['webCommitSignoffRequired', 'web_commit_signoff_required', 'web commit signoff required'],
+];
+
+function planFeatures(declared, state, repo, changes, drift) {
+  if (!declared.features) {
+    return;
+  }
+  const patchBody = {};
+  const fields = [];
+  for (const [key, apiProp, label] of FEATURE_FLAGS) {
+    if (key in declared.features) {
+      const actual = yesNo(state.features?.[key]);
+      const required = yesNo(declared.features[key]);
+      fields.push([label, actual, required]);
+      if (actual !== required) {
+        patchBody[apiProp] = declared.features[key];
+      }
+    }
+  }
+  const rows = differences('features', fields);
+  if (rows.length > 0) {
+    changes.push({
+      summary: 'update repository features',
+      rows,
+      method: 'PATCH',
+      path: repo,
+      body: patchBody,
+    });
+  }
+  if (declared.features.topics) {
+    const wantedTopics = sorted(declared.features.topics);
+    const actualTopics = state.features?.topics ?? [];
+    if (!same(actualTopics, wantedTopics)) {
+      changes.push({
+        summary: 'update repository topics',
+        rows: [
+          {
+            path: 'features › topics',
+            actual: actualTopics.join(', ') || '(none)',
+            required: wantedTopics.join(', ') || '(none)',
+          },
+        ],
+        method: 'PUT',
+        path: `${repo}/topics`,
+        body: { names: wantedTopics },
+      });
+    }
+  }
+  for (const key of state.deployKeys ?? []) {
+    drift.push({
+      path: `features › deploy key "${key.title}"`,
+      actual: 'present',
+      required: '(not declared: remove by hand if unwanted)',
+    });
+  }
+}
+
 /** The changes that make the live settings match the declaration, in a safe order, and the drift. */
 export function planSettings(declared, state) {
   const repo = `/repos/${declared.repository}`;
@@ -469,6 +557,7 @@ export function planSettings(declared, state) {
   planEnvironment(declared, state, repo, changes, drift);
   planActions(declared, state, repo, changes);
   planSecurity(declared, state, repo, changes);
+  planFeatures(declared, state, repo, changes, drift);
   return { changes, drift };
 }
 

@@ -22,7 +22,10 @@ export interface SettingsChange {
 
 export function parseSettingsArgs(argv: string[]): { action: string; yes: boolean; tokenFile: string | null };
 export function readState(ctx: SettingsContext, declared: any): Promise<any>;
-export function planSettings(declared: any, state: any): { changes: SettingsChange[]; drift: string[] };
+export function planSettings(
+  declared: any,
+  state: any,
+): { changes: SettingsChange[]; drift: { path: string; actual: string; required: string }[] };
 export function checkSettings(ctx: SettingsContext, declared: any): Promise<boolean>;
 export function applySettings(ctx: SettingsContext, declared: any, options?: { yes?: boolean }): Promise<boolean>;
 export function formatPlan(

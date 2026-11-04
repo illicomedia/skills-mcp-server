@@ -1,6 +1,33 @@
 {
   "$comment": "Repository settings, as code. Check: pnpm run github:check. Apply: pnpm run github:apply. See docs/engineering/decisions.md (D20).",
   "repository": "illicomedia/skills-mcp-server",
+  "features": {
+    "hasIssues": true,
+    "hasProjects": false,
+    "hasWiki": false,
+    "hasDiscussions": false,
+    "deleteBranchOnMerge": true,
+    "allowUpdateBranch": true,
+    "allowSquashMerge": true,
+    "allowMergeCommit": true,
+    "allowRebaseMerge": true,
+    "webCommitSignoffRequired": false,
+    "topics": [
+      "mcp",
+      "mcp-apps",
+      "mcp-server",
+      "mcp-servers",
+      "mcp-tools",
+      "model-context-protocol",
+      "skill",
+      "skill-development",
+      "skill-library",
+      "skill-management",
+      "skill-md",
+      "skill-pack",
+      "skills"
+    ]
+  },
   "rulesets": [
     {
       "name": "main",

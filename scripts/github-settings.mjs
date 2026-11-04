@@ -24,21 +24,45 @@ const COLOR = Boolean(process.stderr.isTTY) && !process.env.NO_COLOR;
 const say = (code, symbol) => (msg) =>
   console.error(`${COLOR ? `\x1b[${code}m[github]\x1b[0m` : '[github]'} ${symbol} ${msg}`);
 
-function readToken(file) {
-  if (!existsSync(file)) {
-    throw new Error(
-      `No token at ${file}: create it as docs/operations/release-runbook.md ("Repository settings") shows.`,
-    );
+function printTokenGuidance(reason, repo = 'illicomedia/skills-mcp-server') {
+  const owner = repo.split('/')[0] || 'illicomedia';
+  console.error(`\n${COLOR ? '\x1b[33m' : ''}[github] ! ${reason}${COLOR ? '\x1b[0m' : ''}`);
+  console.error('To set up or renew your token quickly:\n');
+  console.error(`  1. Generate a fine-grained token on GitHub (signed in as ${owner}):`);
+  console.error('     https://github.com/settings/personal-access-tokens/new');
+  console.error(`     - Resource owner : ${owner}`);
+  console.error(`     - Repository     : Only select repositories → ${repo}`);
+  console.error(
+    '     - Permissions    : Administration (Read & write), Environments (Read & write)',
+  );
+  console.error('     - Expiration     : 1 day (or short-lived)\n');
+  console.error('  2. Securely store it locally (chmod 600):');
+  console.error('     mkdir -p ~/.config/gh-setup');
+  console.error(
+    "     (umask 077; read -rsp 'Token: ' T; echo; printf '%s' \"$T\" > ~/.config/gh-setup/token)\n",
+  );
+  console.error('  Or export in your shell:');
+  console.error('     export GH_TOKEN="your_token_here"\n');
+}
+
+function readToken(file, repo) {
+  if (existsSync(file)) {
+    const { mode } = statSync(file);
+    if (process.platform !== 'win32' && (mode & 0o077) !== 0) {
+      throw new Error(`${file} is readable by other users: chmod 600 it first.`);
+    }
+    const token = readFileSync(file, 'utf8').trim();
+    if (!/^(github_pat_|ghp_)\w+$/.test(token)) {
+      throw new Error(`${file} does not hold a GitHub token.`);
+    }
+    return token;
   }
-  const { mode } = statSync(file);
-  if (process.platform !== 'win32' && (mode & 0o077) !== 0) {
-    throw new Error(`${file} is readable by other users: chmod 600 it first.`);
+  const envToken = (process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '').trim();
+  if (envToken && /^(github_pat_|ghp_)\w+$/.test(envToken)) {
+    return envToken;
   }
-  const token = readFileSync(file, 'utf8').trim();
-  if (!/^(github_pat_|ghp_)\w+$/.test(token)) {
-    throw new Error(`${file} does not hold a GitHub token.`);
-  }
-  return token;
+  printTokenGuidance(`No token found at ${file} or in GH_TOKEN / GITHUB_TOKEN.`, repo);
+  throw new Error('Authentication token required.');
 }
 
 function apiWith(token) {
@@ -73,7 +97,7 @@ async function main() {
   const declared = JSON.parse(readFileSync(join(ROOT, '.github', 'settings.json'), 'utf8'));
   const tokenFile = options.tokenFile ?? join(homedir(), '.config', 'gh-setup', 'token');
   const ctx = {
-    api: apiWith(readToken(tokenFile)),
+    api: apiWith(readToken(tokenFile, declared.repository)),
     interactive: Boolean(process.stdin.isTTY),
     confirm,
     color: COLOR,
@@ -91,5 +115,10 @@ async function main() {
 
 main().catch((error) => {
   say(31, '✖')(error.message);
+  if (error.message.includes('401') || error.message.toLowerCase().includes('bad credentials')) {
+    printTokenGuidance(
+      'The GitHub token is expired, revoked, or invalid (HTTP 401 Bad credentials).',
+    );
+  }
   process.exit(1);
 });

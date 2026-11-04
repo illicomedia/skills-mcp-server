@@ -49,7 +49,8 @@
     "release": "node scripts/release.mjs",
     "release:smoke": "node scripts/release.mjs --smoke-only",
     "github:check": "node scripts/github-settings.mjs --check",
-    "github:apply": "node scripts/github-settings.mjs --apply"
+    "github:apply": "node scripts/github-settings.mjs --apply",
+    "github:audit": "bash scripts/github-audit.sh"
   },
   "keywords": [
     "mcp",
