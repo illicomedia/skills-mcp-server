@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 3.0.0 - 2026-11-04
+
 **Why 3.0:** a supply-chain hardening release. The server now reads no environment variable and all
 file access goes through one audited module. Only setups that point at a license with
 `FREDO_QA_LICENSE_FILE` need a one-minute change (below); everything else works as in 2.0.x, which
