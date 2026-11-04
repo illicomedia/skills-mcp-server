@@ -87,13 +87,16 @@ A major version is released first as candidates (`3.0.0-rc.N`, `--preid rc`) und
 candidates can never become `latest` (`--promote` accepts only `x.y.z`). Breaking changes are
 batched into one major instead of released one by one.
 
-Only the newest patch of a supported major receives fixes, so older patches of a major are
-unsupported and may be deprecated toward its newest patch. Major versions that lack critical security
-hardening or depend on end-of-life runtimes are formally deprecated under the specification of D21
-(e.g., 1.4.7 was deprecated on 2026-11-04 because it lacks path-guard encapsulation and permits Node 18/20).
+Only the latest major is supported, and only its newest patch receives fixes; older patches of it
+may be deprecated toward that patch. When a major ships, older majors reach end of life at once and
+are deprecated on npm, one version at a time, with a D21 message pointing to the new major. (Changed
+with 3.0.1: 3.0.0 had announced six months of security fixes for 2.x. 1.x and 2.x are deprecated
+toward `^3.0.0`; the registry in `docs/operations/mcp-publish-process.md` lists the messages and
+whether they are applied.)
 
-**Why.** Users pinning exact versions (as the README recommends) must not be warned off working
-versions without a reason they can act on. A bad release is undone by moving `latest` back and
+**Why.** One supported line means every user runs the hardened code: a second line would ship
+each security fix twice and keep users on the weaker one. Users pinning exact versions (as the
+README recommends) must not be warned off working versions without a reason they can act on. A bad release is undone by moving `latest` back and
 fixing forward. Unpublishing breaks pinned users and removes nothing already downloaded.
 
 **Enforced by.** `promote` and `deprecate` in `scripts/release-flow.mjs` (tests: "verifies from
@@ -420,5 +423,7 @@ Breaking input/output formats breaks AI agents silently or triggers unexpected f
 deprecation format ensures human developers and AI coding agents receive clear, actionable upgrade
 guidance rather than cryptic crash logs.
 
-**Enforced by.** Tool schema validation tests in `tests/mcp-server.test.ts`, deprecation validation
-in `tests/release-flow.test.ts` and `scripts/release-lib.mjs`, and the package e2e suite.
+**Enforced by.** Tool schema validation tests in `tests/mcp-server.test.ts`; `deprecationProblems`
+in `scripts/release-lib.mjs`, which `pnpm release --deprecate` runs before any registry call (tests:
+"Deprecation messages follow D21", "deprecate: one version, never latest, a D21 message"); and the
+package e2e suite.

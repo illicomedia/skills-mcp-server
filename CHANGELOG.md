@@ -6,6 +6,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Changed
+
+- Support policy: only the latest major version is supported. 1.x and 2.x are end of life and are deprecated on npm, pointing to `^3.0.0`. This withdraws the six months of security fixes announced for 2.x with 3.0.0, so that every user runs the hardened code.
+
 ### Fixed
 
 - Security: strict validation of the `confirm` boolean parameter and runtime schema types in `validateToolParams`. Passing non-boolean values (such as string `"false"` or number `0`) no longer coerces to `true`, preventing dry-run confirmation bypass.

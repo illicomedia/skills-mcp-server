@@ -30,7 +30,7 @@
 
 Notes accumulate under `## Unreleased` in [`CHANGELOG.md`](../../CHANGELOG.md) as pull requests land. A `### Breaking` heading there means the next release is a major.
 
-**Support policy:** the latest major version gets all fixes. The previous major version gets security and critical fixes for 6 months after the next major version ships.
+**Support policy:** only the latest major version is supported, in its newest patch. When a major ships, older majors reach end of life at once and are deprecated on npm, one version at a time, with a [D21 message](#51-normalized-deprecation-specification) (changed with 3.0.1; 3.0.0 had announced six months of security fixes for 2.x).
 
 **Node.js support:** only release lines that receive security fixes (`^22.0.0 || ^24.0.0 || >=26.0.0`), because the server reads whole codebases. `engines` declares it, and `src/security/runtime-guard.ts` enforces it at startup (npm only warns); a test keeps the two identical. CI installs the packed tarball and runs it on the first and the latest release of each line, and checks that Node 18 and 20 are refused. When a line reaches end of life, drop it in the next major release.
 
@@ -128,16 +128,30 @@ Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecat
 4. **Length Constraint:** Keep the string under 256 characters (npm accepts up to 512).
 5. **No Shell Commands:** Never prescribe executable terminal commands (`npm i -g ...`, `curl | bash`).
 6. **Immutable Registry:** Record every deprecation in the table below.
+7. **Enforced:** `pnpm release --deprecate` refuses a message that does not follow this syntax, is longer than 256 characters or prescribes a command, before any registry call.
 
 ### Deprecation Registry
 
-| Version | Deprecation Date | Normalized Deprecation Message | Status |
-| :--- | :--- | :--- | :--- |
-| `1.4.7` | 2026-11-04 | `Version 1.x is end-of-life and lacks security hardening. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node 22+).` | Deprecated |
+Applied by the npm account owner (2FA). The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`.
 
-**Command executed for 1.4.7:**
+| Versions | Message | Applied |
+| :--- | :--- | :--- |
+| `1.4.0`, `1.4.1`, `1.4.3`, `1.4.4`, `1.4.5`, `1.4.6`, `1.4.7` | `End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | pending |
+| `1.4.2` | `Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | pending |
+| `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | pending |
+
+These replace earlier messages that sent 1.4.x users to 1.4.7 (or 2.0.2) and 2.0.1 users to 2.0.2,
+both now end of life. Each command asks for confirmation; with npm's web login, the 2FA page's
+"skip for 5 minutes" option covers the whole run.
+
 ```bash
-pnpm release --deprecate 1.4.7 --message "Version 1.x is end-of-life and lacks security hardening. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node 22+)."
+for v in 1.4.0 1.4.1 1.4.3 1.4.4 1.4.5 1.4.6 1.4.7; do
+  pnpm release --deprecate "$v" --message "End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+)."
+done
+pnpm release --deprecate 1.4.2 --message "Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+)."
+for v in 2.0.1 2.0.2; do
+  pnpm release --deprecate "$v" --message "End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read)."
+done
 ```
 
 ---

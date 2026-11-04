@@ -4,9 +4,12 @@
 
 | Version | Supported |
 | :--- | :--- |
-| Latest major version (`latest` on npm) | ✅ All fixes |
-| Previous major version | ✅ Security and critical fixes for 6 months after the next major ships |
-| Older | ❌ Upgrade to the latest version |
+| Latest major version (`latest` on npm), newest patch | ✅ All fixes |
+| Older major versions | ❌ End of life as soon as the next major ships, and deprecated on npm with the version to use instead |
+
+Since 3.0.1, only the latest major is supported: 1.x and 2.x are end of life. (3.0.0 had announced
+six months of security fixes for 2.x; that window is withdrawn so that every user runs the
+hardened code.)
 
 A version found to be vulnerable is deprecated on npm with the reason and the version to use instead.
 

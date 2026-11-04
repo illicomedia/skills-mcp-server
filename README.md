@@ -243,7 +243,7 @@ npx -y @illicomedia/skills-mcp-server@1.4.3
 - **`next`** is a release being tried before it reaches `latest`. Do not use it in production.
 - Version numbers follow [Semantic Versioning](https://semver.org/): a major version can break an existing setup, while minor and patch versions do not. See the [changelog](CHANGELOG.md).
 - A deprecation warning means that version has a known problem, and the message names its replacement.
-- The latest major version gets all fixes. The previous major version gets security and critical fixes for 6 months after the next major version ships.
+- Only the latest major version is supported, in its newest patch. When a new major version ships, older ones reach end of life and are deprecated on npm, with the version to use instead. 1.x and 2.x are end of life: use 3.x.
 
 ---
 
