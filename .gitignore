@@ -5,3 +5,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Work in progress, not tracked yet
+assets/
+docs/infra/
