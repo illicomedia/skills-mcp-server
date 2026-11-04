@@ -188,6 +188,39 @@ export function findToolDefinition(name: string): McpTool | undefined {
   return MCP_TOOLS.find((t) => t.name === name);
 }
 
+interface SchemaProperty {
+  type?: string;
+  items?: { type?: string };
+}
+
+function validateParamTypes(
+  properties: Record<string, unknown>,
+  params: Record<string, unknown>,
+): string | null {
+  for (const [key, rawProp] of Object.entries(properties)) {
+    const prop = rawProp as SchemaProperty;
+    const val = params[key];
+    if (val === undefined || val === null) {
+      continue;
+    }
+    if (prop.type === 'boolean' && typeof val !== 'boolean') {
+      return `Invalid type for parameter '${key}': expected boolean, received ${typeof val}`;
+    }
+    if (prop.type === 'string' && typeof val !== 'string') {
+      return `Invalid type for parameter '${key}': expected string, received ${typeof val}`;
+    }
+    if (prop.type === 'array') {
+      if (!Array.isArray(val)) {
+        return `Invalid type for parameter '${key}': expected array, received ${typeof val}`;
+      }
+      if (prop.items?.type === 'string' && !val.every((item) => typeof item === 'string')) {
+        return `Invalid item in array parameter '${key}': all items must be strings`;
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Validates tool call parameters against strict schema rules:
  * - Checks that all required parameters are present.
@@ -214,5 +247,6 @@ export function validateToolParams(tool: McpTool, params: Record<string, unknown
     }
   }
 
-  return null;
+  // 3. Strict property type checks
+  return validateParamTypes(schema.properties, params);
 }

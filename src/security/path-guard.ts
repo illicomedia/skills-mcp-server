@@ -59,17 +59,25 @@ export function validateSafeProjectPath(projectPath: string, operationName: stri
     throw new Error(`[${operationName}] Target path is not a directory: '${resolved}'.`);
   }
 
-  // 2. Block system roots and core system folders
+  // 2. Resolve canonical realpath to prevent symlink traversal to sensitive areas
+  const real = fs.realpathSync(resolved);
+
+  // 3. Block system roots and core system folders (check both resolved path and symlink target)
   const normalized = path.normalize(resolved);
-  if (BLOCKED_EXACT_PATHS.has(normalized)) {
+  if (BLOCKED_EXACT_PATHS.has(normalized) || BLOCKED_EXACT_PATHS.has(real)) {
     throw new Error(
       `[${operationName}] Security restriction: cannot target system directory '${normalized}'.`,
     );
   }
 
-  // 3. Block sensitive credential stores (~/.ssh, ~/.aws, etc.)
+  // 4. Block sensitive credential stores (~/.ssh, ~/.aws, etc.)
   for (const sensitiveDir of getSensitiveUserDirs()) {
-    if (normalized === sensitiveDir || normalized.startsWith(`${sensitiveDir}${path.sep}`)) {
+    if (
+      normalized === sensitiveDir ||
+      normalized.startsWith(`${sensitiveDir}${path.sep}`) ||
+      real === sensitiveDir ||
+      real.startsWith(`${sensitiveDir}${path.sep}`)
+    ) {
       throw new Error(
         `[${operationName}] Security restriction: cannot target credential directory '${sensitiveDir}'.`,
       );

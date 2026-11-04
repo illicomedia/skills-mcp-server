@@ -336,6 +336,17 @@ export function stampChangelog(changelog, version, date) {
   return lines.join('\n');
 }
 
+/**
+ * Stamps the release date in keys.ts (SERVER_RELEASE_DATE).
+ * Replaces the existing SERVER_RELEASE_DATE with `<date>T00:00:00Z`.
+ */
+export function stampReleaseDate(source, date) {
+  return source.replace(
+    /export const SERVER_RELEASE_DATE = '[^']+';/,
+    `export const SERVER_RELEASE_DATE = '${date}T00:00:00Z';`,
+  );
+}
+
 /** "owner/repo" of the GitHub repository in package.json, or null when it is not on GitHub. */
 export function githubRepoSlug(repository) {
   const url = typeof repository === 'string' ? repository : (repository?.url ?? '');

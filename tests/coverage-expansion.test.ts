@@ -580,16 +580,31 @@ test('Security Guard: validateSafeProjectPath blocks root and sensitive system d
     /cannot target system directory/,
   );
 
+  // Symlink targeting system directory is rejected
+  const tmpProj = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-sym-'));
+  const symlinkToEtc = path.join(tmpProj, 'link_etc');
+  try {
+    fs.symlinkSync('/etc', symlinkToEtc);
+    assert.throws(
+      () => validateSafeProjectPath(symlinkToEtc, 'test_symlink_etc'),
+      /cannot target system directory/,
+    );
+  } finally {
+    fs.rmSync(tmpProj, { recursive: true, force: true });
+  }
+
   // A home of our own, so the credential-store refusal is tested on every machine (CI runners
   // have no ~/.ssh). os.homedir() reads HOME (USERPROFILE on Windows) at each call.
   const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-home-'));
   const sshDir = path.join(fakeHome, '.ssh');
   fs.mkdirSync(path.join(sshDir, 'keys'), { recursive: true });
+  const symlinkToSsh = path.join(fakeHome, 'link_ssh');
+  fs.symlinkSync(sshDir, symlinkToSsh);
   const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
   process.env.HOME = fakeHome;
   process.env.USERPROFILE = fakeHome;
   try {
-    for (const target of [sshDir, path.join(sshDir, 'keys')]) {
+    for (const target of [sshDir, path.join(sshDir, 'keys'), symlinkToSsh]) {
       assert.throws(
         () => validateSafeProjectPath(target, 'test_ssh'),
         /cannot target credential directory/,

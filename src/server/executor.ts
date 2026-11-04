@@ -140,7 +140,7 @@ export const ToolExecutor = {
       onLicenseUpdate(providedKey);
     }
     const license = validateLicense(providedKey || activeLicenseKey, licenseOptions);
-    const confirm = Boolean(args.confirm);
+    const confirm = args.confirm === true;
 
     switch (name) {
       case 'set_license_key':

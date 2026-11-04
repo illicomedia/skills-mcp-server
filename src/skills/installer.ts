@@ -258,7 +258,7 @@ const FILE_INDICATORS: ReadonlyArray<{ files: string[]; skills: string[] }> = [
     files: ['package.json', 'Cargo.toml', 'go.mod'],
     skills: ['qa-cra-software-supply-chain'],
   },
-  { files: ['dns', 'infra/dns', 'scripts/deploy-ovh.js'], skills: ['qa-emails-dns'] },
+  { files: ['dns', 'infra/dns', 'mail', 'bind', 'named.conf'], skills: ['qa-emails-dns'] },
 ];
 
 const PHP_DIRECTORIES = ['.', 'public/api', 'website/public/api', 'tests/php', 'api', 'src'];

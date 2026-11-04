@@ -7,24 +7,8 @@ import {
   listDirEntries,
   readText,
 } from '../security/path-guard.js';
+import { DEFAULT_IGNORED_SCAN_DIRS } from './constants.js';
 import type { AuditContext, GitForge, StackDetection } from './types.js';
-
-const IGNORED_SCAN_DIRS = new Set([
-  '.git',
-  'node_modules',
-  'dist',
-  'build',
-  'target',
-  'vendor',
-  '.venv',
-  'venv',
-  'coverage',
-  '.next',
-  '.nuxt',
-  '.output',
-  '.turbo',
-  '.cache',
-]);
 
 function readEntries(directory: string): DirEntry[] {
   try {
@@ -117,7 +101,7 @@ export function createAuditContext(projectPath: string): AuditContext {
       }
       for (const entry of readEntries(currentDir)) {
         const relPath = currentRel ? `${currentRel}/${entry.name}` : entry.name;
-        if (entry.isDirectory() && !IGNORED_SCAN_DIRS.has(entry.name)) {
+        if (entry.isDirectory() && !DEFAULT_IGNORED_SCAN_DIRS.has(entry.name)) {
           walk(path.join(currentDir, entry.name), relPath, depth + 1);
         } else if (entry.isFile() && predicate(relPath, entry.name)) {
           matches.push(relPath);

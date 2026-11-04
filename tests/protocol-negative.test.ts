@@ -74,3 +74,93 @@ test('MCP Protocol Negative: Undeclared property violates additionalProperties: 
   assert.strictEqual(res.error.code, -32602);
   assert.match(res.error.message, /does not allow additional properties/i);
 });
+
+test('MCP Protocol Negative: String passed where boolean is expected returns code -32602', () => {
+  const server = new FredoQaMcpServer();
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 105,
+    method: 'tools/call',
+    params: {
+      name: 'install_skill',
+      arguments: {
+        skill_id: 'qa-core',
+        confirm: 'false', // String instead of boolean
+      },
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.id, 105);
+  assert.ok(res.error);
+  assert.strictEqual(res.error.code, -32602);
+  assert.match(
+    res.error.message,
+    /Invalid type for parameter 'confirm': expected boolean, received string/i,
+  );
+});
+
+test('MCP Protocol Negative: Number passed where string is expected returns code -32602', () => {
+  const server = new FredoQaMcpServer();
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 106,
+    method: 'tools/call',
+    params: {
+      name: 'list_skills',
+      arguments: {
+        category: 123, // Number instead of string
+      },
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.id, 106);
+  assert.ok(res.error);
+  assert.strictEqual(res.error.code, -32602);
+  assert.match(
+    res.error.message,
+    /Invalid type for parameter 'category': expected string, received number/i,
+  );
+});
+
+test('MCP Protocol Negative: String passed where array is expected returns code -32602', () => {
+  const server = new FredoQaMcpServer();
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 107,
+    method: 'tools/call',
+    params: {
+      name: 'sync_workspace_skills',
+      arguments: {
+        skills: 'qa-core', // String instead of array
+      },
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.id, 107);
+  assert.ok(res.error);
+  assert.strictEqual(res.error.code, -32602);
+  assert.match(
+    res.error.message,
+    /Invalid type for parameter 'skills': expected array, received string/i,
+  );
+});
+
+test('MCP Protocol Negative: Non-string item in array parameter returns code -32602', () => {
+  const server = new FredoQaMcpServer();
+  const req: JsonRpcRequest = {
+    jsonrpc: '2.0',
+    id: 108,
+    method: 'tools/call',
+    params: {
+      name: 'sync_workspace_skills',
+      arguments: {
+        skills: ['qa-core', 42], // Non-string item
+      },
+    },
+  };
+  const res = server.handleRequest(req);
+  assert.strictEqual(res.id, 108);
+  assert.ok(res.error);
+  assert.strictEqual(res.error.code, -32602);
+  assert.match(res.error.message, /all items must be strings/i);
+});

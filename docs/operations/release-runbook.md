@@ -281,4 +281,4 @@ After the first release has been staged and approved:
 | Step 4 | Staging failed with a git error (`ls-remote`, exit code 128) | npm read the tarball path as a GitHub repository; the workflow must pass an absolute path. CI's "Dry-run the npm staging command" catches this on every push |
 | Step 4 | "not allowed to deploy to npm-publish" | The environment needs a deployment rule of type **Tag**, pattern `v*` |
 | Step 5 | The staged version is wrong | `npm stage reject <stage-id>`; fix forward with the next patch version |
-| After 7 | A problem in the released version | Roll back: `pnpm release --promote 1.4.7`. Warn users of that version only: `pnpm release --deprecate 2.0.0 --message "<reason>. Use <version>."`. Fix forward with 2.0.1 |
+| After 7 | A problem in the released version | Roll back: `pnpm release --promote 2.0.2`. Warn users of that version only using the normalized spec: `pnpm release --deprecate <version> --message "<reason>. Upgrade to <version>."`. Fix forward with next patch version |

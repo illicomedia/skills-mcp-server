@@ -21,6 +21,7 @@ import {
   SMOKE_PROTOCOL_VERSION,
   smokeTestServer,
   stampChangelog,
+  stampReleaseDate,
   tagForVersion,
   tarballFileName,
   versionAtLeast,
@@ -226,6 +227,14 @@ test('stampChangelog: unreleased notes become the version section under a fresh 
   assert.strictEqual(stampChangelog(done, '1.5.0', '2026-11-03'), done);
   assert.throws(() => stampChangelog('## Unreleased\n\n## 1.4.0 - x\n', '1.5.0', 'd'), /no notes/);
   assert.throws(() => stampChangelog('# Changelog\n', '1.5.0', 'd'), /no notes/);
+});
+
+test('stampReleaseDate: replaces SERVER_RELEASE_DATE with the target ISO date', () => {
+  const source = `export const SERVER_RELEASE_DATE = '2026-10-23T00:00:00Z';`;
+  assert.strictEqual(
+    stampReleaseDate(source, '2026-11-04'),
+    `export const SERVER_RELEASE_DATE = '2026-11-04T00:00:00Z';`,
+  );
 });
 
 test('Tags: CI publishes only when the tag is exactly v<package version>', () => {

@@ -44,6 +44,7 @@ the old entry `Superseded by D<n>` instead of deleting it, so the history of why
 | D18 | Workflows are tested like code | 2.0.3 |
 | D19 | Listed in the official MCP Registry, pointing at npm | 3.0.0 |
 | D20 | GitHub settings as code | 3.0.0 |
+| D21 | Strict schema retro-compatibility and normalized deprecation specification | 3.0.1 |
 
 ---
 
@@ -87,9 +88,9 @@ candidates can never become `latest` (`--promote` accepts only `x.y.z`). Breakin
 batched into one major instead of released one by one.
 
 Only the newest patch of a supported major receives fixes, so older patches of a major are
-unsupported and may be deprecated toward its newest patch. The last version of the previous major
-stays undeprecated until that major's support ends (1.4.7 until 2027-05-03: it is also the only
-version for Node.js 18 and 20, which 2.x refuses).
+unsupported and may be deprecated toward its newest patch. Major versions that lack critical security
+hardening or depend on end-of-life runtimes are formally deprecated under the specification of D21
+(e.g., 1.4.7 was deprecated on 2026-11-04 because it lacks path-guard encapsulation and permits Node 18/20).
 
 **Why.** Users pinning exact versions (as the README recommends) must not be warned off working
 versions without a reason they can act on. A bad release is undone by moving `latest` back and
@@ -370,3 +371,49 @@ reviewed, repeatable and checkable.
 **Enforced by.** `tests/github-settings.test.ts` (a stateful fake GitHub: configuration from scratch
 in a safe order, nothing to do when matching, updates in place, drift reported and never deleted,
 confirmation and fail-closed, API errors, sparse answers, every action the workflows use allowed).
+
+## D21. Strict schema retro-compatibility contract and normalized deprecation specification
+
+**Decision.** The server and all connected systems treat past published versions (1.4.x, 2.0.x, 3.x)
+as active consumers whose operational interfaces must not be broken arbitrarily.
+
+1. **Request Schema Retro-Compatibility (Tolerant Reader & Additive-Only):**
+   - **Additive properties only:** Any parameter added to an existing tool in a minor or patch release
+     MUST be optional (`required: [...]` cannot receive new fields).
+   - **Safe fallback defaults:** When an older client omits a parameter, the server provides a safe,
+     non-destructive fallback (e.g. `confirm: false` defaults to safe dry-run preview; `skills`
+     defaults to automatic workspace stack detection).
+   - **Strict type checking without coercive traps:** Tool inputs must strictly conform to their declared
+     schema type (`boolean`, `string`, `array`, `number`) and reject mismatched types with JSON-RPC
+     code `-32602`. Coercion traps (`Boolean("false") === true`) are strictly forbidden.
+
+2. **Response Schema Stability:**
+   - Tools always return `{ content: [{ type: "text", text: string }] }` conforming to the MCP transport.
+   - For tools returning JSON within `text` (`quick_check`, `install_skill`, `get_version`,
+     `verify_license`), existing property keys and types are immutable across minor/patch releases.
+     New metadata fields (`update_available`, `protocol_version`, `schema_version`) are purely additive.
+
+3. **Ecosystem & License Backward Compatibility:**
+   - `LICENSE_SCHEMA_VERSION = 1`: all v1 licenses remain permanently valid and parsable by future builds.
+   - External endpoints (pricing, schema downloads): query parameters such as `?mcp_v=${SERVER_VERSION}`
+     are additive. Web APIs and routers MUST handle legacy clients that omit `?mcp_v` gracefully without
+     redirect loops or errors.
+
+4. **Normalized Deprecation Specification:**
+   - Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecate` must follow
+     the standard structure:
+     `"<Cause/Reason>. Upgrade to <Package>@<TargetRange> (<Prerequisites>)."`
+   - **Rules:**
+     - *Cause first:* State the technical or security lifecycle reason (End-of-Life, Security Advisory, Runtime obsolescence).
+     - *Actionable target:* Explicit package name and semver range (`@illicomedia/skills-mcp-server@^3.0.0`).
+     - *Prerequisites:* Explicitly state breaking runtime requirements (`requires Node 22+`).
+     - *No raw shell commands:* Do not suggest dangerous automated CLI commands to autonomous agents.
+     - *Registry log:* Log every deprecated version in the Deprecation Registry in `docs/operations/mcp-publish-process.md`.
+
+**Why.** Users pin exact versions or run older releases in varied CI and devcontainer environments.
+Breaking input/output formats breaks AI agents silently or triggers unexpected failures. A formal
+deprecation format ensures human developers and AI coding agents receive clear, actionable upgrade
+guidance rather than cryptic crash logs.
+
+**Enforced by.** Tool schema validation tests in `tests/mcp-server.test.ts`, deprecation validation
+in `tests/release-flow.test.ts` and `scripts/release-lib.mjs`, and the package e2e suite.

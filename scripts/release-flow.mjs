@@ -23,6 +23,7 @@ import {
   parseRegistryState,
   parseStageList,
   stampChangelog,
+  stampReleaseDate,
   tagForVersion,
   tarballFileName,
   versionAtLeast,
@@ -347,6 +348,12 @@ export async function prepare(
   const files = ['package.json', 'CHANGELOG.md'];
   ctx.writeFile(pkgPath, `${JSON.stringify(released, null, 2)}\n`);
   ctx.writeFile(changelogPath, stamped);
+  const keysPath = ctx.join(ctx.pkgDir, 'src', 'license', 'keys.ts');
+  const hasKeys = ctx.listDir(ctx.join(ctx.pkgDir, 'src', 'license')).includes('keys.ts');
+  if (hasKeys) {
+    files.push('src/license/keys.ts');
+    ctx.writeFile(keysPath, stampReleaseDate(ctx.readFile(keysPath), ctx.today()));
+  }
   if (listing) {
     files.push(LISTING);
     ctx.writeFile(

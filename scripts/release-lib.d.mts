@@ -11,6 +11,7 @@ export function checkTagMatchesVersion(tag: string, version: string): string;
 export function changelogHasVersion(changelog: string, version: string): boolean;
 export function extractChangelogSection(changelog: string, version: string): string;
 export function stampChangelog(changelog: string, version: string, date: string): string;
+export function stampReleaseDate(source: string, date: string): string;
 export function nextDistTagAfterPromotion(distTags: Record<string, string>, promotedVersion: string): boolean;
 export function parseRegistryState(raw: string): { versions: string[]; distTags: Record<string, string> };
 export function smokeTestServer(

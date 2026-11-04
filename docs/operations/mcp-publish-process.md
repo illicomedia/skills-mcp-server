@@ -100,15 +100,45 @@ Each step can be run on its own. If CI failed, fix forward: a new commit and a n
 
 ## 5. When a Release Goes Wrong
 
-1. **Roll back `latest`** to the last good version:
+1. **Roll back `latest`** to the last good supported version (e.g. `2.0.2`):
    ```bash
-   pnpm release --promote 1.4.7
+   pnpm release --promote 2.0.2
    ```
-2. **Warn users of the faulty version only:**
+2. **Warn users of the faulty or unsupported version only** using a normalized deprecation message:
    ```bash
-   pnpm release --deprecate 1.5.0 --message "Crashes on start with Node 22.0. Use 1.5.1."
+   pnpm release --deprecate <version> --message "<NormalizedMessage>"
    ```
 3. **Fix forward** with a new patch version.
+
+---
+
+## 5.1 Normalized Deprecation Specification
+
+Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecate` MUST adhere to this specification (decision D21).
+
+### Specification Syntax
+```
+<Cause/Reason>. Upgrade to <Package>@<TargetRange> (<Prerequisites>).
+```
+
+### Normative Rules
+1. **Cause First:** Explicitly state the technical or lifecycle cause (e.g., End-of-Life, Security Advisory, Broken Runtime). Never use vague wording like `"deprecated"` or `"use latest"`.
+2. **Actionable Target:** State the explicit package name and target semver range (e.g., `@illicomedia/skills-mcp-server@^3.0.0`).
+3. **Explicit Prerequisites:** Clearly note breaking prerequisites or environment changes (e.g., `requires Node 22+`).
+4. **Length Constraint:** Keep the string under 256 characters (npm accepts up to 512).
+5. **No Shell Commands:** Never prescribe executable terminal commands (`npm i -g ...`, `curl | bash`).
+6. **Immutable Registry:** Record every deprecation in the table below.
+
+### Deprecation Registry
+
+| Version | Deprecation Date | Normalized Deprecation Message | Status |
+| :--- | :--- | :--- | :--- |
+| `1.4.7` | 2026-11-04 | `Version 1.x is end-of-life and lacks security hardening. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node 22+).` | Deprecated |
+
+**Command executed for 1.4.7:**
+```bash
+pnpm release --deprecate 1.4.7 --message "Version 1.x is end-of-life and lacks security hardening. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node 22+)."
+```
 
 ---
 

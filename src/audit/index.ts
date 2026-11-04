@@ -7,6 +7,7 @@ import { auditSecurity } from './domains/security.js';
 import { auditSupplyChain } from './domains/supply-chain.js';
 import type { AuditCheckResult, AuditContext, AuditOptions, AuditReport } from './types.js';
 
+export * from './constants.js';
 export * from './context.js';
 export * from './domains/devops.js';
 export * from './domains/governance.js';

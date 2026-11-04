@@ -63,7 +63,7 @@ test('installSkill: a write failure is reported', () => {
 
 test('detectProjectSkills: well-known and DNS projects', () => {
   assert.ok(detectProjectSkills(project('.well-known/')).includes('qa-well-known'));
-  for (const marker of ['dns/', 'infra/dns/', 'scripts/deploy-ovh.js']) {
+  for (const marker of ['dns/', 'infra/dns/', 'named.conf']) {
     assert.ok(detectProjectSkills(project(marker)).includes('qa-emails-dns'), marker);
   }
 });

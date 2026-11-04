@@ -13,4 +13,4 @@ MCowBQYDK2VwAyEAPrQoO+oWLJAO81k/6uR0tRZGsDVmkvrc6CCHzO1YfpU=
  * Release date of this build. A license unlocks this build only when its
  * `updates_until` is on or after this date (version retention).
  */
-export const SERVER_RELEASE_DATE = '2026-10-23T00:00:00Z';
+export const SERVER_RELEASE_DATE = '2026-11-04T00:00:00Z';

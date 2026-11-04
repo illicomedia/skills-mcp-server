@@ -871,6 +871,19 @@ test('prepare: the MCP Registry listing follows the new version and is committed
   assert.ok(calls.includes('git add package.json CHANGELOG.md server.json'));
 });
 
+test('prepare: updates SERVER_RELEASE_DATE in src/license/keys.ts when present', async () => {
+  const world = fakeWorld();
+  const keysPath = path.join(PKG_DIR, 'src', 'license', 'keys.ts');
+  world.dirs.set(path.join(PKG_DIR, 'src', 'license'), ['keys.ts']);
+  world.files.set(keysPath, "export const SERVER_RELEASE_DATE = '2026-10-23T00:00:00Z';");
+  await prepare(world.ctx, PKG, { bump: 'minor', yes: true });
+  assert.strictEqual(
+    world.files.get(keysPath),
+    "export const SERVER_RELEASE_DATE = '2026-11-03T00:00:00Z';",
+  );
+  assert.ok(world.calls.includes('git add package.json CHANGELOG.md src/license/keys.ts'));
+});
+
 test('prepare: a broken listing stops the release and restores it', async () => {
   const { ctx, calls } = withListing('1.4.0');
   await assert.rejects(
