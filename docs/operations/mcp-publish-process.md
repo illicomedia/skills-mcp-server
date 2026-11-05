@@ -132,7 +132,7 @@ Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecat
 
 ### Deprecation Registry
 
-Applied by the npm account owner (2FA) on 2026-11-04, and checked the same day: all ten versions
+Applied by the npm account owner (2FA) on 2026-11-04 (3.0.0 on 2026-11-05), and checked the same day: all eleven versions
 return these exact messages. The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`.
 
 | Versions | Message | Applied |
@@ -140,6 +140,7 @@ return these exact messages. The registry shows the state: `npm view @illicomedi
 | `1.4.0`, `1.4.1`, `1.4.3`, `1.4.4`, `1.4.5`, `1.4.6`, `1.4.7` | `End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
 | `1.4.2` | `Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
 | `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | 2026-11-04 |
+| `3.0.0` | `Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.0.1 (drop-in, no setup change).` | 2026-11-05 |
 
 These replace earlier messages that sent 1.4.x users to 1.4.7 (or 2.0.2) and 2.0.1 users to 2.0.2,
 both now end of life. Each command asks for confirmation; with npm's web login, the 2FA page's
@@ -153,6 +154,13 @@ pnpm release --deprecate 1.4.2 --message "Fails to start with npm or npx (EBADDE
 for v in 2.0.1 2.0.2; do
   pnpm release --deprecate "$v" --message "End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read)."
 done
+```
+
+3.0.0 is deprecated for the security fixes of 3.0.1 (a working version is never deprecated only
+because a newer one exists):
+
+```bash
+pnpm release --deprecate 3.0.0 --message 'Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.0.1 (drop-in, no setup change).'
 ```
 
 ---
