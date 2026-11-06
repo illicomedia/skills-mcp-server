@@ -171,6 +171,37 @@ test('Audit: Vite website without security.txt fails web disclosure check', () =
   assert.ok(report.recommendations.some((rec) => rec.includes('security.txt')));
 });
 
+test('Audit: website with SECURITY.md still requires security.txt', () => {
+  const report = auditOf({
+    'AGENTS.md': '# QA Policy\n',
+    'SECURITY.md': '# Disclosure\n',
+    LICENSE: 'MIT\n',
+    'index.html': '<!doctype html><title>app</title>\n',
+    'vite.config.ts': 'export default {};\n',
+    'public/favicon.ico': '',
+    'package.json': JSON.stringify({
+      scripts: { 'qa:starter': 'true', 'type-check': 'true', test: 'true' },
+    }),
+    'pnpm-lock.yaml': 'lockfileVersion: "9.0"',
+    '.gitignore': '.env\n*.pem\n*.key\n',
+    '.github/workflows/ci.yml': 'name: CI\n',
+  });
+  const sec = expectCheck(report, 'security.txt present', { passed: false, severity: 'blocker' });
+  assert.match(sec.details, /web projects should also publish/i);
+});
+
+test('Audit: non-web project without SECURITY.md warns for missing disclosure', () => {
+  const report = auditOf({
+    'AGENTS.md': '# QA Policy\n',
+    LICENSE: 'MIT\n',
+    'Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\n',
+    'Cargo.lock': '# lock\n',
+    '.gitignore': 'target/\n',
+  });
+  const sec = expectCheck(report, 'SECURITY.md present', { passed: false, severity: 'warning' });
+  assert.match(sec.details, /No SECURITY\.md found/i);
+});
+
 test('Audit: flags expired exceptions in .qa-exceptions.yaml as blocker', () => {
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
