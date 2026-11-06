@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 3.1.0 - 2026-11-06
+
 ### Added
 
 - Preflight audit (`quick_check`): report `stack` (detected languages, web vs non-web, forge) and `summary.ok` / `summary.attention` so agents list passing checks as well as failures, not only remediation recommendations.
