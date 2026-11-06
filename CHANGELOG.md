@@ -14,6 +14,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 - Preflight audit (`quick_check`): stop treating a bare `dist/` or `public/` directory as a website. Node CLI/MCP/library packages with compile output no longer fail for missing `public/.well-known/security.txt` when `SECURITY.md` is present; RFC 9116 `security.txt` remains required only for detected HTTP/HTTPS web origins (document root, web frameworks, Vite/Webpack static sites, nested `website|apps/web|client` packages).
 - Skill detection: select `qa-mcp` from MCP Registry signals (`package.json` `mcpName`, `server.json`) or `@modelcontextprotocol/*` dependencies, not a bare `modelcontextprotocol` substring in `package.json`.
+- Test coverage gate: run with `--test-isolation=none` so V8 function coverage merges correctly (process isolation could report false gaps and block `pnpm release`).
 
 ## 3.0.1 - 2026-11-05
 
