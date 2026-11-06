@@ -68,6 +68,50 @@ test('detectProjectSkills: well-known and DNS projects', () => {
   }
 });
 
+test('detectProjectSkills: MCP via mcpName, server.json, and SDK deps — not a bare substring', () => {
+  const byName = project('package.json');
+  fs.writeFileSync(
+    path.join(byName, 'package.json'),
+    JSON.stringify({ name: 'demo', mcpName: 'io.github.demo/server' }),
+  );
+  assert.ok(
+    detectProjectSkills(byName).includes('qa-mcp'),
+    'mcpName is the registry ownership marker',
+  );
+
+  const byListing = project('server.json');
+  fs.writeFileSync(path.join(byListing, 'server.json'), '{"name":"io.github.demo/server"}');
+  assert.ok(
+    detectProjectSkills(byListing).includes('qa-mcp'),
+    'server.json is the registry listing',
+  );
+
+  const bySdk = project('package.json');
+  fs.writeFileSync(
+    path.join(bySdk, 'package.json'),
+    JSON.stringify({ dependencies: { '@modelcontextprotocol/sdk': '1.0.0' } }),
+  );
+  assert.ok(detectProjectSkills(bySdk).includes('qa-mcp'), 'official SDK dependency still counts');
+
+  const proseOnly = project('package.json');
+  fs.writeFileSync(
+    path.join(proseOnly, 'package.json'),
+    JSON.stringify({
+      name: 'docs-site',
+      description: 'Notes about modelcontextprotocol and MCP clients',
+    }),
+  );
+  assert.ok(
+    !detectProjectSkills(proseOnly).includes('qa-mcp'),
+    'description text alone must not select qa-mcp',
+  );
+
+  assert.ok(
+    detectProjectSkills(path.resolve('.')).includes('qa-mcp'),
+    'this repository ships mcpName and server.json',
+  );
+});
+
 test('syncWorkspaceSkills: reads the license itself, and reports skills it cannot install', () => {
   const dir = project();
   assert.ok(syncWorkspaceSkills(dir).summaryMessage.length > 0);

@@ -245,7 +245,11 @@ const FILE_INDICATORS: ReadonlyArray<{ files: string[]; skills: string[] }> = [
     files: ['.github/workflows', 'Dockerfile', 'docker-compose.yml', 'infra/docker'],
     skills: ['qa-devops', 'qa-security'],
   },
-  { files: ['packages/mcp-server', 'mcp.json', 'mcp_config.json'], skills: ['qa-mcp'] },
+  // server.json is the MCP Registry listing artifact; mcp.json / mcp_config.json are client configs.
+  {
+    files: ['packages/mcp-server', 'server.json', 'mcp.json', 'mcp_config.json'],
+    skills: ['qa-mcp'],
+  },
   {
     files: ['website/public/.well-known', 'public/.well-known', '.well-known'],
     skills: ['qa-well-known'],
@@ -272,9 +276,35 @@ function namesIn(directory: string): string[] {
   }
 }
 
-function fileMentions(file: string, text: string): boolean {
+/**
+ * MCP Registry / SDK signals in package.json (not a bare "modelcontextprotocol" substring).
+ * Official npm ownership marker is `mcpName`; SDK users depend on `@modelcontextprotocol/*`.
+ */
+function packageJsonIndicatesMcp(packageJsonPath: string): boolean {
   try {
-    return readText(file).includes(text);
+    const pkg = JSON.parse(readText(packageJsonPath)) as Record<string, unknown>;
+    if (typeof pkg.mcpName === 'string' && pkg.mcpName.trim().length > 0) {
+      return true;
+    }
+    const depBlocks = [
+      pkg.dependencies,
+      pkg.devDependencies,
+      pkg.peerDependencies,
+      pkg.optionalDependencies,
+    ];
+    for (const block of depBlocks) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      if (
+        Object.keys(block as Record<string, unknown>).some((name) =>
+          name.startsWith('@modelcontextprotocol/'),
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
@@ -294,7 +324,7 @@ export function detectProjectSkills(projectPath: string = process.cwd()): string
       }
     }
   }
-  if (fileMentions(inProject('package.json'), 'modelcontextprotocol')) {
+  if (packageJsonIndicatesMcp(inProject('package.json'))) {
     detected.add('qa-mcp');
   }
   if (PHP_DIRECTORIES.some((dir) => namesIn(inProject(dir)).some((f) => f.endsWith('.php')))) {
