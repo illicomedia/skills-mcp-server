@@ -154,7 +154,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'quick_check',
     description:
-      'Sub-second preflight check for AI agents to discover repository stack, governance policies, and baseline scaffolding before modifying code. Verifies presence and configuration of agent instructions (AGENTS.md), licensing, secret hygiene (.gitignore), dependency lockfile, and test runner declaration. Requires user agreement: set confirm: true to perform directory traversal and inspect project files; when false (default), returns a preview describing the audit scope and target directory without scanning the filesystem.',
+      'Sub-second preflight check for AI agents to discover repository stack, governance policies, and baseline scaffolding before modifying code. Returns detected stack, summary.ok (passing checks), summary.attention (failing checks), full results, and remediation recommendations. Verifies AGENTS.md, licensing, secret hygiene (.gitignore), dependency lockfile, and test runner declaration. Requires user agreement: set confirm: true to traverse project files; when false (default), returns a preview without scanning.',
     inputSchema: {
       type: 'object',
       properties: {

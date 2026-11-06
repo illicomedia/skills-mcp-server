@@ -5,7 +5,14 @@ import { auditGovernance } from './domains/governance.js';
 import { auditQuality } from './domains/quality.js';
 import { auditSecurity } from './domains/security.js';
 import { auditSupplyChain } from './domains/supply-chain.js';
-import type { AuditCheckResult, AuditContext, AuditOptions, AuditReport } from './types.js';
+import type {
+  AuditCheckResult,
+  AuditContext,
+  AuditOptions,
+  AuditReport,
+  AuditStackSummary,
+  AuditSummary,
+} from './types.js';
 
 export * from './constants.js';
 export * from './context.js';
@@ -18,7 +25,51 @@ export * from './languages/index.js';
 export * from './types.js';
 
 const AUDIT_SCOPE =
-  'Fast preflight sanity check: verifies presence of scaffolding, agent directives, and baseline hygiene. Gates are not executed and compilers are not run.';
+  'Fast preflight sanity check: verifies presence of scaffolding, agent directives, and baseline hygiene. Gates are not executed and compilers are not run. The report lists both passing (summary.ok) and failing (summary.attention) checks, plus the detected stack.';
+
+const EMPTY_STACK: AuditStackSummary = {
+  languages: [],
+  isWebProject: false,
+  isOfflineCliProject: false,
+  hasLocalQaRunner: false,
+  hasManifest: false,
+  detectedForge: 'unknown',
+};
+
+function summarizeStack(ctx: AuditContext): AuditStackSummary {
+  const languageFlags: [boolean, string][] = [
+    [ctx.stack.isNode, 'node'],
+    [ctx.stack.isPython, 'python'],
+    [ctx.stack.isRust, 'rust'],
+    [ctx.stack.isGo, 'go'],
+    [ctx.stack.isJava, 'java'],
+    [ctx.stack.isCpp, 'c-cpp'],
+    [ctx.stack.isPhp, 'php'],
+    [ctx.stack.isBash, 'bash'],
+  ];
+  return {
+    languages: languageFlags.filter(([on]) => on).map(([, id]) => id),
+    isWebProject: ctx.stack.isWebProject,
+    isOfflineCliProject: ctx.stack.isOfflineCliProject,
+    hasLocalQaRunner: ctx.stack.hasLocalQaRunner,
+    hasManifest: ctx.stack.hasManifest,
+    detectedForge: ctx.detectedForge,
+  };
+}
+
+function summarizeResults(results: AuditCheckResult[]): AuditSummary {
+  const ok: string[] = [];
+  const attention: string[] = [];
+  for (const result of results) {
+    const line = `[${result.category}] ${result.name}: ${result.details}`;
+    if (result.passed) {
+      ok.push(line);
+    } else {
+      attention.push(`[${result.severity}] ${line}`);
+    }
+  }
+  return { ok, attention };
+}
 
 export function runComplianceAudit(projectPath: string, options?: AuditOptions): AuditReport {
   const safePath = validateSafeProjectPath(projectPath, 'quick_check');
@@ -34,6 +85,8 @@ export function runComplianceAudit(projectPath: string, options?: AuditOptions):
       totalChecks: 0,
       passedChecks: 0,
       failedChecks: 0,
+      stack: EMPTY_STACK,
+      summary: { ok: [], attention: [] },
       results: [],
       recommendations: [
         `Directory traversal inspection on "${safePath}" requires user confirmation. Re-run quick_check with confirm: true to scan project files.`,
@@ -83,6 +136,8 @@ export function runComplianceAudit(projectPath: string, options?: AuditOptions):
     totalChecks,
     passedChecks,
     failedChecks,
+    stack: summarizeStack(ctx),
+    summary: summarizeResults(results),
     results,
     recommendations,
   };

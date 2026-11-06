@@ -12,6 +12,22 @@ export interface AuditOptions {
   confirm?: boolean;
 }
 
+/** Compact stack snapshot for agents (languages, web vs CLI, forge). */
+export interface AuditStackSummary {
+  languages: string[];
+  isWebProject: boolean;
+  isOfflineCliProject: boolean;
+  hasLocalQaRunner: boolean;
+  hasManifest: boolean;
+  detectedForge: GitForge;
+}
+
+/** Split view so agents list what is OK as well as what needs attention. */
+export interface AuditSummary {
+  ok: string[];
+  attention: string[];
+}
+
 export interface AuditReport {
   projectPath: string;
   timestamp: string;
@@ -23,6 +39,10 @@ export interface AuditReport {
   totalChecks: number;
   passedChecks: number;
   failedChecks: number;
+  /** Detected project stack used to choose checks (empty in preview-only mode). */
+  stack: AuditStackSummary;
+  /** Human-readable pass/fail lists derived from results. */
+  summary: AuditSummary;
   results: AuditCheckResult[];
   recommendations: string[];
   previewOnly?: boolean;
