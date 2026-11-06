@@ -75,6 +75,37 @@ test('Audit: the report states its scope', () => {
   assert.match(report.scope, /not (executed|run)/i);
 });
 
+test('Audit: report lists stack, summary.ok, and summary.attention', () => {
+  const report = auditOf({
+    'AGENTS.md': '# QA\n',
+    'SECURITY.md': '# Disclosure\n',
+    LICENSE: 'MIT\n',
+    'package.json': JSON.stringify({
+      name: 'cli',
+      mcpName: 'io.github.demo/cli',
+      scripts: { 'qa:starter': 'true', 'type-check': 'true', test: 'true' },
+    }),
+    'pnpm-lock.yaml': 'lockfileVersion: "9.0"',
+    'dist/index.js': 'export {};\n',
+    '.gitignore': '.env\n',
+    '.github/workflows/ci.yml': 'name: CI\n',
+    '.git/config': '[remote "origin"]\n  url = https://github.com/org/repo.git\n',
+  });
+  assert.deepEqual(report.stack.languages, ['node']);
+  assert.equal(report.stack.isWebProject, false);
+  assert.equal(report.stack.detectedForge, 'github');
+  assert.ok(report.summary.ok.length >= 8, 'most checks should be listed as ok');
+  assert.ok(
+    report.summary.ok.some((line) => line.includes('SECURITY.md present')),
+    'passing disclosure check appears under summary.ok',
+  );
+  assert.ok(
+    report.summary.attention.some((line) => line.includes('private key')),
+    'failing key hygiene appears under summary.attention',
+  );
+  assert.equal(report.summary.ok.length + report.summary.attention.length, report.totalChecks);
+});
+
 test('Audit: pure Rust CLI project (e.g. mdbro) passes without Node.js artifacts', () => {
   const report = auditOf({
     'AGENTS.md': '# QA Policy\n',
@@ -98,6 +129,46 @@ test('Audit: pure Go project passes without package.json or security.txt', () =>
   });
   const blockers = report.results.filter((r) => r.severity === 'blocker' && !r.passed);
   assert.equal(blockers.length, 0);
+});
+
+test('Audit: Node CLI/MCP with dist/ and SECURITY.md does not require security.txt', () => {
+  const report = auditOf({
+    'AGENTS.md': '# QA Policy\n',
+    'SECURITY.md': '# Vulnerability Disclosure\n',
+    LICENSE: 'MIT\n',
+    'package.json': JSON.stringify({
+      name: 'example-mcp',
+      scripts: { 'qa:starter': 'true', 'type-check': 'true', test: 'true' },
+    }),
+    'pnpm-lock.yaml': 'lockfileVersion: "9.0"',
+    'dist/index.js': 'export {};\n',
+    '.gitignore': '.env\n*.pem\n*.key\n',
+    '.github/workflows/ci.yml': 'name: CI\n',
+  });
+  const secCheck = expectCheck(report, 'SECURITY.md present', { passed: true });
+  assert.match(secCheck?.details || '', /security\.txt not required/i);
+  assert.ok(
+    !report.recommendations.some((rec) => rec.includes('security.txt')),
+    'must not recommend security.txt for non-web Node packages',
+  );
+});
+
+test('Audit: Vite website without security.txt fails web disclosure check', () => {
+  const report = auditOf({
+    'AGENTS.md': '# QA Policy\n',
+    LICENSE: 'MIT\n',
+    'index.html': '<!doctype html><title>app</title>\n',
+    'vite.config.ts': 'export default {};\n',
+    'public/favicon.ico': '',
+    'package.json': JSON.stringify({
+      scripts: { 'qa:starter': 'true', 'type-check': 'true', test: 'true' },
+    }),
+    'pnpm-lock.yaml': 'lockfileVersion: "9.0"',
+    '.gitignore': '.env\n*.pem\n',
+    '.github/workflows/ci.yml': 'name: CI\n',
+  });
+  expectCheck(report, 'security.txt present', { passed: false, severity: 'blocker' });
+  assert.ok(report.recommendations.some((rec) => rec.includes('security.txt')));
 });
 
 test('Audit: flags expired exceptions in .qa-exceptions.yaml as blocker', () => {

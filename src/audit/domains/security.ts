@@ -80,12 +80,14 @@ function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
     secDetails =
       'security.txt file present in a .well-known/ directory (RFC 9116 fields not checked).';
   } else if (hasSecurityMd) {
-    secDetails =
-      'SECURITY.md file present (standard vulnerability disclosure policy for offline/CLI repositories).';
+    secDetails = ctx.stack.isWebProject
+      ? 'SECURITY.md present, but web projects should also publish RFC 9116 security.txt under a .well-known/ path.'
+      : 'SECURITY.md file present (applicable disclosure channel for non-web / CLI / library / MCP repositories; security.txt not required).';
   } else if (ctx.stack.isWebProject) {
     secDetails = 'No security.txt found in public/, dist/, or root .well-known/ directories.';
   } else {
-    secDetails = 'No SECURITY.md found in repository root.';
+    secDetails =
+      'No SECURITY.md found in repository root (security.txt not required without a served web origin).';
   }
 
   return {
