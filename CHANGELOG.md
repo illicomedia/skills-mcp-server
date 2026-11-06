@@ -6,6 +6,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Fixed
+
+- Coverage CLI: route `test:coverage` through `scripts/run-coverage.mjs` so `--test-isolation=none` is never passed on Node 22 (CI#31 `bad option` regression guard); opt-in only via `FREDO_TEST_ISOLATION_NONE=1` on Node 24+.
+
 ## 3.1.0 - 2026-11-06
 
 ### Added
