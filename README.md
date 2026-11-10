@@ -33,7 +33,7 @@ MCP tools in this server are divided into three distinct security tiers:
 > **Skill files are not bundled.** This package contains the catalog metadata, the license checks and the audit engine, but no `SKILL.md`. Skills are read from the project: `skills/<id>/SKILL.md`, `skills/{free,pro,enterprise}/<id>/SKILL.md` or `.agents/skills/<id>/SKILL.md`. Download a skill from `https://www.illicomedia.com/qa-skills/skills/<id>` and extract it there. When a skill is missing, `get_skill_rules` and `install_skill` fail with these instructions instead of generating content.
 
 ### 1. Read-Only Queries (No Writes)
-These tools never write to disk. `get_skill_rules` reads the installed `SKILL.md` from the server's working directory (the folder your client starts it in); the others are in-memory lookups:
+These tools never write to disk. `get_skill_rules` reads the installed `SKILL.md` from `project_path`, or from the server's working directory (the folder your client starts it in) when `project_path` is omitted; the others are in-memory lookups:
 - `list_skills`: Browse available skills, policy tiers, and descriptions.
 - `get_skill_rules`: Return the `SKILL.md` of an installed skill (fails explicitly if the skill is not installed).
 - `verify_license`: Inspect active license signature, licensee, tier, and validity.
@@ -100,7 +100,7 @@ These tools modify files or directory structures in the target project's `.agent
 | Tool Name | Type | Parameters | Description |
 |---|---|---|---|
 | `list_skills` | 🔍 Read-Only | `{ category?: string }` | Lists the whole built-in catalog with tier and category, and marks which skills your current license unlocks. |
-| `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string }` | Returns the `SKILL.md` of a skill you have already downloaded into the project (e.g. `qa-security`, `qa-accessibility`), if your license covers its tier. Fails with instructions when the file is missing. |
+| `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string, project_path?: string }` | Returns the `SKILL.md` of a skill you have already downloaded into the project (e.g. `qa-security`, `qa-accessibility`), if your license covers its tier. Fails with instructions when the file is missing. |
 | `quick_check` | 🔍 Traversal | `{ project_path: string, confirm?: boolean }` | Preflight audit for AI agents. Evaluates 5 domains across 8 language stacks plus a generic fallback. **Requires `confirm: true`** to scan directory files; otherwise returns scope preview. |
 | `install_skill` | ✏️ Mutating | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
 | `sync_workspace_skills` | ✏️ Mutating | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |

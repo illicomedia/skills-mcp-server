@@ -19,13 +19,18 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'get_skill_rules',
     description:
-      'Return the SKILL.md of a Fredo QA skill installed in the working directory (skills/<id>/ or .agents/skills/<id>/). This server ships no skill files: if the skill is not installed, the call fails with installation instructions; do not invent rules for it.',
+      'Return the SKILL.md of a Fredo QA skill installed in the project (skills/<id>/ or .agents/skills/<id>/ under project_path, or under the working directory of the server when omitted). This server ships no skill files: if the skill is not installed, the call fails with installation instructions; do not invent rules for it.',
     inputSchema: {
       type: 'object',
       properties: {
         skill_id: {
           type: 'string',
           description: 'The unique skill ID (e.g. qa-core, dev-flow, qa-security, qa-java)',
+        },
+        project_path: {
+          type: 'string',
+          description:
+            'Project root directory holding the installed skill (defaults to the working directory of the server)',
         },
       },
       required: ['skill_id'],

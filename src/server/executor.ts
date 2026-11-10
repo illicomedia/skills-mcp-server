@@ -6,7 +6,13 @@ import {
   PROJECT_LICENSE_FILE,
   validateLicense,
 } from '../license/license.js';
-import { getAvailableSkills, loadSkillContent, SKILLS_CATALOG } from '../skills/catalog.js';
+import { validateSafeProjectPath } from '../security/path-guard.js';
+import {
+  findSkill,
+  getAvailableSkills,
+  loadSkillContent,
+  SKILLS_CATALOG,
+} from '../skills/catalog.js';
 import { installSkill, pruneSkills, syncWorkspaceSkills } from '../skills/installer.js';
 import type { LicenseValidationResult } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
@@ -99,6 +105,11 @@ function listSkills(args: ToolArguments, license: LicenseValidationResult): stri
 
 function getSkillRules(args: ToolArguments, license: LicenseValidationResult): string {
   const skillId = args.skill_id as string;
+  if (!findSkill(skillId)) {
+    throw new Error(
+      `Unknown skill '${skillId}'. Use 'list_skills' to view all available skills in the catalog.`,
+    );
+  }
   const skills = getAvailableSkills(license.tier);
   const skill = skills.find((s) => s.id === skillId);
 
@@ -106,7 +117,12 @@ function getSkillRules(args: ToolArguments, license: LicenseValidationResult): s
     return `# Access Restricted: ${skillId}\nThis skill is a commercial package requiring an active Pro or Enterprise license.\nCurrent tier: **${license.tier.toUpperCase()}**\n\n${license.message}\n\nTo unlock this skill, provide a signed license file with 'set_license_key' or visit:\n${PRICING_URL}`;
   }
 
-  const content = loadSkillContent(skillId);
+  const content = loadSkillContent(
+    skillId,
+    args.project_path
+      ? validateSafeProjectPath(args.project_path as string, 'get_skill_rules')
+      : undefined,
+  );
   const watermark = generateCanaryWatermark(license.customerName || 'community_user', skillId);
 
   return `${watermark}\n\n${content}`;
