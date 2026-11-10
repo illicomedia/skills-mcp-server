@@ -74,7 +74,7 @@
   "author": "Frédéric Ch. V. <72545167+fcviallet@users.noreply.github.com> (https://github.com/fcviallet)",
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
+    "@biomejs/biome": "2.6.6",
     "@types/node": "^26.6.6",
     "jscpd": "5.4.2",
     "knip": "6.44.1",
