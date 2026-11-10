@@ -3,7 +3,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, test } from 'node:test';
-import { isBlockedSystemPath, validateSafeProjectPath } from '../dist/security/path-guard.js';
+import { validateSafeProjectPath } from '../dist/security/path-guard.js';
+import { isBlockedSystemPath } from '../dist/security/system-paths.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-sysdir-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -54,6 +55,21 @@ test('isBlockedSystemPath: system roots and everything below the system trees ar
     'C:\\Program Files (x86)\\Foo',
     'C:\\ProgramData',
     'C:\\ProgramData\\ssh',
+    // WSL mounts of Windows drives
+    '/mnt/c',
+    '/mnt/c/',
+    '/mnt/c/Windows',
+    '/mnt/c/Windows/System32',
+    '/mnt/C/windows/system32',
+    '/mnt/d/Program Files/App',
+    '/mnt/c/ProgramData/ssh',
+    // macOS system trees
+    '/System',
+    '/System/Library/CoreServices',
+    '/Library',
+    '/Library/Keychains',
+    '/private/var/run',
+    '/private/var/run/mDNSResponder',
   ];
   for (const candidate of blocked) {
     assert.equal(isBlockedSystemPath(candidate), true, candidate);
@@ -81,7 +97,7 @@ test('isBlockedSystemPath: ordinary project locations are allowed', () => {
     '/bootstrap',
     '/devices',
     '/processes',
-    '/system',
+    '/systems',
     '/libs',
     '/lib2',
     'relative/etc',
@@ -91,6 +107,18 @@ test('isBlockedSystemPath: ordinary project locations are allowed', () => {
     'C:\\Program Files Custom',
     'C:\\ProgramDataX',
     'D:\\work\\Windows',
+    '/mnt/d/projects2/skills-mcp-server',
+    '/mnt/c/Users/me/project',
+    '/mnt/cdrom',
+    '/mnt/cdrom/windows',
+    '/mnt/c2/windows',
+    '/mnt/wsl',
+    '/mnt',
+    '/Users/me/Library/project',
+    '/home/me/System',
+    '/Libraryx',
+    '/private/var/folders/x',
+    '/private/tmp/project',
     '',
   ];
   for (const candidate of allowed) {

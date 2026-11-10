@@ -87,7 +87,7 @@ These tools modify files or directory structures in the target project's `.agent
 4. **Security Containment Boundaries**:  
    Even with `confirm: true`, the server's security guard strictly rejects:
    - Writing outside the project root (`../` traversal).
-   - Using a system directory as the project: the roots `/`, `/usr`, `/root`, and anything inside `/etc`, `/bin`, `/sbin`, `/boot`, `/dev`, `/proc`, `/sys`, `/lib*`, `/usr/bin`, `/usr/sbin`, `/usr/lib*`, `/var/run`, `C:\Windows`, `C:\Program Files*` or `C:\ProgramData`. Ordinary locations such as `/usr/local/src/app` or `/root/project` stay usable.
+   - Using a system directory as the project: the roots `/`, `/usr`, `/root`, and anything inside `/etc`, `/bin`, `/sbin`, `/boot`, `/dev`, `/proc`, `/sys`, `/lib*`, `/usr/bin`, `/usr/sbin`, `/usr/lib*`, `/var/run`, macOS `/System` and `/Library`, `C:\Windows`, `C:\Program Files*` or `C:\ProgramData` (also through WSL mounts such as `/mnt/c/Windows`). Ordinary locations such as `/usr/local/src/app` or `/root/project` stay usable.
    - Using a sensitive credential store or anything inside it (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
    - Writing through symlinks that lead outside the project directory.
 
