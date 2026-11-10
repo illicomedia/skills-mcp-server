@@ -14,15 +14,15 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
 
 ## Key Highlights
 
-- **Standard MCP Protocol**: implements MCP revision 2024-11-05 over JSON-RPC 2.0 and standard I/O (`stdio`).
-- **No Runtime Dependencies**: `package.json` declares no `dependencies`; the server only imports Node.js built-in modules (`node:crypto`, `node:fs`, `node:os`, `node:path`, `node:readline`, `node:url`). It works without a network connection. The remaining supply-chain surface is this package itself and Node.js.
+- **Standard MCP Protocol**: speaks JSON-RPC 2.0 over standard I/O (`stdio`). Today it implements MCP revision `2024-11-05`, the legacy revision; the current revision is `2026-07-28` ([specification](https://modelcontextprotocol.info/specification/)). Support for the current revision is planned and will be announced in the [changelog](CHANGELOG.md).
+- **No Runtime Dependencies**: `package.json` declares no `dependencies`; the server only imports Node.js built-in modules (`node:crypto`, `node:fs`, `node:os`, `node:path`, `node:readline`, `node:url`). The server itself needs no network connection (downloading skill files and installing the package do; see [Sandboxing Controls](#sandboxing-controls)). The remaining supply-chain surface is this package itself and Node.js.
 - **Three-Tier Safety & Human-in-the-Loop Approval**:
   - Directory traversal inspection (`quick_check`) and mutating tools (`install_skill`, `sync_workspace_skills`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
-  - Native MCP client authorization dialogs protect against unintended workspace access or modifications.
+  - Many MCP clients also show their own authorization prompt before a tool runs. That prompt belongs to your client, not to this server, so do not rely on it alone.
   - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
-- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 9 language stacks—with user-confirmed directory traversal and zero arbitrary code execution.
-- **Cryptographic Ed25519 License Verification**: Offline signature checks unlock Pro and Enterprise skills with version retention as set out in the terms of sale. Open-source MIT skills remain free and unlocked forever.
-- **Provenance & Canary Watermarking**: Embeds cryptographic watermark headers into skill rules for licensing integrity and leak tracing.
+- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 8 language stacks plus a generic fallback, with user-confirmed directory traversal and zero arbitrary code execution.
+- **Signed, Offline License Verification**: Pro and Enterprise skills unlock from a digitally signed license file, checked locally with no network. Version retention follows the terms of sale. Open-source MIT skills remain free and unlocked forever.
+- **Provenance Watermark**: Skill rules served or installed through this server start with a provenance comment naming the licensee and the skill. It helps trace where a copy came from; it is a deterrent, not a technical protection, because anyone can delete it.
 
 ---
 
@@ -33,15 +33,16 @@ MCP tools in this server are divided into three distinct security tiers:
 > **Skill files are not bundled.** This package contains the catalog metadata, the license checks and the audit engine, but no `SKILL.md`. Skills are read from the project: `skills/<id>/SKILL.md`, `skills/{free,pro,enterprise}/<id>/SKILL.md` or `.agents/skills/<id>/SKILL.md`. Download a skill from `https://www.illicomedia.com/qa-skills/skills/<id>` and extract it there. When a skill is missing, `get_skill_rules` and `install_skill` fail with these instructions instead of generating content.
 
 ### 1. Read-Only Queries (No Writes)
-These tools never modify state. `get_skill_rules` reads the installed `SKILL.md` from the working directory; the others are in-memory lookups:
+These tools never write to disk. `get_skill_rules` reads the installed `SKILL.md` from the server's working directory (the folder your client starts it in); the others are in-memory lookups:
 - `list_skills`: Browse available skills, policy tiers, and descriptions.
 - `get_skill_rules`: Return the `SKILL.md` of an installed skill (fails explicitly if the skill is not installed).
 - `verify_license`: Inspect active license signature, licensee, tier, and validity.
 - `get_version`: Read runtime server version, protocol metadata, and engine capabilities.
-- `set_license_key`: In-memory configuration of signed license for the active session.
+
+One more tool changes in-memory session state only, never the disk: `set_license_key` loads a signed license for the running session.
 
 ### 2. Directory Traversal & Inspection (Filesystem Read — Requires User Confirmation)
-Because this tool accesses the filesystem and traverses project directory trees up to 2 subfolder levels (scanning configs, `.env`, `.gitignore`, and certificates):
+Because this tool accesses the filesystem (it reads the config files it audits and searches up to 2 subfolder levels for private-key files):
 - `quick_check`: **Requires `confirm: true`** to traverse and inspect project files. When `confirm: false` (default), returns a safe preview describing the audit scope and target path without scanning the filesystem.
 
 ### 3. Mutating & Write Tools (Filesystem Modifications & Archiving — Requires User Confirmation)
@@ -69,7 +70,7 @@ These tools modify files or directory structures in the target project's `.agent
                                          │
                                          ▼
                            [MCP Client Authorization Prompt]
-                   ("Allow fredo-qa to access/write in /path/to/project?")
+             (only if your client provides one, e.g. "Allow fredo-qa ...?")
                                          │
                                     User Confirms
                                          │
@@ -82,13 +83,15 @@ These tools modify files or directory structures in the target project's `.agent
 2. **Explicit Confirmation (`confirm: true`)**:  
    Directory traversal or file modifications only execute when `confirm: true` is explicitly provided after user agreement.
 3. **Host Client Confirmation Prompts**:  
-   Most MCP clients (Claude Desktop, Cursor, Antigravity) will also display a visual confirmation prompt in the chat UI before allowing tool execution.
+   Many MCP clients also display their own confirmation prompt before running a tool. This depends on the client and its settings; the server does not control it.
 4. **Security Containment Boundaries**:  
    Even with `confirm: true`, the server's security guard strictly rejects:
-   - Accessing or writing outside the workspace boundary (prevents directory traversal `../`).
-   - Operating on system roots (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`).
-   - Operating on sensitive credential stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
-   - Following symlinks that escape the project directory.
+   - Writing outside the project root (`../` traversal).
+   - Using a system root directory itself as the project (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`). Only these exact directories are refused.
+   - Using a sensitive credential store or anything inside it (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+   - Writing through symlinks that lead outside the project directory.
+
+   `quick_check` audits the `project_path` it is given, which can be any directory that passes these checks, not only the current workspace.
 
 ---
 
@@ -96,15 +99,15 @@ These tools modify files or directory structures in the target project's `.agent
 
 | Tool Name | Type | Parameters | Description |
 |---|---|---|---|
-| `list_skills` | 🔍 Read-Only | `{ category?: string }` | Lists all skills accessible under your current plan with tiers, tags, and summary gates. |
-| `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string }` | Returns complete prompt instructions and QA directives for a skill (e.g. `qa-security`, `qa-accessibility`). |
-| `quick_check` | 🔍 Traversal | `{ project_path: string, confirm?: boolean }` | Preflight audit for AI agents. Evaluates 5 domains across 9 languages. **Requires `confirm: true`** to scan directory files; otherwise returns scope preview. |
+| `list_skills` | 🔍 Read-Only | `{ category?: string }` | Lists the whole built-in catalog with tier and category, and marks which skills your current license unlocks. |
+| `get_skill_rules` | 🔍 Read-Only | `{ skill_id: string }` | Returns the `SKILL.md` of a skill you have already downloaded into the project (e.g. `qa-security`, `qa-accessibility`), if your license covers its tier. Fails with instructions when the file is missing. |
+| `quick_check` | 🔍 Traversal | `{ project_path: string, confirm?: boolean }` | Preflight audit for AI agents. Evaluates 5 domains across 8 language stacks plus a generic fallback. **Requires `confirm: true`** to scan directory files; otherwise returns scope preview. |
 | `install_skill` | ✏️ Mutating | `{ skill_id: string, project_path?: string, license_key?: string, confirm?: boolean }` | Installs a skill into `.agents/skills/<skill_id>/`. **Requires `confirm: true`** to write files; otherwise returns a safe preview. |
 | `sync_workspace_skills` | ✏️ Mutating | `{ project_path?: string, skills?: string[], license_key?: string, confirm?: boolean }` | Auto-detects project stack and installs matching skills. **Requires `confirm: true`** to write files; otherwise returns a dry-run preview. |
 | `prune_skills` | 📦 Archiving | `{ project_path?: string, keep_skills?: string[], confirm?: boolean }` | Safely archives unneeded skills from `.agents/skills/` to `.agents/.archive/` based on project stacks. **Non-destructive** (moves files). **Requires `confirm: true`**; otherwise returns safe preview. |
-| `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates Ed25519 signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
+| `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates the license signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
 | `set_license_key` | ⚙️ In-Memory | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
-| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (e.g. `1.4.5`), protocol specification (`2024-11-05`), Node runtime, and skills catalog count. |
+| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (e.g. `3.1.0`), MCP revision implemented (`2024-11-05`), Node runtime, and skills catalog count. |
 
 ---
 
@@ -113,25 +116,26 @@ These tools modify files or directory structures in the target project's `.agent
 The `quick_check` tool provides a sub-second, non-destructive audit engine for AI coding assistants. It assesses codebases before executing tasks or quality gates.
 
 ### Audit Domains Evaluated:
-1. **Governance & Guidelines**: Detects `AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, and agent policy definitions.
-2. **Security & Secrets Hygiene**: Verifies `.gitignore` ignores `.env` files, detects exposed private keys (`id_rsa`, `*.pem`, `*.key`), and checks for RFC 9116 `.well-known/security.txt`.
-3. **Quality Gates & Exceptions**: Verifies quality gate scripts (`qa:starter`, `qa:standard`, `qa:strict`), test runners, and `.qa-exceptions.yaml` governance.
-4. **Supply Chain Integrity**: Validates lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `Cargo.lock`, `go.sum`, `poetry.lock`), SBOM configurations, and dependency verification.
-5. **DevOps & Continuous Integration**: Scans `.github/workflows/`, GitLab CI, and Docker security configurations.
+1. **Governance & Guidelines**: Detects `AGENTS.md`, a `LICENSE` file, and `.qa-exceptions.yaml` (with expiry dates).
+2. **Security & Secrets Hygiene**: Verifies `.gitignore` ignores `.env` files and private keys, detects private-key files in the project (`id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`), and checks for `SECURITY.md` and an RFC 9116 `.well-known/security.txt`.
+3. **Quality Gates & Exceptions**: Verifies that a test command or runner is declared for the detected stack (for Node.js also `qa:starter` / `qa:standard` scripts).
+4. **Supply Chain Integrity**: Checks that a dependency lockfile is present for the detected stack (`pnpm-lock.yaml`, `package-lock.json`, `Cargo.lock`, `go.sum`, `poetry.lock`, ...). It does not read SBOMs or verify dependencies.
+5. **DevOps & Continuous Integration**: Detects CI configuration files (GitHub Actions, GitLab CI, Forgejo/Gitea, Bitbucket, Azure DevOps, CircleCI, Jenkins, Drone, Woodpecker, Cirrus, Travis).
 
 ### Supported Language Analyzers:
-- **Node.js / TypeScript**: `package.json`, TypeScript configs, ESLint/Biome, Vitest/Jest, Knip, lockfiles.
-- **Rust**: `Cargo.toml`, `Cargo.lock`, Clippy, cargo-audit, rustfmt.
-- **Go**: `go.mod`, `go.sum`, golangci-lint, govulncheck.
-- **Python**: `pyproject.toml`, Ruff, Mypy, Poetry/uv/Pipenv lockfiles, pytest.
-- **Java**: `pom.xml`, `build.gradle`, Spotless, Checkstyle, JaCoCo.
-- **C / C++**: `CMakeLists.txt`, `Makefile`, clang-format, clang-tidy.
-- **PHP**: `composer.json`, `composer.lock`, PHPStan, PHPUnit.
-- **Shell / Bash**: `*.sh` scripts, ShellCheck, Bats, shfmt.
-- **Polyglot & Fallback**: Intelligent credit allocation for mixed and multi-language repositories.
+The analyzers look for **project files**, not for installed tools: they do not run linters or read their reports.
+- **Node.js / TypeScript**: `package.json`, `tsconfig.json`, lockfiles (pnpm, npm, yarn, bun), Vitest/Jest/Playwright configs, test scripts.
+- **Rust**: `Cargo.toml`, `Cargo.lock`.
+- **Go**: `go.mod`, `go.sum`.
+- **Python**: `pyproject.toml`, `setup.cfg`, `mypy.ini`, `pytest.ini`, `tox.ini`, lockfiles (poetry, uv, pdm, Pipfile, requirements).
+- **Java**: `pom.xml`, `build.gradle`, `gradle.lockfile`, `src/test`.
+- **C / C++**: `CMakeLists.txt`, CTest, `vcpkg.json`, `conanfile.txt`, `conan.lock`, `CPM.cmake`.
+- **PHP**: `composer.json`, `composer.lock`, PHPUnit/Pest, PHPStan, Psalm configs.
+- **Shell / Bash**: `*.sh` scripts, `.shellcheckrc`, `scripts/test.sh`.
+- **Generic fallback**: `Makefile` test targets and `scripts/test.sh` for any other or mixed repository.
 
 ### Traversal & Confirmation Protocol:
-Because `quick_check` traverses repository directories and inspects configuration files, secret patterns, and certificate folders up to 2 levels deep, it implements the same strict Human-in-the-Loop agreement as mutating tools:
+Because `quick_check` reads repository files and searches up to 2 levels deep for private-key files, it implements the same strict Human-in-the-Loop agreement as mutating tools:
 
 1. **Step 1: Scope Preview (`confirm: false` or omitted)**:
    ```json
@@ -150,7 +154,7 @@ Because `quick_check` traverses repository directories and inspects configuratio
    Once user agreement is confirmed, the assistant passes `confirm: true` to perform the multi-domain static audit and return the complete score and findings.
 
 ### Safety design:
-`quick_check` performs **static inspection** of file paths, headers, and directory structures. It does not spawn subprocesses, compile code, or access the network. Review its output like any tool result, especially on untrusted repositories.
+`quick_check` performs **static inspection** of file names, the directory structure and a few configuration files. It does not spawn subprocesses, compile code, or access the network. Review its output like any tool result, especially on untrusted repositories.
 
 ### Native Toolchain Recognition & Zero Unsolicited Files
 
@@ -175,12 +179,12 @@ During rapid **vibe coding**, simply prompt the assistant naturally in chat:
 ### 2. Auto-Detecting Stack & Installing Skills
 > **Prompt:** *"Detect the tech stack of this project and install the matching QA engineering skills."*  
 > **Prompt:** *"Set up standard QA quality gates for this TypeScript and Python repository."*  
-> 🤖 **What happens:** The agent asks for your approval (`confirm: true`), runs `sync_workspace_skills`, and automatically installs relevant engineering profiles (e.g., `qa-javascript-typescript`, `qa-python`, `qa-security`) directly into `.agents/skills/`.
+> 🤖 **What happens:** The agent asks for your approval (`confirm: true`), runs `sync_workspace_skills`, and copies the matching engineering profiles (e.g., `qa-javascript-typescript`, `qa-python`) into `.agents/skills/`. This works for skills whose files you have already downloaded into the project (see "Skill files are not bundled" above) and, for Pro and Enterprise skills such as `qa-security`, only with a valid license; the others are reported as not installed.
 
 ### 3. Enforcing Deterministic Engineering Contracts
 > **Prompt (Free):** *"Apply the `qa-rust` (or `qa-javascript-typescript`) `standard` gate to this module—zero suppressions—and output the `qa-core` evidence block."*  
 > **Prompt (Pro):** *"Audit this frontend against `qa-accessibility` (WCAG 2.2 AA) and `qa-gdpr-rgpd` (CNIL equal accept/refuse & Art. 13 forms) and fix every blocker."*  
-> 🤖 **What happens:** Rather than relying on generic LLM advice or taking shortcuts, the agent calls `get_skill_rules` to load the exact profile thresholds, toolchain flags, exception rules, and mandatory `qa-core` evidence format before writing or validating code.
+> 🤖 **What happens:** Rather than relying on generic LLM advice or taking shortcuts, the agent calls `get_skill_rules` to load, from the skill files you downloaded, the exact profile thresholds, toolchain flags, exception rules, and mandatory `qa-core` evidence format before writing or validating code.
 
 ### 4. Cleaning Up Unused Skills (Archiving)
 > **Prompt:** *"Clean up any installed QA skills that don't match our active stack."*  
@@ -190,7 +194,7 @@ During rapid **vibe coding**, simply prompt the assistant naturally in chat:
 ### 5. Checking License & Commercial Skills
 > **Prompt:** *"Verify our Fredo QA license status and expiration."*  
 > **Prompt:** *"Check if our Pro skills are activated."*  
-> 🤖 **What happens:** The agent calls `verify_license` to validate the Ed25519 signature, tier, licensee details, and version retention status.
+> 🤖 **What happens:** The agent calls `verify_license` to validate the license signature, tier, licensee details, and version retention status.
 
 ---
 
@@ -198,25 +202,25 @@ During rapid **vibe coding**, simply prompt the assistant naturally in chat:
 
 **Requirements:** Node.js 22, 24 or 26+. The server refuses to start on Node.js versions that no longer receive security fixes, since it reads your codebase. If your default `node` is older (common with `nvm` on legacy projects), set the MCP client's `"command"` to the full path of a supported `node` and pass the package's `dist/index.js` as the argument, or switch with `nvm use 24` before starting the client.
 
-### Option 1: Local / Offline Global Installation (for machines without network access)
+### Option 1: Local / Offline Installation (for machines without network access)
 
-`@illicomedia/skills-mcp-server` has **0 runtime dependencies**, allowing completely offline operation:
+`@illicomedia/skills-mcp-server` has **0 runtime dependencies**, so a packed tarball installs without any registry access. Build and pack it once on a machine with network access:
 
 ```bash
-# 1. Build the package
-cd packages/mcp-server
-npm run build
+# 1. On a connected machine, from a clone of this repository
+pnpm install
+pnpm run build
+pnpm pack          # creates illicomedia-skills-mcp-server-<version>.tgz
 
-# 2. Install globally offline
-npm install -g ./packages/mcp-server/ --offline
-
-# Or link for active development:
-cd packages/mcp-server && npm link
+# 2. Copy the .tgz to the offline machine, then install it globally
+npm install -g ./illicomedia-skills-mcp-server-<version>.tgz --offline
 ```
 
-### Option 2: Remote / NPX (Zero-install)
+Skill files are still downloaded separately (see "Skill files are not bundled" above); copy them to the offline machine as well.
 
-Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuration.
+### Option 2: `npx` (no install step)
+
+Use `npx -y @illicomedia/skills-mcp-server` directly in your client configuration. This needs the npm registry the first time (or a warm npm cache).
 
 ### How MCP `stdio` Transport Works (and why running in a shell pauses)
 
@@ -236,7 +240,7 @@ When you run `npx @illicomedia/skills-mcp-server` directly in an interactive bas
 An unpinned `npx` configuration can pick up a new release on its own. For teams and CI, pin an exact version so that it only changes when you choose:
 
 ```bash
-npx -y @illicomedia/skills-mcp-server@1.4.3
+npx -y @illicomedia/skills-mcp-server@3.1.0
 ```
 
 - **`latest`** is the default and the recommended stable version.
@@ -305,7 +309,7 @@ Or run directly from the compiled JavaScript bundle without global binaries:
   "mcpServers": {
     "fredo-qa": {
       "command": "node",
-      "args": ["/absolute/path/to/skills/packages/mcp-server/dist/index.js"]
+      "args": ["/absolute/path/to/skills-mcp-server/dist/index.js"]
     }
   }
 }
@@ -405,12 +409,14 @@ git rm -r scripts/qa.sh scripts/qa
 
 ## License Verification & Tiered Access
 
-Pro and Enterprise skills require an Ed25519-signed license file (`license.json`).
+Pro and Enterprise skills require a signed license file (`license.json`, Ed25519 signature, format described by the published JSON Schema).
 
 ### License Resolution Order:
-1. User config path: `~/.config/fredo-qa/license.json` (recommended: applies to every project)
-2. Project root: `.qa-license.json` (ensure this is added to `.gitignore`)
-3. Dynamic session key: Set dynamically via the `set_license_key` tool.
+1. Session license: a license loaded with the `set_license_key` tool (or the `license_key` argument of `install_skill` / `sync_workspace_skills`) is used first, for the running session only.
+2. User config path: `~/.config/fredo-qa/license.json` (recommended: applies to every project)
+3. Project root: `.qa-license.json`. **Add it to `.gitignore`**: the license is yours to use, and committing it to a shared or public repository shares it with everyone who can read the repository.
+
+If the file at step 2 exists, step 3 is not consulted, even when the step 2 file is invalid.
 
 The server reads no environment variable. **Upgrading from 2.x:** if your MCP configuration sets
 `FREDO_QA_LICENSE_FILE`, move that file to `~/.config/fredo-qa/license.json` (or the project's
@@ -428,13 +434,13 @@ To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenS
 - **Filesystem Access (`node:fs`)**: one module, `security/path-guard`, is the only code that touches the disk (a test fails if any other shipped file imports `node:fs`). Reads serve workspace preflight audits (`quick_check`), local `SKILL.md` documents and license files. Every write goes through a helper that refuses, before acting, any target outside the project root or reached through a symlink leading outside it; writes only happen under `.agents/skills/` and `.agents/.archive/`, and only when a mutating tool is called with explicit user confirmation (`confirm: true`).
 - **Environment Variables (`process.env`)**: none. Licenses are found at fixed locations (`~/.config/fredo-qa/license.json`, the project's `.qa-license.json`) or loaded with `set_license_key`; the home directory comes from Node.js `os.homedir()`. A test fails if the built package reads any environment variable.
 - **Links (URL strings)**: four `illicomedia.com` links shown to people (pricing, skill pages, the license schema, the product page). They are text in messages and the license; the server never fetches them. A test rejects any other URL in the built package.
-- **Network & Shell Spawning**: The runtime contains **zero outbound network calls** (`fetch`, `http`, `net`) and **zero shell or child process executions** (`child_process`, `exec`, `spawn`). Execution occurs entirely in-memory over stdio.
+- **Network & Shell Spawning**: The runtime contains **zero outbound network calls** (`fetch`, `http`, `net`) and **zero shell or child process executions** (`child_process`, `exec`, `spawn`). The server talks to your client only over stdio.
 
 ### Sandboxing Controls
-- **Buffer Overflow & DoS Protection**: Incoming `stdio` stream enforces a strict `1 MB` maximum JSON-RPC frame limit to prevent memory exhaustion attacks.
+- **Request Size Limit**: A JSON-RPC request line longer than 1,048,576 characters is rejected with a parse error. Licenses read from disk are limited to 64 KB.
 - **Path Escape Prevention**: All project paths are validated against real filesystem paths (`fs.realpathSync`) to block symlink redirections and directory traversal attempts (`../../../`).
-- **Forbidden Path Blacklist**: Rejects destructive operations targeting system directories (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`) or credential vaults (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
-- **Works When Our Services Are Down**: Tools run locally and never call our website, API or database, so an outage there does not affect them. Licenses are verified offline. If your agent starts the server with `npx`, that step still needs the npm registry unless the package is already cached or installed.
+- **Forbidden Path Blacklist**: Refuses a project path that is exactly a system directory (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`) or that is, or lies inside, a credential vault (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+- **Runs Without Calling Our Services**: The server never calls our website, API or database; the skill catalog, license checks and audits all run locally, so an outage on our side does not stop a tool that is already set up. Downloading a skill is a separate, manual step: you fetch each skill from `illicomedia.com/qa-skills` and extract it into your project, so that step needs our website (and a purchased skill needs your account there). Once a skill is in your project, it works offline. The catalog is built into the package: new skills appear in `list_skills` only after you update the server. If your agent starts the server with `npx`, that step also needs the npm registry unless the package is already cached or installed.
 - **No Remote Telemetry**: Zero background network requests, zero metric phoning home. All audits, verifications, and tool executions occur strictly on your local machine.
 
 ---
