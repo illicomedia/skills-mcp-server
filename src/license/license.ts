@@ -114,15 +114,15 @@ function parseLicense(text: string): LicenseDocument | string {
   if (record.schema_version !== LICENSE_SCHEMA_VERSION) {
     return Number.isInteger(record.schema_version) &&
       (record.schema_version as number) > LICENSE_SCHEMA_VERSION
-      ? `license format version ${String(record.schema_version)} requires a newer MCP server (this build reads version ${LICENSE_SCHEMA_VERSION}); update the MCP server`
+      ? `license format requires a newer MCP server (this build reads version ${LICENSE_SCHEMA_VERSION}); update the MCP server`
       : `license schema_version must be ${LICENSE_SCHEMA_VERSION}`;
   }
   if (record.$schema !== undefined && record.$schema !== LICENSE_SCHEMA_URL) {
     return `license $schema must be ${LICENSE_SCHEMA_URL}`;
   }
-  const unknownField = Object.keys(record).find((key) => !ALLOWED_FIELDS.has(key));
-  if (unknownField) {
-    return `license field '${unknownField}' is not supported`;
+  // Messages never repeat what the file contains: the path can be any file the caller names.
+  if (Object.keys(record).some((key) => !ALLOWED_FIELDS.has(key))) {
+    return 'license contains a field that is not supported';
   }
   const missing = STRING_FIELDS.find(
     (field) => typeof record[field] !== 'string' || (record[field] as string).length === 0,
@@ -155,7 +155,7 @@ function verifySignature(
 ): string | null {
   const pem = Object.hasOwn(trustedKeys, doc.key_id) ? trustedKeys[doc.key_id] : undefined;
   if (!pem) {
-    return `license key id '${doc.key_id}' is not trusted by this build`;
+    return 'license key id is not trusted by this build';
   }
   if (!BASE64.test(doc.signature)) {
     return 'license signature is not valid base64';

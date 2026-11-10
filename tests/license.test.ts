@@ -176,7 +176,7 @@ test('License format v1: schema_version is required and future versions ask for 
 
   const future = validateLicense(signedLicense({ schema_version: 2 }), TEST_LICENSE_OPTIONS);
   assert.equal(future.valid, false);
-  assert.match(future.message, /format version 2 requires a newer MCP server/);
+  assert.match(future.message, /license format requires a newer MCP server/);
 
   const wrongSchema = validateLicense(
     signedLicense({ $schema: 'https://example.invalid/other.json' }),
