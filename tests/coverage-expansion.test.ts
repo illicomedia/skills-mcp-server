@@ -4,7 +4,6 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { runComplianceAudit } from '../dist/audit/index.js';
 import { canonicalJson, validateLicense } from '../dist/license/license.js';
@@ -20,6 +19,7 @@ import {
 } from '../dist/skills/catalog.js';
 import { detectProjectSkills, installSkill } from '../dist/skills/installer.js';
 import { signedLicense, TEST_KEY_ID, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
+import { runStdio } from './mcp-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
 
 test('Server: handleRequest ping and initialized notifications', () => {
@@ -64,60 +64,31 @@ test('Server: handleRequest captures tool execution exceptions gracefully', () =
 });
 
 test('Server: startStdio handles valid lines, empty lines, and parse errors', async () => {
-  const server = new FredoQaMcpServer();
-
-  // Create mock stdin and stdout
-  const input = new Readable({ read() {} });
-  let outputText = '';
-  const output = new Writable({
-    write(chunk, _encoding, callback) {
-      outputText += chunk.toString();
-      callback();
-    },
-  });
-
-  const origStdin = process.stdin;
-  const origStdout = process.stdout;
-
-  Object.defineProperty(process, 'stdin', { value: input, configurable: true });
-  Object.defineProperty(process, 'stdout', { value: output, configurable: true });
-
-  try {
-    server.startStdio();
-
+  const outputText = await runStdio(new FredoQaMcpServer(), (input) => {
     // 1. Empty lines should be ignored
     input.push('   \n');
     input.push('\n');
-
     // 2. Valid ping request
     input.push('{"jsonrpc":"2.0","id":1,"method":"ping"}\n');
-
     // 3. Notification (no id)
     input.push('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
-
     // 4. Malformed JSON (parse error)
     input.push('{ broken json \n');
+  });
 
-    // Allow event loop ticks for readline processing
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  const lines = outputText
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l));
+  assert.strictEqual(lines.length, 2); // 1 ping response + 1 parse error response
 
-    const lines = outputText
-      .trim()
-      .split('\n')
-      .map((l) => JSON.parse(l));
-    assert.strictEqual(lines.length, 2); // 1 ping response + 1 parse error response
+  // Check ping response
+  assert.strictEqual(lines[0].id, 1);
+  assert.deepStrictEqual(lines[0].result, {});
 
-    // Check ping response
-    assert.strictEqual(lines[0].id, 1);
-    assert.deepStrictEqual(lines[0].result, {});
-
-    // Check parse error response
-    assert.strictEqual(lines[1].id, null);
-    assert.strictEqual(lines[1].error.code, -32700);
-  } finally {
-    Object.defineProperty(process, 'stdin', { value: origStdin, configurable: true });
-    Object.defineProperty(process, 'stdout', { value: origStdout, configurable: true });
-  }
+  // Check parse error response
+  assert.strictEqual(lines[1].id, null);
+  assert.strictEqual(lines[1].error.code, -32700);
 });
 
 test('Catalog: findSkill, loadSkillContent and loadSkillLicense error branches', () => {

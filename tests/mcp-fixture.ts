@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { Readable, Writable } from 'node:stream';
 import type { FredoQaMcpServer } from '../dist/server/server.js';
 
 /** Calls an MCP tool through the server's JSON-RPC handler and returns its text answer. */
@@ -41,4 +42,35 @@ function addSkills(project: string, skills: Record<string, string>): void {
 export function goProjectWithSkills(project: string, skills: Record<string, string>): void {
   fs.writeFileSync(path.join(project, 'go.mod'), 'module example.com/test\ngo 1.22\n');
   addSkills(project, skills);
+}
+
+/**
+ * Runs `startStdio` on in-memory pipes: `feed` pushes into the server's stdin (end it with
+ * `input.push(null)`), and the text the server wrote to stdout is returned.
+ */
+export async function runStdio(
+  server: FredoQaMcpServer,
+  feed: (input: Readable) => void,
+): Promise<string> {
+  const input = new Readable({ read() {} });
+  let text = '';
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      text += chunk.toString();
+      callback();
+    },
+  });
+  const origStdin = process.stdin;
+  const origStdout = process.stdout;
+  Object.defineProperty(process, 'stdin', { value: input, configurable: true });
+  Object.defineProperty(process, 'stdout', { value: output, configurable: true });
+  try {
+    server.startStdio();
+    feed(input);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    Object.defineProperty(process, 'stdin', { value: origStdin, configurable: true });
+    Object.defineProperty(process, 'stdout', { value: origStdout, configurable: true });
+  }
+  return text;
 }

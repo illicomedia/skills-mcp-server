@@ -1,10 +1,10 @@
 import * as assert from 'node:assert';
 import { spawn } from 'node:child_process';
 import * as path from 'node:path';
-import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { LineFramer } from '../dist/server/framing.js';
 import { FredoQaMcpServer, MAX_REQUEST_BYTES } from '../dist/server/server.js';
+import { runStdio } from './mcp-fixture.ts';
 
 function framer(max = 8) {
   const lines: string[] = [];
@@ -69,31 +69,13 @@ test('LineFramer: end() flushes a last line without newline and ignores a droppe
 });
 
 test('startStdio: an oversize request is answered with a parse error and the next one still works', async () => {
-  const server = new FredoQaMcpServer();
-  const input = new Readable({ read() {} });
-  let out = '';
-  const output = new Writable({
-    write(chunk, _encoding, callback) {
-      out += chunk.toString();
-      callback();
-    },
-  });
-  const origStdin = process.stdin;
-  const origStdout = process.stdout;
-  Object.defineProperty(process, 'stdin', { value: input, configurable: true });
-  Object.defineProperty(process, 'stdout', { value: output, configurable: true });
-  try {
-    server.startStdio();
+  const out = await runStdio(new FredoQaMcpServer(), (input) => {
     input.push(Buffer.alloc(MAX_REQUEST_BYTES + 1, 0x61));
     input.push(
       '\n{"jsonrpc":"2.0","id":7,"method":"ping"}\n{"jsonrpc":"2.0","id":8,"method":"ping"}',
     );
     input.push(null);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  } finally {
-    Object.defineProperty(process, 'stdin', { value: origStdin, configurable: true });
-    Object.defineProperty(process, 'stdout', { value: origStdout, configurable: true });
-  }
+  });
   const answers = out
     .trim()
     .split('\n')
