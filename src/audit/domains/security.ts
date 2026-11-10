@@ -3,34 +3,80 @@ import type { AuditCheckResult, AuditContext } from '../types.js';
 interface GitignoreRules {
   ignoresEnv: boolean;
   ignoresPrivateKeys: boolean;
-  ignoresLicenseFile: boolean;
 }
 
 const LICENSE_FILE = '.qa-license.json';
-const LICENSE_FILE_RULES: ReadonlySet<string> = new Set([
-  LICENSE_FILE,
-  `/${LICENSE_FILE}`,
-  `**/${LICENSE_FILE}`,
-  '.qa-license*',
-  '.qa-license.*',
-]);
+
+/** A gitignore glob without "/", "[" or "\\" as a regular expression ("*" and "?" stop at "/"). */
+function globToRegExp(pattern: string, ignoreCase: boolean): RegExp {
+  const body = pattern
+    .split('')
+    .map((char) => {
+      if (char === '*') {
+        return '[^/]*';
+      }
+      if (char === '?') {
+        return '[^/]';
+      }
+      return char.replace(/[.+^${}()|]/g, '\\$&');
+    })
+    .join('');
+  return new RegExp(`^${body}$`, ignoreCase ? 'i' : '');
+}
+
+/**
+ * Whether git would ignore `.qa-license.json` at the root of the audited project, read the way
+ * git reads a .gitignore (last matching rule wins, leading whitespace counts, trailing spaces do
+ * not, CR and BOM are dropped). `fromParent` means the rules come from a .gitignore higher up in
+ * the repository: anchored rules ("/name") then apply to that folder, not to the project.
+ *
+ * Fail closed: a rule this reader cannot evaluate ("[...]", "\\", a path with "/") never counts
+ * as ignoring the file, and a negation that might match restores it. A positive rule matches
+ * case-sensitively, a negation case-insensitively (git may run with core.ignorecase).
+ */
+function licenseFileIgnored(content: string, fromParent: boolean): boolean {
+  let ignored = false;
+  for (const raw of content.replace(/^\uFEFF/, '').split('\n')) {
+    const line = raw.replace(/\r$/, '').replace(/(?<!\\) +$/, '');
+    if (line === '' || line.startsWith('#')) {
+      continue;
+    }
+    const negated = line.startsWith('!');
+    let pattern = negated ? line.slice(1) : line;
+    let anchored = false;
+    if (pattern.startsWith('/')) {
+      anchored = true;
+      pattern = pattern.slice(1);
+    }
+    while (pattern.startsWith('**/')) {
+      anchored = false;
+      pattern = pattern.slice(3);
+    }
+    if (pattern === '' || pattern.endsWith('/') || (anchored && fromParent)) {
+      // Nothing, a directory-only rule, or a rule rooted in another folder: never this file
+      continue;
+    }
+    if (/[/[\\]/.test(pattern)) {
+      if (negated) {
+        ignored = false;
+      }
+      continue;
+    }
+    if (globToRegExp(pattern, negated).test(LICENSE_FILE)) {
+      ignored = !negated;
+    }
+  }
+  return ignored;
+}
 
 function parseGitignoreRules(content: string): GitignoreRules {
   const lines = content.split('\n').map((l) => l.trim());
   let ignoresEnv = false;
   let ignoresPrivateKeys = false;
-  let ignoresLicenseFile = false;
 
   for (const line of lines) {
     if (!line || line.startsWith('#')) {
       continue;
-    }
-
-    // The signed license file: a rule ignores it, a later negation of the same rule restores it
-    if (LICENSE_FILE_RULES.has(line)) {
-      ignoresLicenseFile = true;
-    } else if (line.startsWith('!') && LICENSE_FILE_RULES.has(line.slice(1))) {
-      ignoresLicenseFile = false;
     }
 
     // Negations
@@ -70,7 +116,7 @@ function parseGitignoreRules(content: string): GitignoreRules {
     }
   }
 
-  return { ignoresEnv, ignoresPrivateKeys, ignoresLicenseFile };
+  return { ignoresEnv, ignoresPrivateKeys };
 }
 
 function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
@@ -210,8 +256,11 @@ function checkLicenseFileIgnored(ctx: AuditContext): AuditCheckResult[] {
   if (!ctx.fileExists(LICENSE_FILE)) {
     return [];
   }
-  const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
-  const { ignoresLicenseFile } = parseGitignoreRules(gitignoreContent);
+  const own = ctx.readFile('.gitignore');
+  const ignoresLicenseFile =
+    own === null
+      ? licenseFileIgnored(ctx.readParentFile('.gitignore') ?? '', true)
+      : licenseFileIgnored(own, false);
   return [
     {
       category: 'security',

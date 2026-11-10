@@ -69,13 +69,14 @@ test('license file: the check lowers readiness while it fails', () => {
   assert.equal(report.status, 'needs_attention');
 });
 
-test('license file: CRLF line endings, a BOM and trailing spaces in .gitignore still count', () => {
+test('license file: CRLF line endings, a BOM, trailing spaces and globs still count (as in git)', () => {
   for (const gitignore of [
     '.env\r\n.qa-license.json\r\n',
     '﻿.qa-license.json\n',
     '.qa-license.json   \n',
-    '\t.qa-license.json\t\n',
     '.qa-license.json',
+    '*.json\n',
+    '.qa-*\n',
   ]) {
     expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
       passed: true,
@@ -84,7 +85,7 @@ test('license file: CRLF line endings, a BOM and trailing spaces in .gitignore s
   }
 });
 
-test('license file: commented out, mismatched or nested-looking rules do not count', () => {
+test('license file: comments, leading or trailing tabs, mismatches and path rules do not count (as in git)', () => {
   for (const gitignore of [
     '#.qa-license.json\n',
     '# .qa-license.json\n',
@@ -93,7 +94,9 @@ test('license file: commented out, mismatched or nested-looking rules do not cou
     '.qa-license.json/\n',
     '/sub/.qa-license.json\n',
     '.QA-LICENSE.JSON\n',
-    '*.json\n',
+    ' .qa-license.json\n',
+    '\t.qa-license.json\n',
+    '.qa-license.json\t\n',
     '\n\n   \n',
   ]) {
     expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
