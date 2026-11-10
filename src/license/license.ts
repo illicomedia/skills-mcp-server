@@ -103,7 +103,9 @@ function discoverLicenseFile(options: LicenseOptions): string | undefined {
 function parseLicense(text: string): LicenseDocument | string {
   let data: unknown;
   try {
-    data = JSON.parse(text);
+    // One leading byte order mark (saved by some Windows editors) is not part of the JSON; the
+    // signature covers the parsed content, so dropping it cannot change what is verified.
+    data = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch {
     return 'license file is not valid JSON';
   }

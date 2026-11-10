@@ -102,12 +102,13 @@ test('license inline: a megabyte of text is refused quickly, not parsed', () => 
   assert.ok(Date.now() - started < 1000);
 });
 
-test('license file: zero bytes, whitespace only, a BOM and NUL bytes are all free tier', () => {
+test('license file: zero bytes, whitespace, a doubled or misplaced BOM and NUL bytes are free tier', () => {
   withTemp((dir) => {
     for (const [name, content] of Object.entries({
       empty: '',
       blank: ' \n\t ',
-      bom: `﻿${signedLicense()}`,
+      'two byte order marks': `\uFEFF\uFEFF${signedLicense()}`,
+      'byte order mark inside': `${signedLicense().slice(0, 1)}\uFEFF${signedLicense().slice(1)}`,
       nul: `${signedLicense()}\u0000`,
       truncated: signedLicense().slice(0, 60),
       doubled: signedLicense() + signedLicense(),
@@ -233,4 +234,35 @@ test('license schema URL constant is the one the file may declare', () => {
     TEST_LICENSE_OPTIONS,
   );
   assert.equal(res.valid, false);
+});
+
+test('license file: one leading UTF-8 byte order mark (Windows editors) is accepted', () => {
+  withTemp((dir) => {
+    const file = path.join(dir, 'license.json');
+    fs.writeFileSync(file, `\uFEFF${signedLicense()}`);
+    assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
+    fs.writeFileSync(
+      file,
+      Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(signedLicense())]),
+    );
+    assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
+    fs.writeFileSync(file, `\uFEFF${signedLicense()}\r\n`);
+    assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
+  });
+});
+
+test('license inline: a leading byte order mark is accepted as well', () => {
+  assert.equal(validateLicense(`\uFEFF${signedLicense()}`, TEST_LICENSE_OPTIONS).valid, true);
+});
+
+test('license file: a BOM does not let a tampered license through', () => {
+  withTemp((dir) => {
+    const doc = JSON.parse(signedLicense());
+    doc.tier = 'enterprise';
+    const file = path.join(dir, 'license.json');
+    fs.writeFileSync(file, `\uFEFF${JSON.stringify(doc)}`);
+    const res = validateLicense(file, TEST_LICENSE_OPTIONS);
+    assert.equal(res.valid, false);
+    assert.match(res.message, /signature does not match/);
+  });
 });
