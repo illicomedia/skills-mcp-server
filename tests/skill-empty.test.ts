@@ -9,7 +9,8 @@ import {
   SkillFileEmptyError,
   SkillNotInstalledError,
 } from '../dist/skills/catalog.js';
-import { installSkill, syncWorkspaceSkills } from '../dist/skills/installer.js';
+import { installSkill } from '../dist/skills/installer.js';
+import { syncWorkspaceSkills } from '../dist/skills/sync.js';
 import { TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-empty-skill-'));

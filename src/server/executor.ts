@@ -13,7 +13,9 @@ import {
   loadSkillContent,
   SKILLS_CATALOG,
 } from '../skills/catalog.js';
-import { installSkill, pruneSkills, syncWorkspaceSkills } from '../skills/installer.js';
+import { installSkill } from '../skills/installer.js';
+import { pruneSkills } from '../skills/prune.js';
+import { syncWorkspaceSkills } from '../skills/sync.js';
 import type { LicenseValidationResult } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
 import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from './protocol.js';

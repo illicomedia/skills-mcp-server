@@ -13,12 +13,10 @@ import { validateSafeProjectPath, validateSafeWriteTarget } from '../dist/securi
 import { ToolExecutor } from '../dist/server/executor.js';
 import { FredoQaMcpServer, MAX_REQUEST_BYTES } from '../dist/server/server.js';
 import { findSkill, loadSkillContent } from '../dist/skills/catalog.js';
-import {
-  detectProjectSkills,
-  installSkill,
-  pruneSkills,
-  syncWorkspaceSkills,
-} from '../dist/skills/installer.js';
+import { installSkill } from '../dist/skills/installer.js';
+import { pruneSkills } from '../dist/skills/prune.js';
+import { detectProjectSkills } from '../dist/skills/stack-detection.js';
+import { syncWorkspaceSkills } from '../dist/skills/sync.js';
 import { smokeTestServer } from '../scripts/release-lib.mjs';
 import { makeProject, rule } from './audit-fixture.ts';
 import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';

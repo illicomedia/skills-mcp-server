@@ -17,7 +17,8 @@ import {
   loadSkillContent,
   loadSkillLicense,
 } from '../dist/skills/catalog.js';
-import { detectProjectSkills, installSkill } from '../dist/skills/installer.js';
+import { installSkill } from '../dist/skills/installer.js';
+import { detectProjectSkills } from '../dist/skills/stack-detection.js';
 import { signedLicense, TEST_KEY_ID, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
 import { runStdio } from './mcp-fixture.ts';
 import { writeSkillSources } from './skill-fixture.ts';
