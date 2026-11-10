@@ -190,6 +190,10 @@ export function validateLicense(
   let text: string;
   try {
     if (trimmed?.startsWith('{')) {
+      // The same cap as for a file, measured on what the caller sent (before trimming).
+      if (Buffer.byteLength(source as string, 'utf8') > MAX_LICENSE_BYTES) {
+        throw new Error(`file exceeds ${MAX_LICENSE_BYTES} bytes`);
+      }
       text = trimmed;
     } else {
       const file = trimmed ? path.resolve(trimmed) : discoverLicenseFile(options);
