@@ -68,3 +68,121 @@ test('license file: the check lowers readiness while it fails', () => {
   const report = audit({ '.qa-license.json': '{}', '.gitignore': '.env\n' });
   assert.equal(report.status, 'needs_attention');
 });
+
+test('license file: CRLF line endings, a BOM and trailing spaces in .gitignore still count', () => {
+  for (const gitignore of [
+    '.env\r\n.qa-license.json\r\n',
+    '﻿.qa-license.json\n',
+    '.qa-license.json   \n',
+    '\t.qa-license.json\t\n',
+    '.qa-license.json',
+  ]) {
+    expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
+      passed: true,
+      context: JSON.stringify(gitignore),
+    });
+  }
+});
+
+test('license file: commented out, mismatched or nested-looking rules do not count', () => {
+  for (const gitignore of [
+    '#.qa-license.json\n',
+    '# .qa-license.json\n',
+    '.qa-license.jsonx\n',
+    'x.qa-license.json\n',
+    '.qa-license.json/\n',
+    '/sub/.qa-license.json\n',
+    '.QA-LICENSE.JSON\n',
+    '*.json\n',
+    '\n\n   \n',
+  ]) {
+    expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
+      passed: false,
+      context: JSON.stringify(gitignore),
+    });
+  }
+});
+
+test('license file: ignore, negate, ignore again ends up ignored', () => {
+  const gitignore = '.qa-license.json\n!.qa-license.json\n.qa-license.json\n';
+  expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, { passed: true });
+});
+
+test('license file: a negation alone, or of a different rule, changes nothing', () => {
+  expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': '!.qa-license.json\n' }), NAME, {
+    passed: false,
+  });
+  expectCheck(
+    audit({ '.qa-license.json': '{}', '.gitignore': '.qa-license.json\n!.env\n!other.json\n' }),
+    NAME,
+    { passed: true },
+  );
+});
+
+test('license file: a huge .gitignore is read in time', () => {
+  const gitignore = `${'node_modules/\n'.repeat(200_000)}.qa-license.json\n`;
+  const started = Date.now();
+  expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, { passed: true });
+  assert.ok(Date.now() - started < 5000);
+});
+
+test('license file: a parent .gitignore is used when the project has none', () => {
+  const parent = fs.mkdtempSync(path.join(root, 'parent-'));
+  fs.writeFileSync(path.join(parent, '.gitignore'), '.qa-license.json\n');
+  fs.mkdirSync(path.join(parent, '.git'));
+  const child = path.join(parent, 'child');
+  fs.mkdirSync(child);
+  fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
+  const report = runComplianceAudit(child, { confirm: true });
+  expectCheck(report, NAME, { passed: true });
+});
+
+test('license file: the license content is never read or echoed by the audit', () => {
+  const secret = 'SECRET-LICENSE-BODY';
+  const report = audit({ '.qa-license.json': `{"licensee":"${secret}"}`, '.gitignore': '' });
+  assert.equal(JSON.stringify(report).includes(secret), false);
+});
+
+test('license file: an empty file, a directory or a symlink with that name is still checked once', () => {
+  const emptyFile = audit({ '.qa-license.json': '' });
+  assert.equal(emptyFile.results.filter((r) => r.name === NAME).length, 1);
+
+  const dir = makeProject(root, ['.qa-license.json/keep']);
+  const asDirectory = runComplianceAudit(dir, { confirm: true });
+  assert.ok(asDirectory.results.filter((r) => r.name === NAME).length <= 1);
+
+  const linked = makeProject(root, ['real.json', '.gitignore'], (n) =>
+    n === '.gitignore' ? '.qa-license.json\n' : '{}',
+  );
+  fs.symlinkSync(path.join(linked, 'real.json'), path.join(linked, '.qa-license.json'));
+  const report = runComplianceAudit(linked, { confirm: true });
+  const checks = report.results.filter((r) => r.name === NAME);
+  assert.equal(checks.length, 1);
+});
+
+test('license file: the check counts in the totals and the score', () => {
+  const without = audit({ '.gitignore': '.env\n' });
+  const failing = audit({ '.qa-license.json': '{}', '.gitignore': '.env\n' });
+  const passing = audit({ '.qa-license.json': '{}', '.gitignore': '.env\n.qa-license.json\n' });
+  assert.equal(failing.totalChecks, without.totalChecks + 1);
+  assert.equal(failing.failedChecks, without.failedChecks + 1);
+  assert.equal(passing.totalChecks, without.totalChecks + 1);
+  assert.equal(passing.failedChecks, without.failedChecks);
+  assert.ok(failing.score <= passing.score);
+});
+
+test('license file: the unconfirmed preview scans nothing, so it reports nothing', () => {
+  const dir = makeProject(root, ['.qa-license.json']);
+  const preview = runComplianceAudit(dir);
+  assert.equal(preview.results.length, 0);
+  assert.equal(preview.previewOnly, true);
+});
+
+test('license file: summary lists the failing check under attention with its severity', () => {
+  const report = audit({ '.qa-license.json': '{}', '.gitignore': '.env\n' });
+  assert.ok(
+    report.summary.attention.some((line) => line.includes('[warning]') && line.includes(NAME)),
+  );
+  const ok = audit({ '.qa-license.json': '{}', '.gitignore': '.qa-license.json\n' });
+  assert.ok(ok.summary.ok.some((line) => line.includes(NAME)));
+});
