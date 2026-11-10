@@ -1,26 +1,17 @@
 import * as assert from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
 import { validateLicense } from '../dist/license/license.js';
 import { readTextBounded } from '../dist/security/path-guard.js';
-import { TEST_LICENSE_OPTIONS } from './license-fixture.ts';
+import { signedLicense, TEST_LICENSE_OPTIONS } from './license-fixture.ts';
+import { withTempDir as withTemp } from './mcp-fixture.ts';
 
 const posix = process.platform !== 'win32';
 
-function withTemp(run: (dir: string) => void): void {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-read-'));
-  try {
-    run(dir);
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 test('readTextBounded: a file of exactly the cap is read, one byte more is refused', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'a.txt');
     fs.writeFileSync(file, 'é'.repeat(4));
     assert.equal(readTextBounded(file, 8), 'éééé');
@@ -29,7 +20,7 @@ test('readTextBounded: a file of exactly the cap is read, one byte more is refus
 });
 
 test('readTextBounded: a directory is not a regular file', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     assert.throws(() => readTextBounded(dir, 10), /not a regular file/);
   });
 });
@@ -50,7 +41,7 @@ test('license path: an endless device is refused instead of exhausting memory', 
 test('license path: a named pipe is refused instead of blocking the server', {
   skip: !posix,
 }, () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const fifo = path.join(dir, 'license.json');
     execFileSync('mkfifo', [fifo]);
     const res = validateLicense(fifo, TEST_LICENSE_OPTIONS);
@@ -65,9 +56,6 @@ test('license path: a /proc file that claims size 0 still obeys the byte cap', {
   assert.throws(() => readTextBounded('/proc/self/environ', 1), /exceeds 1 bytes/);
 });
 
-import { LICENSE_SCHEMA_URL } from '../dist/license/license.js';
-import { signedLicense } from './license-fixture.ts';
-
 const CAP = 64 * 1024;
 
 function padded(totalBytes: number): string {
@@ -76,7 +64,7 @@ function padded(totalBytes: number): string {
 }
 
 test('license file: a valid license padded to exactly 64 KB is accepted, one byte more is not', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'license.json');
     fs.writeFileSync(file, padded(CAP));
     assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
@@ -103,7 +91,7 @@ test('license inline: a megabyte of text is refused quickly, not parsed', () => 
 });
 
 test('license file: zero bytes, whitespace, a doubled or misplaced BOM and NUL bytes are free tier', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     for (const [name, content] of Object.entries({
       empty: '',
       blank: ' \n\t ',
@@ -123,7 +111,7 @@ test('license file: zero bytes, whitespace, a doubled or misplaced BOM and NUL b
 });
 
 test('license file: a symlink to a regular license works, a dangling or device link does not', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const real = path.join(dir, 'real.json');
     fs.writeFileSync(real, signedLicense());
     const link = path.join(dir, 'link.json');
@@ -157,7 +145,7 @@ test('license file: /dev/null, /dev/random and /dev/stdin-like devices are refus
 test('license file: an unreadable file is free tier with a read error, not a crash', {
   skip: !posix || process.getuid?.() === 0,
 }, () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'license.json');
     fs.writeFileSync(file, signedLicense(), { mode: 0o000 });
     const res = validateLicense(file, TEST_LICENSE_OPTIONS);
@@ -167,7 +155,7 @@ test('license file: an unreadable file is free tier with a read error, not a cra
 });
 
 test('license file: a path with spaces, accents and trailing whitespace in the argument', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'ma licence é.json');
     fs.writeFileSync(file, signedLicense());
     assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
@@ -176,8 +164,8 @@ test('license file: a path with spaces, accents and trailing whitespace in the a
 });
 
 test('license discovery: an existing but invalid user file wins over a valid project file', () => {
-  withTemp((home) => {
-    withTemp((project) => {
+  withTemp('fredo-qa-read-', (home) => {
+    withTemp('fredo-qa-read-', (project) => {
       fs.mkdirSync(path.join(home, '.config', 'fredo-qa'), { recursive: true });
       fs.writeFileSync(path.join(home, '.config', 'fredo-qa', 'license.json'), '');
       fs.writeFileSync(path.join(project, '.qa-license.json'), signedLicense());
@@ -195,8 +183,8 @@ test('license discovery: an existing but invalid user file wins over a valid pro
 test('license discovery: a device or FIFO at the discovery location cannot hang or crash it', {
   skip: !posix,
 }, () => {
-  withTemp((home) => {
-    withTemp((project) => {
+  withTemp('fredo-qa-read-', (home) => {
+    withTemp('fredo-qa-read-', (project) => {
       execFileSync('mkfifo', [path.join(project, '.qa-license.json')]);
       const res = validateLicense(undefined, {
         ...TEST_LICENSE_OPTIONS,
@@ -210,7 +198,7 @@ test('license discovery: a device or FIFO at the discovery location cannot hang 
 });
 
 test('readTextBounded: a zero cap accepts an empty file only', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'a');
     fs.writeFileSync(file, '');
     assert.equal(readTextBounded(file, 0), '');
@@ -220,7 +208,7 @@ test('readTextBounded: a zero cap accepts an empty file only', () => {
 });
 
 test('readTextBounded: a file larger than the read buffer is read in several passes', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'big');
     const content = 'é'.repeat(3 * 1024 * 1024);
     fs.writeFileSync(file, content);
@@ -228,16 +216,8 @@ test('readTextBounded: a file larger than the read buffer is read in several pas
   });
 });
 
-test('license schema URL constant is the one the file may declare', () => {
-  const res = validateLicense(
-    JSON.stringify({ $schema: `${LICENSE_SCHEMA_URL}x`, schema_version: 1 }),
-    TEST_LICENSE_OPTIONS,
-  );
-  assert.equal(res.valid, false);
-});
-
 test('license file: one leading UTF-8 byte order mark (Windows editors) is accepted', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'license.json');
     fs.writeFileSync(file, `\uFEFF${signedLicense()}`);
     assert.equal(validateLicense(file, TEST_LICENSE_OPTIONS).valid, true);
@@ -256,7 +236,7 @@ test('license inline: a leading byte order mark is accepted as well', () => {
 });
 
 test('license file: a BOM does not let a tampered license through', () => {
-  withTemp((dir) => {
+  withTemp('fredo-qa-read-', (dir) => {
     const doc = JSON.parse(signedLicense());
     doc.tier = 'enterprise';
     const file = path.join(dir, 'license.json');

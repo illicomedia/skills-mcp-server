@@ -46,7 +46,7 @@ test('get_skill_rules: a skill missing from the given project says where it look
   });
   const result = res.result as { isError: boolean; content: { text: string }[] };
   assert.equal(result.isError, true);
-  assert.ok(result.content[0].text.includes(dir));
+  assert.ok(result.content[0].text.includes(fs.realpathSync(dir)));
 });
 
 test('get_skill_rules: refuses a system directory or a missing folder as project_path', () => {
