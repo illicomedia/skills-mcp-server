@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { SKILLS_CATALOG } from '../dist/skills/catalog.js';
+import { SKILLS_CATALOG } from '../dist/skills/catalog-data.js';
 
 /**
  * The package ships no skill files, so installs need a real source on disk.

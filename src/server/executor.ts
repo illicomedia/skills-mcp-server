@@ -7,12 +7,8 @@ import {
   validateLicense,
 } from '../license/license.js';
 import { validateSafeProjectPath } from '../security/path-guard.js';
-import {
-  findSkill,
-  getAvailableSkills,
-  loadSkillContent,
-  SKILLS_CATALOG,
-} from '../skills/catalog.js';
+import { findSkill, getAvailableSkills, loadSkillContent } from '../skills/catalog.js';
+import { SKILLS_CATALOG } from '../skills/catalog-data.js';
 import { installSkill } from '../skills/installer.js';
 import { pruneSkills } from '../skills/prune.js';
 import { syncWorkspaceSkills } from '../skills/sync.js';
