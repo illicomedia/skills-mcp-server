@@ -3,6 +3,7 @@ import type { JsonRpcRequest, JsonRpcResponse } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
 import { ToolExecutor } from './executor.js';
 import { LineFramer } from './framing.js';
+import { negotiateProtocolVersion } from './protocol.js';
 import { findToolDefinition, MCP_TOOLS, validateToolParams } from './tools.js';
 
 export const MAX_REQUEST_BYTES = 1024 * 1024; // 1MB DoS guard per JSON-RPC frame
@@ -43,7 +44,7 @@ export class FredoQaMcpServer {
           jsonrpc: '2.0',
           id,
           result: {
-            protocolVersion: '2024-11-05',
+            protocolVersion: negotiateProtocolVersion(params?.protocolVersion),
             capabilities: {
               tools: {},
             },

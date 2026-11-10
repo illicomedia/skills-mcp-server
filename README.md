@@ -107,7 +107,7 @@ These tools modify files or directory structures in the target project's `.agent
 | `prune_skills` | 📦 Archiving | `{ project_path?: string, keep_skills?: string[], confirm?: boolean }` | Safely archives unneeded skills from `.agents/skills/` to `.agents/.archive/` based on project stacks. **Non-destructive** (moves files). **Requires `confirm: true`**; otherwise returns safe preview. |
 | `verify_license` | 🔍 In-Memory | `{ license_key?: string }` | Validates the license signature, tier (Free, Pro, Enterprise), licensee, expiration, and version retention status. |
 | `set_license_key` | ⚙️ In-Memory | `{ license_key: string }` | Sets the signed license file (path or JSON content) in memory for the active session without restarting. |
-| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (e.g. `3.1.0`), MCP revision implemented (`2024-11-05`), Node runtime, and skills catalog count. |
+| `get_version` | 🔍 In-Memory | `{}` | Returns the active package version (e.g. `3.1.0`), MCP revisions implemented (latest `2024-11-05`, also listed as `supportedProtocolVersions`), Node runtime, and skills catalog count. |
 
 ---
 

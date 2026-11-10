@@ -16,6 +16,7 @@ import {
 import { installSkill, pruneSkills, syncWorkspaceSkills } from '../skills/installer.js';
 import type { LicenseValidationResult } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
+import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from './protocol.js';
 
 type ToolArguments = Record<string, unknown>;
 
@@ -133,7 +134,8 @@ function getVersion(license: LicenseValidationResult): string {
     {
       version: SERVER_VERSION,
       package: '@illicomedia/skills-mcp-server',
-      protocolVersion: '2024-11-05',
+      protocolVersion: LATEST_PROTOCOL_VERSION,
+      supportedProtocolVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
       nodeVersion: process.version,
       skillsCount: SKILLS_CATALOG.length,
       licenseTier: license.tier.toUpperCase(),
