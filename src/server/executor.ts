@@ -23,36 +23,32 @@ function projectPathOf(args: ToolArguments): string {
 }
 
 function setLicenseKey(
-  args: ToolArguments,
-  onLicenseUpdate: (key: string) => void,
-  licenseOptions: LicenseOptions,
+  providedKey: string,
+  license: LicenseValidationResult,
+  sessionUpdated: boolean,
 ): string {
-  const key = (args.license_key as string)?.trim();
-  onLicenseUpdate(key);
-  const updatedLicense = validateLicense(key, licenseOptions);
+  if (providedKey === '') {
+    throw new Error('license_key is empty: pass a signed license file path or its JSON content.');
+  }
   return JSON.stringify(
     {
-      status: updatedLicense.valid ? 'AUTHENTICATED' : 'FREE_TIER_FALLBACK',
-      tier: updatedLicense.tier.toUpperCase(),
-      customer: updatedLicense.customerName || 'Community User',
-      licenseId: updatedLicense.licenseId ?? null,
-      updatesUntil: updatedLicense.updatesUntil ?? null,
-      valid: updatedLicense.valid,
-      message: updatedLicense.message,
+      status: license.valid ? 'AUTHENTICATED' : 'FREE_TIER_FALLBACK',
+      tier: license.tier.toUpperCase(),
+      customer: license.customerName || 'Community User',
+      licenseId: license.licenseId ?? null,
+      updatesUntil: license.updatesUntil ?? null,
+      valid: license.valid,
+      sessionUpdated,
+      message: sessionUpdated
+        ? license.message
+        : `${license.message} The session license is unchanged.`,
     },
     null,
     2,
   );
 }
 
-function verifyLicense(
-  args: ToolArguments,
-  license: LicenseValidationResult,
-  licenseOptions: LicenseOptions,
-): string {
-  const targetLicense: LicenseValidationResult = args.license_key
-    ? validateLicense(args.license_key as string, licenseOptions)
-    : license;
+function verifyLicense(targetLicense: LicenseValidationResult): string {
   return JSON.stringify(
     {
       status: targetLicense.valid
@@ -152,17 +148,20 @@ export const ToolExecutor = {
     licenseOptions: LicenseOptions = {},
   ): string {
     const providedKey = typeof args.license_key === 'string' ? args.license_key.trim() : '';
-    if (providedKey) {
+    const license = validateLicense(providedKey || activeLicenseKey, licenseOptions);
+    // A license passed with a call is used for that call. It becomes the session license only when
+    // it verifies, and never through verify_license, which only inspects.
+    const sessionUpdated = providedKey !== '' && license.valid && name !== 'verify_license';
+    if (sessionUpdated) {
       onLicenseUpdate(providedKey);
     }
-    const license = validateLicense(providedKey || activeLicenseKey, licenseOptions);
     const confirm = args.confirm === true;
 
     switch (name) {
       case 'set_license_key':
-        return setLicenseKey(args, onLicenseUpdate, licenseOptions);
+        return setLicenseKey(providedKey, license, sessionUpdated);
       case 'verify_license':
-        return verifyLicense(args, license, licenseOptions);
+        return verifyLicense(license);
       case 'list_skills':
         return listSkills(args, license);
       case 'get_skill_rules':
