@@ -257,3 +257,12 @@ test('handleLine: the cap counts bytes, so a line of multi-byte characters is me
   assert.ok(Buffer.byteLength(euros) > MAX_REQUEST_BYTES);
   assert.match(String(server.handleLine(euros)), /maximum allowed size/);
 });
+
+test('LineFramer: a partial line is copied, so a reused or huge chunk is never kept alive', () => {
+  const { f, lines } = collect(16);
+  const chunk = Buffer.from('abc');
+  f.push(chunk);
+  chunk.fill(0x7a); // the caller reuses its buffer before the line ends
+  f.push(Buffer.from('def\n'));
+  assert.deepEqual(lines, ['abcdef']);
+});

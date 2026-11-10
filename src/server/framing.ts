@@ -47,7 +47,8 @@ export class LineFramer {
       this.onOversize();
       return;
     }
-    this.pending.push(part);
+    // A copy: a view would keep the whole incoming chunk alive and see later changes to it.
+    this.pending.push(Buffer.from(part));
     this.pendingBytes += part.length;
   }
 
