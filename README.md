@@ -87,7 +87,7 @@ These tools modify files or directory structures in the target project's `.agent
 4. **Security Containment Boundaries**:  
    Even with `confirm: true`, the server's security guard strictly rejects:
    - Writing outside the project root (`../` traversal).
-   - Using a system root directory itself as the project (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`). Only these exact directories are refused.
+   - Using a system directory as the project: the roots `/`, `/usr`, `/root`, and anything inside `/etc`, `/bin`, `/sbin`, `/boot`, `/dev`, `/proc`, `/sys`, `/lib*`, `/usr/bin`, `/usr/sbin`, `/usr/lib*`, `/var/run`, `C:\Windows`, `C:\Program Files*` or `C:\ProgramData`. Ordinary locations such as `/usr/local/src/app` or `/root/project` stay usable.
    - Using a sensitive credential store or anything inside it (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
    - Writing through symlinks that lead outside the project directory.
 
@@ -439,7 +439,7 @@ To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenS
 ### Sandboxing Controls
 - **Request Size Limit**: A JSON-RPC request line longer than 1,048,576 bytes is dropped as it streams in and answered with a parse error. Licenses read from disk are limited to 64 KB.
 - **Path Escape Prevention**: All project paths are validated against real filesystem paths (`fs.realpathSync`) to block symlink redirections and directory traversal attempts (`../../../`).
-- **Forbidden Path Blacklist**: Refuses a project path that is exactly a system directory (`/`, `/etc`, `/usr`, `/bin`, `C:\Windows`) or that is, or lies inside, a credential vault (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
+- **Forbidden Path Blacklist**: Refuses a project path that is, or lies inside, a system directory (`/`, `/etc`, `/bin`, `/usr/bin`, `C:\Windows`, see above) or a credential vault (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
 - **Runs Without Calling Our Services**: The server never calls our website, API or database; the skill catalog, license checks and audits all run locally, so an outage on our side does not stop a tool that is already set up. Downloading a skill is a separate, manual step: you fetch each skill from `illicomedia.com/qa-skills` and extract it into your project, so that step needs our website (and a purchased skill needs your account there). Once a skill is in your project, it works offline. The catalog is built into the package: new skills appear in `list_skills` only after you update the server. If your agent starts the server with `npx`, that step also needs the npm registry unless the package is already cached or installed.
 - **No Remote Telemetry**: Zero background network requests, zero metric phoning home. All audits, verifications, and tool executions occur strictly on your local machine.
 

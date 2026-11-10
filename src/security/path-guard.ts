@@ -8,8 +8,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-const BLOCKED_EXACT_PATHS = new Set<string>([
-  '/',
+// System locations a project can never be. Compared lower-case with "/" separators, so a
+// Windows path and a case-insensitive filesystem (macOS) are covered by the same lists.
+const POSIX_EXACT = new Set<string>(['/', '/root', '/usr']);
+const POSIX_TREES: readonly string[] = [
   '/bin',
   '/sbin',
   '/boot',
@@ -17,15 +19,46 @@ const BLOCKED_EXACT_PATHS = new Set<string>([
   '/etc',
   '/proc',
   '/sys',
-  '/root',
-  '/usr',
+  '/lib',
+  '/lib64',
+  '/usr/bin',
+  '/usr/sbin',
+  '/usr/lib',
+  '/usr/lib64',
+  '/usr/libexec',
   '/var/run',
-  'C:\\',
-  'C:\\Windows',
-  'C:\\Program Files',
-  'C:\\Program Files (x86)',
-  'C:\\ProgramData',
-]);
+  '/private/etc',
+];
+const WINDOWS_TREES: readonly string[] = [
+  '/windows',
+  '/program files',
+  '/program files (x86)',
+  '/programdata',
+];
+
+function isUnder(candidate: string, tree: string): boolean {
+  return candidate === tree || candidate.startsWith(`${tree}/`);
+}
+
+/**
+ * Whether a path is a system directory: a system root itself (`/`, `/usr`, `/root`, a drive
+ * root) or anything inside a system tree (`/etc/ssh`, `/usr/bin`, `C:\\Windows\\System32`).
+ * Whole-tree blocks stop at the system folders: `/usr/local/src` or `/root/project` stay usable.
+ * @public Called with Windows-style paths by tests on every platform.
+ */
+export function isBlockedSystemPath(candidate: string): boolean {
+  if (candidate === '') {
+    return false;
+  }
+  const lowered = candidate.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+  const normalized = lowered === '' ? '/' : lowered;
+  const drive = /^[a-z]:(\/.*)?$/.exec(normalized);
+  if (drive) {
+    const rest = drive[1] ?? '/';
+    return rest === '/' || WINDOWS_TREES.some((tree) => isUnder(rest, tree));
+  }
+  return POSIX_EXACT.has(normalized) || POSIX_TREES.some((tree) => isUnder(normalized, tree));
+}
 
 function getSensitiveUserDirs(): string[] {
   const home = os.homedir();
@@ -64,7 +97,7 @@ export function validateSafeProjectPath(projectPath: string, operationName: stri
 
   // 3. Block system roots and core system folders (check both resolved path and symlink target)
   const normalized = path.normalize(resolved);
-  if (BLOCKED_EXACT_PATHS.has(normalized) || BLOCKED_EXACT_PATHS.has(real)) {
+  if (isBlockedSystemPath(normalized) || isBlockedSystemPath(real)) {
     throw new Error(
       `[${operationName}] Security restriction: cannot target system directory '${normalized}'.`,
     );
