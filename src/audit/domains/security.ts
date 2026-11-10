@@ -3,16 +3,34 @@ import type { AuditCheckResult, AuditContext } from '../types.js';
 interface GitignoreRules {
   ignoresEnv: boolean;
   ignoresPrivateKeys: boolean;
+  ignoresLicenseFile: boolean;
 }
+
+const LICENSE_FILE = '.qa-license.json';
+const LICENSE_FILE_RULES: ReadonlySet<string> = new Set([
+  LICENSE_FILE,
+  `/${LICENSE_FILE}`,
+  `**/${LICENSE_FILE}`,
+  '.qa-license*',
+  '.qa-license.*',
+]);
 
 function parseGitignoreRules(content: string): GitignoreRules {
   const lines = content.split('\n').map((l) => l.trim());
   let ignoresEnv = false;
   let ignoresPrivateKeys = false;
+  let ignoresLicenseFile = false;
 
   for (const line of lines) {
     if (!line || line.startsWith('#')) {
       continue;
+    }
+
+    // The signed license file: a rule ignores it, a later negation of the same rule restores it
+    if (LICENSE_FILE_RULES.has(line)) {
+      ignoresLicenseFile = true;
+    } else if (line.startsWith('!') && LICENSE_FILE_RULES.has(line.slice(1))) {
+      ignoresLicenseFile = false;
     }
 
     // Negations
@@ -52,7 +70,7 @@ function parseGitignoreRules(content: string): GitignoreRules {
     }
   }
 
-  return { ignoresEnv, ignoresPrivateKeys };
+  return { ignoresEnv, ignoresPrivateKeys, ignoresLicenseFile };
 }
 
 function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
@@ -183,6 +201,35 @@ function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
   };
 }
 
+/**
+ * A project-level license file is the licensee's own signed license: committed to a shared or
+ * public repository, it unlocks the paid skills for everyone who can read that repository.
+ * Only projects that hold the file get this check.
+ */
+function checkLicenseFileIgnored(ctx: AuditContext): AuditCheckResult[] {
+  if (!ctx.fileExists(LICENSE_FILE)) {
+    return [];
+  }
+  const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
+  const { ignoresLicenseFile } = parseGitignoreRules(gitignoreContent);
+  return [
+    {
+      category: 'security',
+      name: 'license file kept out of git',
+      passed: ignoresLicenseFile,
+      severity: 'warning',
+      details: ignoresLicenseFile
+        ? `.gitignore ignores ${LICENSE_FILE} (git tracking itself is not checked).`
+        : `${LICENSE_FILE} is not ignored by .gitignore: committing it shares your signed license with everyone who can read the repository. Add ${LICENSE_FILE} to .gitignore, or keep the license in ~/.config/fredo-qa/license.json.`,
+    },
+  ];
+}
+
 export function auditSecurity(ctx: AuditContext): AuditCheckResult[] {
-  return [checkVulnerabilityPolicy(ctx), checkGitignoreEnv(ctx), checkPrivateKeyHygiene(ctx)];
+  return [
+    checkVulnerabilityPolicy(ctx),
+    checkGitignoreEnv(ctx),
+    checkPrivateKeyHygiene(ctx),
+    ...checkLicenseFileIgnored(ctx),
+  ];
 }

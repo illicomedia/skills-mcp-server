@@ -117,7 +117,7 @@ The `quick_check` tool provides a sub-second, non-destructive audit engine for A
 
 ### Audit Domains Evaluated:
 1. **Governance & Guidelines**: Detects `AGENTS.md`, a `LICENSE` file, and `.qa-exceptions.yaml` (with expiry dates).
-2. **Security & Secrets Hygiene**: Verifies `.gitignore` ignores `.env` files and private keys, detects private-key files in the project (`id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`), and checks for `SECURITY.md` and an RFC 9116 `.well-known/security.txt`.
+2. **Security & Secrets Hygiene**: Verifies `.gitignore` ignores `.env` files and private keys, detects private-key files in the project (`id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`), checks for `SECURITY.md` and an RFC 9116 `.well-known/security.txt`, and warns when a project-level `.qa-license.json` is not ignored by `.gitignore`.
 3. **Quality Gates & Exceptions**: Verifies that a test command or runner is declared for the detected stack (for Node.js also `qa:starter` / `qa:standard` scripts).
 4. **Supply Chain Integrity**: Checks that a dependency lockfile is present for the detected stack (`pnpm-lock.yaml`, `package-lock.json`, `Cargo.lock`, `go.sum`, `poetry.lock`, ...). It does not read SBOMs or verify dependencies.
 5. **DevOps & Continuous Integration**: Detects CI configuration files (GitHub Actions, GitLab CI, Forgejo/Gitea, Bitbucket, Azure DevOps, CircleCI, Jenkins, Drone, Woodpecker, Cirrus, Travis).
