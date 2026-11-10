@@ -72,7 +72,7 @@ test('license file: the check lowers readiness while it fails', () => {
 test('license file: CRLF line endings, a BOM, trailing spaces and globs still count (as in git)', () => {
   for (const gitignore of [
     '.env\r\n.qa-license.json\r\n',
-    '﻿.qa-license.json\n',
+    '\uFEFF.qa-license.json\n',
     '.qa-license.json   \n',
     '.qa-license.json',
     '*.json\n',

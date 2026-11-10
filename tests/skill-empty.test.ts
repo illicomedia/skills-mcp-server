@@ -33,9 +33,9 @@ const EMPTY_VARIANTS: Record<string, string> = {
   newline: '\n',
   'CRLF lines': '\r\n\r\n',
   tabs: '\t\t\n',
-  'byte order mark only': '﻿',
-  'byte order mark and blank': '﻿ \n',
-  'non-breaking spaces': '  ',
+  'byte order mark only': '\uFEFF',
+  'byte order mark and blank': '\uFEFF \n',
+  'non-breaking spaces': '\u00A0\u00A0',
 };
 
 for (const [label, content] of Object.entries(EMPTY_VARIANTS)) {

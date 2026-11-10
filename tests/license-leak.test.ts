@@ -76,7 +76,14 @@ test('license errors: no binding content is echoed', () => {
 });
 
 test('license errors: unknown key names of every shape are not echoed', () => {
-  const names = [SECRET, `${SECRET}\n`, '__proto__', 'constructor', '‮evil', 'x'.repeat(200_000)];
+  const names = [
+    SECRET,
+    `${SECRET}\n`,
+    '__proto__',
+    'constructor',
+    '\u202Eevil',
+    'x'.repeat(200_000),
+  ];
   for (const name of names) {
     const text = `{"schema_version":1,${JSON.stringify(name)}:1}`;
     const result = validateLicense(
