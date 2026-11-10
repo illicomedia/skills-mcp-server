@@ -335,14 +335,25 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
     path.join(base, '.agents', 'skills', skillId, 'SKILL.md'),
   ];
 
+  let firstEmpty: string | undefined;
   for (const p of candidatePaths) {
-    if (exists(p)) {
-      try {
-        return readText(p);
-      } catch {
-        // Fallback
-      }
+    if (!exists(p)) {
+      continue;
     }
+    try {
+      const content = readText(p);
+      if (content.trim() !== '') {
+        return content;
+      }
+      firstEmpty ??= p;
+    } catch {
+      // Unreadable (a directory, no permission): treated like a missing file
+    }
+  }
+
+  // A blank file is not a skill: installing it would report success and give an agent no rules.
+  if (firstEmpty) {
+    throw new SkillFileEmptyError(skillId, firstEmpty);
   }
 
   // The package ships no skill files. Never synthesize rules: an agent would follow
@@ -370,6 +381,26 @@ export class SkillNotInstalledError extends Error {
         `Do not apply or invent rules for this skill until it is installed.`,
     );
     this.name = 'SkillNotInstalledError';
+  }
+}
+
+/**
+ * Raised when a skill's SKILL.md exists but holds nothing but whitespace (a failed download,
+ * a truncated copy). Like SkillNotInstalledError, the message tells the developer what to do.
+ * @public Callers tell it apart with instanceof (the tests do, through dist/).
+ */
+export class SkillFileEmptyError extends Error {
+  constructor(
+    public readonly skillId: string,
+    public readonly emptyPath: string,
+  ) {
+    super(
+      `Skill '${skillId}' has an empty SKILL.md (${emptyPath}). The file looks like a failed ` +
+        `or truncated download: download the skill again from ${SKILL_PAGE_BASE_URL}/${skillId} ` +
+        `and extract it into .agents/skills/${skillId}/, then retry. ` +
+        `Do not apply or invent rules for this skill until it is installed.`,
+    );
+    this.name = 'SkillFileEmptyError';
   }
 }
 
