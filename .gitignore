@@ -10,3 +10,7 @@ dist/
 assets/
 docs/infra/
 TODO.md
+
+# Private: kept in the maintainers' internal repository
+docs/engineering/decisions.md
+docs/design/

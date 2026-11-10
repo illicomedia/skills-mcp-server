@@ -3,7 +3,7 @@
 **Package:** [`@illicomedia/skills-mcp-server`](https://www.npmjs.com/package/@illicomedia/skills-mcp-server)
 **Repository:** [github.com/illicomedia/skills-mcp-server](https://github.com/illicomedia/skills-mcp-server)
 **Publisher:** GitHub Actions (`.github/workflows/release.yml`) through npm Trusted Publishing
-**Why it works this way:** [engineering decisions](../engineering/decisions.md) (D1 to D16)
+**Why it works this way:** decisions D1 to D21 of the maintainers' decision record (private)
 **Releasing now?** Follow the step-by-step [release runbook](release-runbook.md).
 
 ---

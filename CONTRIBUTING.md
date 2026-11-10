@@ -45,8 +45,8 @@ Tests run against the compiled `dist/`, so `pnpm test` builds first. Fixtures li
 ## Engineering decisions
 
 The rules this repository follows (releases, CI, supply chain, supported Node.js versions,
-tests) and the reasons for them are recorded in [docs/engineering/decisions.md](docs/engineering/decisions.md).
-A pull request that changes one of them updates that file in the same pull request.
+tests) are numbered decisions (D1, D2, ...) kept by the maintainers in a private decision record.
+A pull request that changes one of these rules says so in its description; a maintainer records it.
 
 ## Commit messages
 

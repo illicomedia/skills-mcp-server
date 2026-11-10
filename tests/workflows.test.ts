@@ -5,7 +5,7 @@ import test from 'node:test';
 import { parse } from 'yaml';
 
 /**
- * Policy tests: the decisions of docs/engineering/decisions.md, checked on the workflow files.
+ * Policy tests: the CI decisions of the maintainers' decision record (D-numbers), checked on the workflow files.
  * A change that breaks one fails CI here, instead of being noticed during a release.
  */
 

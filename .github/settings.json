@@ -1,5 +1,5 @@
 {
-  "$comment": "Repository settings, as code. Check: pnpm run github:check. Apply: pnpm run github:apply. See docs/engineering/decisions.md (D20).",
+  "$comment": "Repository settings, as code. Check: pnpm run github:check. Apply: pnpm run github:apply. Why: decision D20 (maintainers' decision record).",
   "repository": "illicomedia/skills-mcp-server",
   "features": {
     "hasIssues": true,

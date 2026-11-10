@@ -1,4 +1,4 @@
-# zizmor configuration. Every exception states why; see docs/engineering/decisions.md (D18).
+# zizmor configuration. Every exception states why (decision D18 of the maintainers' decision record).
 rules:
   # zizmor suggests the newer `$/...` form for calling a workflow of this repository.
   # actionlint 1.7.12 rejects it ("not following the format ... ./path/to/workflow.yml"),

@@ -1,7 +1,7 @@
 # Release Runbook
 
 Step by step for the maintainer releasing `@illicomedia/skills-mcp-server`. Why it works this way:
-[publish process](mcp-publish-process.md) and [engineering decisions](../engineering/decisions.md).
+[publish process](mcp-publish-process.md) and the maintainers' decision record (private).
 
 Each step is marked:
 - **YOU**: you run it.
