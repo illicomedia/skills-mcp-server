@@ -1,7 +1,7 @@
 import * as crypto from 'node:crypto';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { exists, fileSize, readText } from '../security/path-guard.js';
+import { exists, readTextBounded } from '../security/path-guard.js';
 import type { LicenseValidationResult } from '../types.js';
 import { SERVER_RELEASE_DATE, TRUSTED_LICENSE_KEYS } from './keys.js';
 
@@ -88,11 +88,7 @@ function freeTier(
 }
 
 function readLicenseFile(file: string): string {
-  const size = fileSize(file);
-  if (size > MAX_LICENSE_BYTES) {
-    throw new Error(`license file exceeds ${MAX_LICENSE_BYTES} bytes`);
-  }
-  return readText(file);
+  return readTextBounded(file, MAX_LICENSE_BYTES);
 }
 
 function discoverLicenseFile(options: LicenseOptions): string | undefined {

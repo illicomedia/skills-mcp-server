@@ -151,6 +151,35 @@ export function readText(file: string): string {
   return fs.readFileSync(file, 'utf8');
 }
 
+/**
+ * Reads a small text file defensively: only a regular file is opened (a device such as
+ * /dev/zero never ends, a named pipe blocks the open), and reading stops one byte past
+ * `maxBytes` whatever size the file claims (files under /proc report size 0).
+ */
+export function readTextBounded(file: string, maxBytes: number): string {
+  if (!fs.statSync(file).isFile()) {
+    throw new Error('not a regular file');
+  }
+  const descriptor = fs.openSync(file, 'r');
+  try {
+    const buffer = Buffer.alloc(maxBytes + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = fs.readSync(descriptor, buffer, length, buffer.length - length, null);
+      if (read === 0) {
+        break;
+      }
+      length += read;
+    }
+    if (length > maxBytes) {
+      throw new Error(`file exceeds ${maxBytes} bytes`);
+    }
+    return buffer.toString('utf8', 0, length);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 export function listDir(directory: string): string[] {
   return fs.readdirSync(directory);
 }
