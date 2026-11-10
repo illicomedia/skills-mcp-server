@@ -184,17 +184,25 @@ export function readText(file: string): string {
   return fs.readFileSync(file, 'utf8');
 }
 
+function ensureRegularFile(stats: fs.Stats): void {
+  if (!stats.isFile()) {
+    throw new Error('not a regular file');
+  }
+}
+
 /**
  * Reads a small text file defensively: only a regular file is opened (a device such as
  * /dev/zero never ends, a named pipe blocks the open), and reading stops one byte past
  * `maxBytes` whatever size the file claims (files under /proc report size 0).
  */
 export function readTextBounded(file: string, maxBytes: number): string {
-  if (!fs.statSync(file).isFile()) {
-    throw new Error('not a regular file');
-  }
-  const descriptor = fs.openSync(file, 'r');
+  // Checked before opening, so a device is never opened at all; and checked again on the open
+  // descriptor, because the path may be swapped for a pipe in between. O_NONBLOCK keeps that
+  // open from blocking (it is 0 where the platform has no such flag; regular files ignore it).
+  ensureRegularFile(fs.statSync(file));
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
   try {
+    ensureRegularFile(fs.fstatSync(descriptor));
     const buffer = Buffer.alloc(maxBytes + 1);
     let length = 0;
     while (length < buffer.length) {
