@@ -1,11 +1,21 @@
-import * as readline from 'node:readline';
 import type { LicenseOptions } from '../license/license.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../types.js';
 import { SERVER_VERSION } from '../version.js';
 import { ToolExecutor } from './executor.js';
+import { LineFramer } from './framing.js';
 import { findToolDefinition, MCP_TOOLS, validateToolParams } from './tools.js';
 
 export const MAX_REQUEST_BYTES = 1024 * 1024; // 1MB DoS guard per JSON-RPC frame
+
+const parseError = (message: string): string =>
+  JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message } });
+
+/** The answer to a request line larger than MAX_REQUEST_BYTES (the line itself is dropped). */
+function oversizeError(): string {
+  return parseError(
+    `Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes.`,
+  );
+}
 
 export class FredoQaMcpServer {
   private licenseKey?: string;
@@ -146,29 +156,24 @@ export class FredoQaMcpServer {
   }
 
   public startStdio(): void {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: false,
-    });
-
-    rl.on('line', (line: string) => {
-      const output = this.handleLine(line);
+    const write = (output: string | null): void => {
       if (output !== null) {
         process.stdout.write(`${output}\n`);
       }
-    });
+    };
+    const framer = new LineFramer(
+      MAX_REQUEST_BYTES,
+      (line) => write(this.handleLine(line)),
+      () => write(oversizeError()),
+    );
+    process.stdin.on('data', (chunk: Buffer) => framer.push(chunk));
+    process.stdin.on('end', () => framer.end());
   }
 
   /** One line of the stdio protocol: the JSON to answer with, or null when no answer is due. */
   public handleLine(line: string): string | null {
-    const parseError = (message: string): string =>
-      JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message } });
-
-    if (line.length > MAX_REQUEST_BYTES) {
-      return parseError(
-        `Parse error: request line exceeds maximum allowed size of ${MAX_REQUEST_BYTES} bytes.`,
-      );
+    if (Buffer.byteLength(line, 'utf8') > MAX_REQUEST_BYTES) {
+      return oversizeError();
     }
     const trimmed = line.trim();
     if (!trimmed) {
