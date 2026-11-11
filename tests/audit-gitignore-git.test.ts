@@ -1,10 +1,8 @@
 import * as assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
-import { after, test } from 'node:test';
-import { runComplianceAudit } from '../dist/audit/index.js';
+import { test } from 'node:test';
+import { auditCheckPassed, gitAvailable, gitIgnores, repo } from './git-fixture.ts';
 
 /**
  * Differential test: the audit's reading of .gitignore is checked against git itself.
@@ -12,39 +10,8 @@ import { runComplianceAudit } from '../dist/audit/index.js';
  * "ignored" when git would commit the file.
  */
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-gitdiff-'));
-after(() => fs.rmSync(root, { recursive: true, force: true }));
-
 const NAME = 'license file kept out of git';
-const gitAvailable = spawnSync('git', ['--version']).status === 0;
-const emptyConfig = path.join(root, 'empty-gitconfig');
-fs.writeFileSync(emptyConfig, '');
-
-function git(cwd: string, args: string[], ignoreCase: boolean): number | null {
-  return spawnSync(
-    'git',
-    ['-c', `core.ignorecase=${ignoreCase}`, '-c', `core.excludesFile=${emptyConfig}`, ...args],
-    {
-      cwd,
-      env: { ...process.env, GIT_CONFIG_GLOBAL: emptyConfig, GIT_CONFIG_NOSYSTEM: '1' },
-    },
-  ).status;
-}
-
-let counter = 0;
-function repo(): string {
-  counter += 1;
-  const dir = path.join(root, `r${counter}`);
-  fs.mkdirSync(dir);
-  assert.equal(git(dir, ['init', '-q', '.'], false), 0);
-  return dir;
-}
-
-function auditSays(project: string): boolean {
-  const check = runComplianceAudit(project, { confirm: true }).results.find((r) => r.name === NAME);
-  assert.ok(check);
-  return check.passed;
-}
+const auditSays = (project: string): boolean => auditCheckPassed(project, NAME);
 
 /** [gitignore content, does the audit have to agree exactly with git?] */
 const OWN: [string, boolean][] = [
@@ -113,11 +80,11 @@ for (const ignoreCase of [false, true]) {
       const dir = repo();
       fs.writeFileSync(path.join(dir, '.qa-license.json'), '{}');
       fs.writeFileSync(path.join(dir, '.gitignore'), content);
-      const gitIgnores = git(dir, ['check-ignore', '-q', '.qa-license.json'], ignoreCase) === 0;
+      const gitSays = gitIgnores(dir, '.qa-license.json', ignoreCase);
       const ours = auditSays(dir);
-      assert.ok(!(ours && !gitIgnores), 'audit says ignored but git would commit the file');
+      assert.ok(!(ours && !gitSays), 'audit says ignored but git would commit the file');
       if (exact && !ignoreCase) {
-        assert.equal(ours, gitIgnores);
+        assert.equal(ours, gitSays);
       }
     });
   }
@@ -131,12 +98,11 @@ for (const ignoreCase of [false, true]) {
       fs.mkdirSync(child);
       fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
       fs.writeFileSync(path.join(top, '.gitignore'), content);
-      const gitIgnores =
-        git(top, ['check-ignore', '-q', 'child/.qa-license.json'], ignoreCase) === 0;
+      const gitSays = gitIgnores(top, 'child/.qa-license.json', ignoreCase);
       const ours = auditSays(child);
-      assert.ok(!(ours && !gitIgnores), 'audit says ignored but git would commit the file');
+      assert.ok(!(ours && !gitSays), 'audit says ignored but git would commit the file');
       if (exact && !ignoreCase) {
-        assert.equal(ours, gitIgnores);
+        assert.equal(ours, gitSays);
       }
     });
   }
