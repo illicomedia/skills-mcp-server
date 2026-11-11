@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
@@ -74,12 +74,7 @@
     }
   },
   "files": {
-    "includes": [
-      "src/**/*.ts",
-      "tests/**/*.ts",
-      "!tests/fixtures/**",
-      "scripts/**/*.mjs"
-    ],
+    "includes": ["src/**/*.ts", "tests/**/*.ts", "!tests/fixtures/**", "scripts/**/*.mjs"],
     "ignoreUnknown": true
   },
   "javascript": {
@@ -97,10 +92,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "tests/**",
-        "scripts/**"
-      ],
+      "includes": ["tests/**", "scripts/**"],
       "linter": {
         "rules": {
           "suspicious": {
