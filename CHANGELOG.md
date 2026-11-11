@@ -19,6 +19,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 - Project paths: a path inside a system directory is refused, not only the directory itself (`/etc/ssh`, `/usr/bin`, `/lib`, `/var/run`, `C:\Windows\System32`, WSL mounts such as `/mnt/c/Windows`, macOS `/System` and `/Library`), and more credential stores are refused (`~/.config/gcloud`, `~/.config/gh`, `~/.password-store`, `~/.oci`, `~/Library/Keychains`). `/usr/local/src` or `/root/project` stay usable.
 - `get_skill_rules` with an unknown skill id answers "Unknown skill" instead of presenting it as a paid skill.
 - The decision record and the design strategy are no longer part of this repository; public files refer to decisions by number.
+- README: configuration for GitHub Copilot and VS Code, Windsurf (now Devin Desktop) and Cline, checked against their documentation.
 
 ### Fixed
 
@@ -26,6 +27,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 - Security: a license path must be a regular file and is read with a hard 64 KB cap, also when the license is passed as JSON text. A path such as `/dev/zero` made the server read until it ran out of memory, and a named pipe blocked it (also when swapped in between the check and the read).
 - Security: license errors no longer repeat what the file contains. `set_license_key` and `verify_license` accept any path, and the messages named unknown fields and the key id of that file.
 - Security: a license given with a tool call replaces the session license only when it verifies, and never through `verify_license`. A mistyped key silently dropped a valid session to the free tier.
+- Security: a license path passed to `set_license_key`, `verify_license` or a `license_key` argument gets the same answer for every failure, so the tools no longer tell whether a file exists, is a folder or a device, or is JSON. Inline JSON and the fixed locations keep the detailed reason.
+- Security: project files the server reads (`.gitignore`, `package.json`, `AGENTS.md`, `Makefile`, `SKILL.md`, `LICENSE`, ...) must be regular files of at most 1 MiB. A named pipe under one of those names hung the server, and a link to `/dev/zero` or a huge file exhausted its memory; such files now count as missing, so the checks fail closed.
 - A license file saved with a UTF-8 byte order mark (Windows PowerShell 5.1, older Notepad) is accepted.
 - An empty or whitespace-only `SKILL.md` (a failed download) is refused by `install_skill` and `get_skill_rules` instead of being installed as a success.
 - Coverage CLI: route `test:coverage` through `scripts/run-coverage.mjs` so `--test-isolation=none` is never passed on Node 22 (CI#31 `bad option` regression guard); opt-in only via `FREDO_TEST_ISOLATION_NONE=1` on Node 24+.
