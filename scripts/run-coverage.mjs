@@ -22,8 +22,13 @@ export function coverageArgs(major) {
     '--test-coverage-functions=100',
     '--test-coverage-exclude=tests/**',
     '--test-coverage-exclude=**/fqa-*/**',
-    // The runner is a CLI shim; do not count its process.exit path against product coverage.
+    // Command-line shims (argument reading, process.exit, real git/npm/GitHub calls): the --help
+    // tests start them, which must not count them. Their logic lives in the *-flow and *-lib
+    // modules and in cli-help.mjs, all covered.
     '--test-coverage-exclude=scripts/run-coverage.mjs',
+    '--test-coverage-exclude=scripts/release.mjs',
+    '--test-coverage-exclude=scripts/github-settings.mjs',
+    '--test-coverage-exclude=scripts/check-clean.mjs',
     'tests/**/*.test.ts',
   ];
   // Opt-in only: FREDO_TEST_ISOLATION_NONE=1 on Node 24+ when process isolation skews V8 counts.
