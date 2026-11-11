@@ -28,28 +28,15 @@ import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { RELEASE_HELP, wantsHelp } from './cli-help.mjs';
-import {
-  approveStaged,
-  deprecate,
-  expectRefusal,
-  githubRelease,
-  prepare,
-  promote,
-  publishListing,
-  rehearse,
-  ship,
-  smoke,
-  stage,
-  status,
-  undeprecate,
-} from './release-flow.mjs';
-import {
-  ciTagOutputs,
-  expectServerRefusal,
-  extractChangelogSection,
-  parseReleaseArgs,
-  smokeTestServer,
-} from './release-lib.mjs';
+import { parseReleaseArgs } from './release/args.mjs';
+import { extractChangelogSection } from './release/changelog.mjs';
+import { expectRefusal, githubRelease, rehearse, smoke, stage } from './release/ci.mjs';
+import { publishListing } from './release/listing.mjs';
+import { approveStaged, deprecate, promote, ship, undeprecate } from './release/npm-steps.mjs';
+import { prepare } from './release/prepare.mjs';
+import { expectServerRefusal, smokeTestServer } from './release/smoke-client.mjs';
+import { status } from './release/status.mjs';
+import { ciTagOutputs } from './release/versions.mjs';
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const color = (code, symbol) => (msg) =>

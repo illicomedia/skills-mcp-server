@@ -20,7 +20,7 @@ import { installSkill } from '../../dist/skills/installer.js';
 import { pruneSkills } from '../../dist/skills/prune.js';
 import { detectProjectSkills } from '../../dist/skills/stack-detection.js';
 import { syncWorkspaceSkills } from '../../dist/skills/sync.js';
-import { smokeTestServer } from '../../scripts/release-lib.mjs';
+import { smokeTestServer } from '../../scripts/release/smoke-client.mjs';
 import { makeProject, rule } from '../helpers/audit-fixture.ts';
 import { signedLicense, TEST_LICENSE_OPTIONS } from '../helpers/license-fixture.ts';
 import { REPO_ROOT } from '../helpers/paths.ts';

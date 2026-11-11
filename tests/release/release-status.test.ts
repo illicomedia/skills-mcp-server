@@ -1,8 +1,10 @@
 import * as assert from 'node:assert/strict';
 import * as path from 'node:path';
 import { describe, test } from 'node:test';
-import { type ReleaseContext, status } from '../../scripts/release-flow.mjs';
-import { parseReleaseArgs, unreleasedSummary } from '../../scripts/release-lib.mjs';
+import { parseReleaseArgs } from '../../scripts/release/args.mjs';
+import { unreleasedSummary } from '../../scripts/release/changelog.mjs';
+import type { ReleaseContext } from '../../scripts/release/shared.mjs';
+import { status } from '../../scripts/release/status.mjs';
 
 describe('release › release-status', () => {
   const PKG = { name: '@illicomedia/skills-mcp-server', version: '3.2.0' };

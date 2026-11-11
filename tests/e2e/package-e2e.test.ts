@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test, { describe } from 'node:test';
-import { smokeTestServer } from '../../scripts/release-lib.mjs';
+import { smokeTestServer } from '../../scripts/release/smoke-client.mjs';
 
 describe('e2e › package-e2e', () => {
   /**

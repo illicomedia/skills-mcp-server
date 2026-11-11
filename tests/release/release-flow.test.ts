@@ -1,25 +1,26 @@
 import * as assert from 'node:assert';
 import * as path from 'node:path';
 import test, { describe } from 'node:test';
-import type { Pkg, ReleaseContext } from '../../scripts/release-flow.mjs';
 import {
-  approveStaged,
-  deprecate,
   expectRefusal,
   findTarball,
   githubRelease,
-  prepare,
-  promote,
-  publishListing,
-  REGISTRY_ATTEMPTS,
-  registryState,
   rehearse,
-  ship,
   smoke,
   stage,
+} from '../../scripts/release/ci.mjs';
+import { publishListing } from '../../scripts/release/listing.mjs';
+import {
+  approveStaged,
+  deprecate,
+  promote,
+  ship,
   undeprecate,
   verifyFromRegistry,
-} from '../../scripts/release-flow.mjs';
+} from '../../scripts/release/npm-steps.mjs';
+import { prepare } from '../../scripts/release/prepare.mjs';
+import type { Pkg, ReleaseContext } from '../../scripts/release/shared.mjs';
+import { REGISTRY_ATTEMPTS, registryState } from '../../scripts/release/shared.mjs';
 
 const NAME = '@illicomedia/skills-mcp-server';
 const PKG_DIR = '/repo';

@@ -76,7 +76,7 @@ jobs:
       - run: pnpm run build
       - run: pnpm pack --pack-destination packed
       # The release path up to staging, on every push: tag logic, release notes, npm client,
-      # tarball, and a dry run of the exact staging command (scripts/release-flow.mjs rehearse).
+      # tarball, and a dry run of the exact staging command (scripts/release/ci.mjs rehearse).
       - name: Rehearse the release
         run: node scripts/release.mjs --rehearse --tarball-dir packed
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

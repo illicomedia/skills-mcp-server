@@ -3,30 +3,35 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test, { describe } from 'node:test';
+import { parseReleaseArgs } from '../../scripts/release/args.mjs';
 import {
-  bumpVersion,
   changelogHasVersion,
-  checkTagMatchesVersion,
-  ciProblem,
-  ciTagOutputs,
-  deprecationProblems,
-  expectServerRefusal,
   extractChangelogSection,
-  githubRepoSlug,
-  listingAtVersion,
-  listingProblems,
-  nextDistTagAfterPromotion,
-  parseRegistryState,
-  parseReleaseArgs,
-  parseStageList,
-  SMOKE_PROTOCOL_VERSION,
-  smokeTestServer,
   stampChangelog,
   stampReleaseDate,
+} from '../../scripts/release/changelog.mjs';
+import {
+  ciProblem,
+  deprecationProblems,
+  githubRepoSlug,
+  parseRegistryState,
+  parseStageList,
+} from '../../scripts/release/checks.mjs';
+import { listingAtVersion, listingProblems } from '../../scripts/release/listing.mjs';
+import {
+  expectServerRefusal,
+  SMOKE_PROTOCOL_VERSION,
+  smokeTestServer,
+} from '../../scripts/release/smoke-client.mjs';
+import {
+  bumpVersion,
+  checkTagMatchesVersion,
+  ciTagOutputs,
+  nextDistTagAfterPromotion,
   tagForVersion,
   tarballFileName,
   versionAtLeast,
-} from '../../scripts/release-lib.mjs';
+} from '../../scripts/release/versions.mjs';
 
 describe('release › release', () => {
   test('Release args: prepare needs a bump, and the npm "--" separator is ignored', () => {

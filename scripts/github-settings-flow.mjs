@@ -7,7 +7,7 @@
  * is reported as drift, for a person to remove on purpose.
  */
 
-import { approve } from './release-flow.mjs';
+import { approve } from './release/shared.mjs';
 
 /** GitHub's built-in "Repository admin" role, as a ruleset bypass actor. */
 const ADMIN_ROLE_ID = 5;
