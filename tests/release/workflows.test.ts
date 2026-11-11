@@ -254,6 +254,18 @@ describe('release › workflows', () => {
     assert.match(packageManager, /^pnpm@\d+\.\d+\.\d+\+sha512\.[0-9a-f]{128}$/);
   });
 
+  test('dependencies: none at runtime, and no WebAssembly fallback tree in the lockfile', () => {
+    const pkg = JSON.parse(read('package.json')) as Record<string, Record<string, string>>;
+    for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+      assert.deepEqual(pkg[field] ?? {}, {}, field);
+    }
+    const lock = read('pnpm-lock.yaml');
+    for (const name of ['tslib', '@emnapi/core', '@napi-rs/wasm-runtime', 'binding-wasm32-wasi']) {
+      assert.equal(lock.includes(`${name}@`), false, `${name} is back in pnpm-lock.yaml`);
+    }
+    assert.match(read('pnpm-workspace.yaml'), /ignoredOptionalDependencies:/);
+  });
+
   test('D18: CI runs every quality gate: lint, test types, dead code, duplicates, coverage, package metadata', () => {
     const runs = (ci.jobs.quality.steps ?? []).map((step) => step.run);
     for (const gate of [

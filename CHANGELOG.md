@@ -10,6 +10,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 - Maintainer scripts: `--help` / `-h` on `pnpm release`, `github:check` / `github:apply`, `check:clean`, `test:coverage` and `scripts/github-audit.sh`. Each prints its usage, options and process, then exits without doing anything else, whatever else is on the command line. A wrong option now points to `--help`.
 
+### Changed
+
+- Development tooling only (the published package still has no dependency): pnpm 12.18.0 (pinned by hash), knip 6.45.0, and the WebAssembly fallback of knip's resolver is no longer installed, which removes 7 packages from the lockfile (`tslib`, `@emnapi/*`, `@napi-rs/wasm-runtime`, ...).
+
 ## 3.2.0 - 2026-11-11
 
 ### Added

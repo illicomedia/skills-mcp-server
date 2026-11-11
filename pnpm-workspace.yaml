@@ -1,2 +1,7 @@
 allowBuilds:
   '@biomejs/biome': true
+
+# knip's resolver falls back to WebAssembly where it has no native binding. Every supported
+# platform has one, and the fallback alone pulls in 7 packages (tslib, emnapi, wasm-runtime).
+ignoredOptionalDependencies:
+  - '@oxc-resolver/binding-wasm32-wasi'
