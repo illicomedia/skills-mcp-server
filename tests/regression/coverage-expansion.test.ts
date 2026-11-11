@@ -264,7 +264,7 @@ test('License: validation edge cases and malformed payloads', () => {
     fs.writeFileSync(bigFile, 'a'.repeat(65537));
     const bigRes = validateLicense(bigFile, TEST_LICENSE_OPTIONS);
     assert.strictEqual(bigRes.valid, false);
-    assert.match(bigRes.message, /exceeds 65536 bytes/);
+    assert.match(bigRes.message, /could not be used/);
 
     // Non-object JSON in license file
     const nonObjDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-non-obj-'));
@@ -273,7 +273,7 @@ test('License: validation edge cases and malformed payloads', () => {
       fs.writeFileSync(nonObjFile, '[1, 2, 3]');
       const nonObjRes = validateLicense(nonObjFile, TEST_LICENSE_OPTIONS);
       assert.strictEqual(nonObjRes.valid, false);
-      assert.match(nonObjRes.message, /must contain a JSON object/);
+      assert.match(nonObjRes.message, /could not be used/);
     } finally {
       fs.rmSync(nonObjDir, { recursive: true, force: true });
     }

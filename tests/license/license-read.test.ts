@@ -10,6 +10,21 @@ import { withTempDir as withTemp } from '../helpers/mcp-fixture.ts';
 
 const posix = process.platform !== 'win32';
 
+/**
+ * The detailed reason a file is refused. A path passed by the caller only gets a uniform answer
+ * (license-oracle tests), so the file is shown through the fixed user location instead.
+ */
+function reasonFor(file: string): string {
+  let message = '';
+  withTemp('fredo-qa-home-', (home) => {
+    const config = path.join(home, '.config', 'fredo-qa');
+    fs.mkdirSync(config, { recursive: true });
+    fs.symlinkSync(path.resolve(file), path.join(config, 'license.json'));
+    message = validateLicense(undefined, { ...TEST_LICENSE_OPTIONS, homeDir: home }).message;
+  });
+  return message;
+}
+
 test('readTextBounded: a file of exactly the cap is read, one byte more is refused', () => {
   withTemp('fredo-qa-read-', (dir) => {
     const file = path.join(dir, 'a.txt');
@@ -35,7 +50,7 @@ test('license path: an endless device is refused instead of exhausting memory', 
   const res = validateLicense('/dev/zero', TEST_LICENSE_OPTIONS);
   assert.equal(res.valid, false);
   assert.equal(res.tier, 'free');
-  assert.match(res.message, /not a regular file/);
+  assert.match(reasonFor('/dev/zero'), /not a regular file/);
 });
 
 test('license path: a named pipe is refused instead of blocking the server', {
@@ -46,7 +61,7 @@ test('license path: a named pipe is refused instead of blocking the server', {
     execFileSync('mkfifo', [fifo]);
     const res = validateLicense(fifo, TEST_LICENSE_OPTIONS);
     assert.equal(res.tier, 'free');
-    assert.match(res.message, /not a regular file/);
+    assert.match(reasonFor(fifo), /not a regular file/);
   });
 });
 
@@ -71,7 +86,7 @@ test('license file: a valid license padded to exactly 64 KB is accepted, one byt
     fs.writeFileSync(file, padded(CAP + 1));
     const res = validateLicense(file, TEST_LICENSE_OPTIONS);
     assert.equal(res.valid, false);
-    assert.match(res.message, /exceeds 65536 bytes/);
+    assert.match(reasonFor(file), /exceeds 65536 bytes/);
   });
 });
 
@@ -125,7 +140,8 @@ test('license file: a symlink to a regular license works, a dangling or device l
     if (posix) {
       const device = path.join(dir, 'device.json');
       fs.symlinkSync('/dev/zero', device);
-      assert.match(validateLicense(device, TEST_LICENSE_OPTIONS).message, /not a regular file/);
+      assert.equal(validateLicense(device, TEST_LICENSE_OPTIONS).valid, false);
+      assert.match(reasonFor(device), /not a regular file/);
     }
   });
 });
@@ -137,7 +153,7 @@ test('license file: /dev/null, /dev/random and /dev/stdin-like devices are refus
     if (fs.existsSync(device)) {
       const res = validateLicense(device, TEST_LICENSE_OPTIONS);
       assert.equal(res.valid, false, device);
-      assert.match(res.message, /not a regular file/, device);
+      assert.match(reasonFor(device), /not a regular file/, device);
     }
   }
 });
@@ -150,7 +166,7 @@ test('license file: an unreadable file is free tier with a read error, not a cra
     fs.writeFileSync(file, signedLicense(), { mode: 0o000 });
     const res = validateLicense(file, TEST_LICENSE_OPTIONS);
     assert.equal(res.valid, false);
-    assert.match(res.message, /could not be read/);
+    assert.match(reasonFor(file), /could not be read/);
   });
 });
 
@@ -243,6 +259,6 @@ test('license file: a BOM does not let a tampered license through', () => {
     fs.writeFileSync(file, `\uFEFF${JSON.stringify(doc)}`);
     const res = validateLicense(file, TEST_LICENSE_OPTIONS);
     assert.equal(res.valid, false);
-    assert.match(res.message, /signature does not match/);
+    assert.match(reasonFor(file), /signature does not match/);
   });
 });

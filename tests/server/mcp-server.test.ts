@@ -97,7 +97,7 @@ test('MCP Server: list_skills explains why a plain license key string does not u
     new FredoQaMcpServer('fqa_pro_0123abcd_deadbeef0000', TEST_LICENSE_OPTIONS),
   );
   assert.match(text, /11 accessible under FREE plan/);
-  assert.match(text, /could not be read|Invalid license/);
+  assert.match(text, /could not be used/);
   assert.match(text, /🔒 Requires Pro license/);
 });
 

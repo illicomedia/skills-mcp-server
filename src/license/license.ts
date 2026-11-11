@@ -178,13 +178,32 @@ function verifySignature(
   return 'license signature does not match its content';
 }
 
+const UNUSABLE_PATH_MESSAGE =
+  'License file could not be used: the path is missing, unreadable, or not a valid signed license. Free tier active. To see the exact reason, place the file at ~/.config/fredo-qa/license.json or pass its JSON content instead of its path.';
+
 /**
  * Verifies an Ed25519-signed license file and returns the tier it unlocks for this build.
  * `source` is the license JSON itself or a path to it; when omitted, the license file is
  * discovered from ~/.config/fredo-qa/license.json, then
  * .qa-license.json at the project root. Any failure degrades to the free tier.
+ *
+ * A path given by the caller can name any file, so its failures all get one message: the answer
+ * never tells whether that file exists, is a folder or a device, is JSON or looks like a
+ * license. Inline JSON (content the caller holds) and the fixed locations keep the reason.
  */
 export function validateLicense(
+  source?: string,
+  options: LicenseOptions = {},
+): LicenseValidationResult {
+  const result = validateLicenseDetailed(source, options);
+  const trimmed = source?.trim() ?? '';
+  const callerPath = trimmed !== '' && !trimmed.startsWith('{');
+  return callerPath && !result.valid && !result.isExpired
+    ? freeTier(UNUSABLE_PATH_MESSAGE)
+    : result;
+}
+
+function validateLicenseDetailed(
   source?: string,
   options: LicenseOptions = {},
 ): LicenseValidationResult {
