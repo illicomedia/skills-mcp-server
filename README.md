@@ -344,9 +344,43 @@ VS Code's own `.vscode/mcp.json` (or the user-profile `mcp.json`) uses `servers`
 }
 ```
 
-### 5. Other clients (Windsurf, Cline, ...)
+### 5. Windsurf (now Devin Desktop)
 
-Any MCP client that starts a local `stdio` server works: give it the command `npx` with the arguments `-y @illicomedia/skills-mcp-server` (or `fredo-qa-mcp-server` when installed globally). Where the configuration file lives depends on the client and its version: see its MCP documentation.
+Add the server to `~/.config/devin/mcp_config.json` (Windows: `%APPDATA%\devin\mcp_config.json`), or to `.devin/mcp_config.json` in the project ([MCP configuration](https://docs.devin.ai/cli/extensibility/mcp/configuration.md), [Cascade MCP](https://docs.devin.ai/desktop/cascade/mcp)):
+
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"]
+    }
+  }
+}
+```
+
+### 6. Cline
+
+In the Cline panel, open **MCP Servers** > **Configure** > **Configure MCP Servers** and add the entry under `mcpServers`. The Cline CLI reads `~/.cline/data/settings/cline_mcp_settings.json` (or the file named by `CLINE_MCP_SETTINGS_PATH`) ([Cline MCP docs](https://docs.cline.bot/mcp/mcp-overview)):
+
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+Keep `autoApprove` empty: the mutating tools rely on your approval.
+
+### 7. Other clients
+
+Any MCP client that starts a local `stdio` server works: give it the command `npx` with the arguments `-y @illicomedia/skills-mcp-server` (or `fredo-qa-mcp-server` when installed globally). Where the configuration lives depends on the client and its version: see its MCP documentation.
 
 ---
 
@@ -370,6 +404,8 @@ Simply delete the `"fredo-qa"` block from your client's configuration file:
 - **Cursor IDE**: Delete `"fredo-qa"` from `.cursor/mcp.json` or remove it in **Cursor Settings > Features > MCP**.
 - **Google Antigravity**: Delete `"fredo-qa"` from `~/.gemini/config/mcp_config.json` or disable it in the Antigravity MCP settings.
 - **GitHub Copilot / VS Code**: Delete `"fredo-qa"` from `~/.copilot/mcp-config.json`, `.mcp.json`, `.vscode/mcp.json` or the user-profile `mcp.json`.
+- **Windsurf / Devin Desktop**: Delete `"fredo-qa"` from `~/.config/devin/mcp_config.json` or `.devin/mcp_config.json`.
+- **Cline**: Delete `"fredo-qa"` in **MCP Servers** > **Configure** > **Configure MCP Servers** (CLI: `~/.cline/data/settings/cline_mcp_settings.json`).
 - **Other clients**: Delete the `fredo-qa` entry from the client's MCP configuration.
 
 ### Step 2: Uninstall the Package
