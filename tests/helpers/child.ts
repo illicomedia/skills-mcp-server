@@ -9,8 +9,12 @@ export async function runModuleInChild(
   body: string,
   ms = 30_000,
 ): Promise<{ done: boolean; out: string; err: string }> {
+  // Plain output whatever the parent has: in a terminal the test runner sets FORCE_COLOR, and a
+  // child would then print numbers and booleans wrapped in colour codes.
+  const { FORCE_COLOR: _forced, ...env } = process.env;
   const child = spawn(process.execPath, ['--input-type=module', '-e', body], {
     stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...env, NO_COLOR: '1' },
   });
   let out = '';
   let err = '';
