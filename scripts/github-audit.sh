@@ -18,6 +18,26 @@ COLOR_PASS="\033[32m✔\033[0m"
 COLOR_FAIL="\033[31m✖\033[0m"
 COLOR_WARN="\033[33m!\033[0m"
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat <<'HELP'
+Usage: ./scripts/github-audit.sh [owner/repo]
+
+Read-only audit of the GitHub repository settings (security and governance, 35+ checks through
+the GitHub REST API and rulesets). Changes nothing.
+
+  owner/repo   the repository to audit; default: "repository" of .github/settings.json,
+               else the repository of the current folder (gh repo view)
+
+Needs the GitHub CLI (gh) and a token: GH_TOKEN in the environment, else the file
+~/.config/gh-setup/token (fine-grained, this repository only, chmod 600).
+
+  -h, --help   this help
+
+To compare the settings with .github/settings.json and apply them: pnpm run github:check
+HELP
+  exit 0
+fi
+
 REPO="${1:-}"
 if [[ -z "$REPO" ]]; then
   if [[ -f ".github/settings.json" ]]; then

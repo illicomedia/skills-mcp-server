@@ -10,6 +10,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CHECK_CLEAN_HELP, wantsHelp } from './cli-help.mjs';
+
+if (wantsHelp(process.argv.slice(2))) {
+  process.stdout.write(CHECK_CLEAN_HELP);
+  process.exit(0);
+}
 
 const dir = mkdtempSync(join(tmpdir(), 'fqa-check-clean-'));
 const run = (command, args, options = {}) =>

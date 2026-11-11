@@ -10,6 +10,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { COVERAGE_HELP, wantsHelp } from './cli-help.mjs';
 
 /** @param {number} major */
 export function coverageArgs(major) {
@@ -33,6 +34,10 @@ export function coverageArgs(major) {
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain && wantsHelp(process.argv.slice(2))) {
+  process.stdout.write(COVERAGE_HELP);
+  process.exit(0);
+}
 if (isMain) {
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
   const args = coverageArgs(major);

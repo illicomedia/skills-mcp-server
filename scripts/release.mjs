@@ -8,22 +8,7 @@
  * deprecates in bulk. Steps that change shared state ask first, and fail closed without a
  * terminal unless --yes is given.
  *
- * Usage (add --dry-run to preview):
- *  pnpm release [--bump patch|minor|major]           prepare: gates, commit, tag, push
- *  pnpm release --bump major --preid rc              a release candidate (3.0.0-rc.0), staged under next
- *  pnpm release --bump prerelease | release          the next candidate (rc.1) / the final version
- *  pnpm release --ship [--bump patch|minor|major]    prepare, wait for CI, verify, promote
- *  pnpm release --approve <version>                  wait for staging, check the tarball, npm approve (2FA)
- *  pnpm release --promote <version>                  verify from npm, move `latest`, list in MCP Registry
- *  pnpm release --publish-listing                     retry the MCP Registry listing of this version
- *  pnpm release --deprecate <version> --message "<reason>. Use <version>."
- *  pnpm release --smoke-only [--tarball-dir <dir>]  pack (or take) a tarball and smoke-test it
- *  pnpm release --rehearse --tarball-dir <dir>       CI, every push: the release path, staging dry-run
- *  pnpm release --expect-refusal --tarball-dir <dir> CI, Node 18/20: the installed package must refuse
- *  pnpm release --check-tag <tag>                    CI: the tag must match package.json; prints outputs
- *  pnpm release --stage --tarball-dir <dir>          CI release: stage the tarball on npm under next
- *  pnpm release --github-release <tag> --tarball-dir <dir>  CI release: the GitHub Release
- *  pnpm release --release-notes <version>            CI: print that version's changelog section
+ * Usage: pnpm release --help (the text lives in scripts/cli-help.mjs).
  */
 
 import { spawnSync } from 'node:child_process';
@@ -42,6 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { RELEASE_HELP, wantsHelp } from './cli-help.mjs';
 import {
   approveStaged,
   deprecate,
@@ -182,8 +168,23 @@ const ctx = {
   today: () => new Date().toISOString().slice(0, 10),
 };
 
+/** The release action of the command line; a wrong one ends here, pointing to --help. */
+function readOptions(argv) {
+  try {
+    return parseReleaseArgs(argv);
+  } catch (err) {
+    color(31, '✖')(`${err.message} (run "pnpm release --help" for usage)`);
+    return process.exit(1);
+  }
+}
+
 async function main() {
-  const options = parseReleaseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (wantsHelp(argv)) {
+    process.stdout.write(RELEASE_HELP);
+    return;
+  }
+  const options = readOptions(argv);
   const pkg = JSON.parse(ctx.readFile(join(PKG_DIR, 'package.json')));
   switch (options.action) {
     case 'check-tag':

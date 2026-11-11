@@ -6,6 +6,10 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Added
+
+- Maintainer scripts: `--help` / `-h` on `pnpm release`, `github:check` / `github:apply`, `check:clean`, `test:coverage` and `scripts/github-audit.sh`. Each prints its usage, options and process, then exits without doing anything else, whatever else is on the command line. A wrong option now points to `--help`.
+
 ## 3.2.0 - 2026-11-11
 
 ### Added

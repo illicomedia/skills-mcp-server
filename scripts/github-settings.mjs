@@ -4,9 +4,7 @@
  * Repository settings as code (decision D20). Compares the live GitHub settings with
  * .github/settings.json, and applies the differences on request.
  *
- *  pnpm run github:check            read-only: lists every difference; exits 1 if any
- *  pnpm run github:apply [-- --yes] shows the changes, asks, applies them, reads them back
- *  ... --token-file <path>          default: ~/.config/gh-setup/token
+ * Usage: pnpm run github:check -- --help (the text lives in scripts/cli-help.mjs).
  *
  * The token is a fine-grained one, limited to this repository (Administration and Environments,
  * read and write), short-lived, in a file only its owner can read. It is never printed.
@@ -17,6 +15,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
+import { SETTINGS_HELP, wantsHelp } from './cli-help.mjs';
 import { applySettings, checkSettings, parseSettingsArgs } from './github-settings-flow.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -92,8 +91,23 @@ async function confirm(question) {
   }
 }
 
+/** The action of the command line; a wrong one ends here, pointing to --help. */
+function readOptions(argv) {
+  try {
+    return parseSettingsArgs(argv);
+  } catch (error) {
+    say(31, '✖')(`${error.message} (run with --help for usage)`);
+    return process.exit(1);
+  }
+}
+
 async function main() {
-  const options = parseSettingsArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (wantsHelp(argv)) {
+    process.stdout.write(SETTINGS_HELP);
+    return;
+  }
+  const options = readOptions(argv);
   const declared = JSON.parse(readFileSync(join(ROOT, '.github', 'settings.json'), 'utf8'));
   const tokenFile = options.tokenFile ?? join(homedir(), '.config', 'gh-setup', 'token');
   const ctx = {
