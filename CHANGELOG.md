@@ -6,8 +6,28 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+### Added
+
+- Preflight audit (`quick_check`): a warning when a project holds `.qa-license.json` and `.gitignore` does not ignore it. Committing the file shares the signed license with everyone who can read the repository. Projects without the file see no new check.
+- `get_skill_rules`: optional `project_path`, so the skill is read from the project instead of the server's working directory (many MCP clients start the server elsewhere).
+- `get_version`: `supportedProtocolVersions` lists the MCP revisions the server implements. `initialize` answers the client's requested revision when it is supported, the latest supported one otherwise (still `2024-11-05` only).
+- `set_license_key`: the answer carries `sessionUpdated`.
+
+### Changed
+
+- Preflight audit (`quick_check`): the `.env`, private-key and license-file checks read `.gitignore` the way git does (verified case by case against `git check-ignore`). A rule git does not apply no longer counts, so a project can move from `ready` to `needs_attention`; rules with globs or folders that were missed before now count. Each private-key file found must itself be ignored.
+- Project paths: a path inside a system directory is refused, not only the directory itself (`/etc/ssh`, `/usr/bin`, `/lib`, `/var/run`, `C:\Windows\System32`, WSL mounts such as `/mnt/c/Windows`, macOS `/System` and `/Library`), and more credential stores are refused (`~/.config/gcloud`, `~/.config/gh`, `~/.password-store`, `~/.oci`, `~/Library/Keychains`). `/usr/local/src` or `/root/project` stay usable.
+- `get_skill_rules` with an unknown skill id answers "Unknown skill" instead of presenting it as a paid skill.
+- The decision record and the design strategy are no longer part of this repository; public files refer to decisions by number.
+
 ### Fixed
 
+- Security: the 1 MB request limit is enforced while the request streams in, in bytes. It was checked after the whole line had been buffered, and in characters, so one huge line could exhaust memory.
+- Security: a license path must be a regular file and is read with a hard 64 KB cap, also when the license is passed as JSON text. A path such as `/dev/zero` made the server read until it ran out of memory, and a named pipe blocked it (also when swapped in between the check and the read).
+- Security: license errors no longer repeat what the file contains. `set_license_key` and `verify_license` accept any path, and the messages named unknown fields and the key id of that file.
+- Security: a license given with a tool call replaces the session license only when it verifies, and never through `verify_license`. A mistyped key silently dropped a valid session to the free tier.
+- A license file saved with a UTF-8 byte order mark (Windows PowerShell 5.1, older Notepad) is accepted.
+- An empty or whitespace-only `SKILL.md` (a failed download) is refused by `install_skill` and `get_skill_rules` instead of being installed as a success.
 - Coverage CLI: route `test:coverage` through `scripts/run-coverage.mjs` so `--test-isolation=none` is never passed on Node 22 (CI#31 `bad option` regression guard); opt-in only via `FREDO_TEST_ISOLATION_NONE=1` on Node 24+.
 
 ## 3.1.0 - 2026-11-06
