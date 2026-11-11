@@ -20,7 +20,7 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
   - Directory traversal inspection (`quick_check`) and mutating tools (`install_skill`, `sync_workspace_skills`) require explicit user confirmation (`confirm: true`), defaulting to non-destructive previews.
   - Many MCP clients also show their own authorization prompt before a tool runs. That prompt belongs to your client, not to this server, so do not rely on it alone.
   - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
-- **Modular Static Preflight Sensor (`quick_check`)**: Sub-second intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 8 language stacks plus a generic fallback, with user-confirmed directory traversal and zero arbitrary code execution.
+- **Modular Static Preflight Sensor (`quick_check`)**: Fast static intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 8 language stacks plus a generic fallback, with user-confirmed directory traversal and zero arbitrary code execution.
 - **Signed, Offline License Verification**: Pro and Enterprise skills unlock from a digitally signed license file, checked locally with no network. Version retention follows the terms of sale. Open-source MIT skills remain free and unlocked forever.
 - **Provenance Watermark**: Skill rules served or installed through this server start with a provenance comment naming the licensee and the skill. It helps trace where a copy came from; it is a deterrent, not a technical protection, because anyone can delete it.
 
@@ -113,7 +113,7 @@ These tools modify files or directory structures in the target project's `.agent
 
 ## Deep Dive: Modular Preflight Sensor (`quick_check`)
 
-The `quick_check` tool provides a sub-second, non-destructive audit engine for AI coding assistants. It assesses codebases before executing tasks or quality gates.
+The `quick_check` tool provides a fast, non-destructive, static audit engine for AI coding assistants. It assesses codebases before executing tasks or quality gates.
 
 ### Audit Domains Evaluated:
 1. **Governance & Guidelines**: Detects `AGENTS.md`, a `LICENSE` file, and `.qa-exceptions.yaml` (with expiry dates).
@@ -412,9 +412,9 @@ git rm -r scripts/qa.sh scripts/qa
 Pro and Enterprise skills require a signed license file (`license.json`, Ed25519 signature, format described by the published JSON Schema).
 
 ### License Resolution Order:
-1. Session license: a license loaded with the `set_license_key` tool (or the `license_key` argument of `install_skill` / `sync_workspace_skills`) is used first, for the running session only.
+1. Session license: a license loaded with the `set_license_key` tool (or the `license_key` argument of `install_skill` / `sync_workspace_skills`) is used first, for the running session only. A license passed with a call is used for that call and becomes the session license only when it verifies; `verify_license` only inspects and never changes the session.
 2. User config path: `~/.config/fredo-qa/license.json` (recommended: applies to every project)
-3. Project root: `.qa-license.json`. **Add it to `.gitignore`**: the license is yours to use, and committing it to a shared or public repository shares it with everyone who can read the repository.
+3. The server's working directory (the folder your MCP client starts it in; a tool's `project_path` does not change it): `.qa-license.json`. **Add it to `.gitignore`**: the license is yours to use, and committing it to a shared or public repository shares it with everyone who can read the repository.
 
 If the file at step 2 exists, step 3 is not consulted, even when the step 2 file is invalid.
 
@@ -437,7 +437,7 @@ To satisfy supply-chain and static analysis audits (such as Socket.dev and OpenS
 - **Network & Shell Spawning**: The runtime contains **zero outbound network calls** (`fetch`, `http`, `net`) and **zero shell or child process executions** (`child_process`, `exec`, `spawn`). The server talks to your client only over stdio.
 
 ### Sandboxing Controls
-- **Request Size Limit**: A JSON-RPC request line longer than 1,048,576 bytes is dropped as it streams in and answered with a parse error. Licenses read from disk are limited to 64 KB.
+- **Request Size Limit**: A JSON-RPC request line longer than 1,048,576 bytes is dropped as it streams in and answered with a parse error. Licenses, as files or as JSON text, are limited to 64 KB; only regular files are read.
 - **Path Escape Prevention**: All project paths are validated against real filesystem paths (`fs.realpathSync`) to block symlink redirections and directory traversal attempts (`../../../`).
 - **Forbidden Path Blacklist**: Refuses a project path that is, or lies inside, a system directory (`/`, `/etc`, `/bin`, `/usr/bin`, `C:\Windows`, see above) or a credential vault (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`).
 - **Runs Without Calling Our Services**: The server never calls our website, API or database; the skill catalog, license checks and audits all run locally, so an outage on our side does not stop a tool that is already set up. Downloading a skill is a separate, manual step: you fetch each skill from `illicomedia.com/qa-skills` and extract it into your project, so that step needs our website (and a purchased skill needs your account there). Once a skill is in your project, it works offline. The catalog is built into the package: new skills appear in `list_skills` only after you update the server. If your agent starts the server with `npx`, that step also needs the npm registry unless the package is already cached or installed.
