@@ -3,7 +3,7 @@
   // Entry points besides package.json "bin": the scripts package.json runs, and every test file.
   // Tests import the built dist/, which knip cannot map back to src/: an export used only by tests
   // is marked @public in its JSDoc.
-  "entry": ["scripts/*.mjs", "tests/*.test.ts"],
+  "entry": ["scripts/*.mjs", "tests/**/*.test.ts"],
   // mkfifo is a system tool a test runs to build a named pipe (no Node.js API creates one).
   "ignoreBinaries": ["mkfifo"],
   "project": ["src/**/*.ts", "scripts/**/*.mjs", "tests/**/*.ts"]

@@ -23,7 +23,7 @@ export function coverageArgs(major) {
     '--test-coverage-exclude=**/fqa-*/**',
     // The runner is a CLI shim; do not count its process.exit path against product coverage.
     '--test-coverage-exclude=scripts/run-coverage.mjs',
-    'tests/*.test.ts',
+    'tests/**/*.test.ts',
   ];
   // Opt-in only: FREDO_TEST_ISOLATION_NONE=1 on Node 24+ when process isolation skews V8 counts.
   if (major >= 24 && process.env.FREDO_TEST_ISOLATION_NONE === '1') {
