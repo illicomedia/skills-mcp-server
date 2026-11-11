@@ -18,7 +18,9 @@ describe('security › capabilities', () => {
       .map((file) => ({ file, code: fs.readFileSync(path.join(DIST, file), 'utf8') }));
   }
 
-  test('Capabilities: no environment access at all', () => {
+  // Environment variables only: the tools do read the local machine (project files, the license
+  // file, the working directory, the home folder), always through the path guard (test below).
+  test('Capabilities: reads no environment variable (process.env)', () => {
     const reads = shippedCode().flatMap(({ file, code }) =>
       [...code.matchAll(/process\.env\b(\.[A-Za-z_][A-Za-z0-9_]*)?/g)].map(
         (m) => `${file}: ${m[0]}`,
