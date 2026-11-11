@@ -444,7 +444,7 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
   );
   await assert.rejects(applySettings(ctx, DECLARED, { yes: true }), /failed: 500$/);
 
-  const reviewersWithoutLogin = {
+  const reviewersWithoutLogin: Record<string, { status: number; data: unknown }> = {
     ...answers,
     [ENV]: {
       status: 200,
@@ -454,7 +454,10 @@ test('Sparse GitHub answers (missing fields) are read as "not configured", error
   const odd = { ...ctx, api: async (_m: string, url: string) => reviewersWithoutLogin[url] };
   assert.deepStrictEqual((await readState(odd, DECLARED)).environment.reviewers, [undefined]);
 
-  const bareEnvironment = { ...answers, [ENV]: { status: 200, data: {} } };
+  const bareEnvironment: Record<string, { status: number; data: unknown }> = {
+    ...answers,
+    [ENV]: { status: 200, data: {} },
+  };
   const bare = { ...ctx, api: async (_m: string, url: string) => bareEnvironment[url] };
   assert.deepStrictEqual((await readState(bare, DECLARED)).environment.reviewers, []);
 

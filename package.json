@@ -35,7 +35,7 @@
     "build": "tsc && node scripts/postbuild.mjs",
     "prepublishOnly": "pnpm run build",
     "start": "node dist/index.js",
-    "lint": "biome check --error-on-warnings src tests scripts",
+    "lint": "biome check --error-on-warnings src tests scripts && tsc -p tsconfig.test.json",
     "lint:package": "publint --strict",
     "prelint:dead": "pnpm run build",
     "lint:dead": "knip",
