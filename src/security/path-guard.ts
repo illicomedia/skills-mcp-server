@@ -178,6 +178,17 @@ export function readTextBounded(file: string, maxBytes: number): string {
   }
 }
 
+/** Largest project file the server reads (.gitignore, package.json, SKILL.md, LICENSE, ...). */
+const MAX_PROJECT_FILE_BYTES = 1024 * 1024;
+
+/**
+ * Reads a file of the audited project, which may be hostile: a regular file only (never a pipe
+ * or a device) and at most 1 MiB. Callers treat a failure as "no usable file".
+ */
+export function readProjectText(file: string): string {
+  return readTextBounded(file, MAX_PROJECT_FILE_BYTES);
+}
+
 export function listDir(directory: string): string[] {
   return fs.readdirSync(directory);
 }

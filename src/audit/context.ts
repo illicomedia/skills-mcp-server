@@ -5,7 +5,7 @@ import {
   isDirectory,
   listDir,
   listDirEntries,
-  readText,
+  readProjectText,
 } from '../security/path-guard.js';
 import { DEFAULT_IGNORED_SCAN_DIRS } from './constants.js';
 import { detectGitForge, detectWebProject } from './stack-signals.js';
@@ -60,7 +60,7 @@ export function createAuditContext(projectPath: string): AuditContext {
       if (!exists(p)) {
         return null;
       }
-      return readText(p);
+      return readProjectText(p);
     } catch {
       return null;
     }
@@ -72,7 +72,7 @@ export function createAuditContext(projectPath: string): AuditContext {
       return null;
     }
     try {
-      return readText(found);
+      return readProjectText(found);
     } catch {
       return null;
     }
@@ -209,7 +209,7 @@ export function createAuditContext(projectPath: string): AuditContext {
   let gitConfigContent = '';
   if (gitConfigPath) {
     try {
-      gitConfigContent = readText(gitConfigPath);
+      gitConfigContent = readProjectText(gitConfigPath);
     } catch {
       gitConfigContent = '';
     }

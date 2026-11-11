@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { resolveSkillLicense } from '../license/templates.js';
-import { exists, readText } from '../security/path-guard.js';
+import { exists, readProjectText } from '../security/path-guard.js';
 import type { LicenseValidationResult, SkillMetadata, SkillTier } from '../types.js';
 import { SKILLS_CATALOG } from './catalog-data.js';
 
@@ -50,7 +50,7 @@ export function loadSkillContent(skillId: string, searchDir?: string): string {
       continue;
     }
     try {
-      const content = readText(p);
+      const content = readProjectText(p);
       if (content.trim() !== '') {
         return content;
       }

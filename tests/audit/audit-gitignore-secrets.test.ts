@@ -135,7 +135,7 @@ test('all .gitignore checks together read a huge file and many key files in time
   const files: Record<string, string> = {
     '.env': 'S=1',
     '.qa-license.json': '{}',
-    '.gitignore': `${'build-output-*/\n'.repeat(200_000)}.env\n*.key\n.qa-license.json\n`,
+    '.gitignore': `${'build-output-*/\n'.repeat(60_000)}.env\n*.key\n.qa-license.json\n`,
   };
   for (let i = 0; i < 200; i += 1) {
     files[`certs/k${i}.key`] = 'k';

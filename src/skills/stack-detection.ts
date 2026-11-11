@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { exists, listDir, readText } from '../security/path-guard.js';
+import { exists, listDir, readProjectText } from '../security/path-guard.js';
 
 /** Any of these paths in a project selects these skills. */
 const FILE_INDICATORS: ReadonlyArray<{ files: string[]; skills: string[] }> = [
@@ -51,7 +51,7 @@ function namesIn(directory: string): string[] {
  */
 function packageJsonIndicatesMcp(packageJsonPath: string): boolean {
   try {
-    const pkg = JSON.parse(readText(packageJsonPath)) as Record<string, unknown>;
+    const pkg = JSON.parse(readProjectText(packageJsonPath)) as Record<string, unknown>;
     if (typeof pkg.mcpName === 'string' && pkg.mcpName.trim().length > 0) {
       return true;
     }
