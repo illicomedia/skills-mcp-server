@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 3.2.0 - 2026-11-11
+
 ### Added
 
 - Preflight audit (`quick_check`): a warning when a project holds `.qa-license.json` and `.gitignore` does not ignore it. Committing the file shares the signed license with everyone who can read the repository. Projects without the file see no new check.
