@@ -20,302 +20,303 @@ import {
   verifyFromRegistry,
 } from '../../scripts/release-flow.mjs';
 
-describe('release › release-flow', () => {
-  const NAME = '@illicomedia/skills-mcp-server';
-  const PKG_DIR = '/repo';
-  const CHANGELOG = '# Changelog\n\n## Unreleased\n\n- Fix.\n\n## 1.4.0 - 2026-10-26\n';
+const NAME = '@illicomedia/skills-mcp-server';
+const PKG_DIR = '/repo';
+const CHANGELOG = '# Changelog\n\n## Unreleased\n\n- Fix.\n\n## 1.4.0 - 2026-10-26\n';
 
-  interface World {
-    branch: string;
-    status: string;
-    head: string;
-    originHead: string;
-    tags: string[];
-    versions: string[];
-    distTags: Record<string, string>;
-    deprecated: Record<string, string>;
-    registryMissing: boolean;
-    registryBroken: boolean;
-    loggedIn: boolean;
-    failScript: string | null;
-    installFailures: number;
-    publishAfterPolls: number;
-    smokeFails: boolean;
-    interactive: boolean;
-    answer: boolean;
-    ci: 'green' | 'red' | 'unreachable';
-    npmVersion: string;
-    ghReleaseExists: boolean;
-    refuses: boolean;
-    publisher: string | null;
-    listedVersions: string[] | null;
-    npmMcpName: string;
-    stage: { id: string; version: string; shasum: string; afterPolls: number } | null;
-    run:
-      | { status: string; conclusion: string | null; html_url: string }
-      | null
-      | 'unreachable'
-      | 'empty';
-    releaseSha1: string | null;
-    approvedPublic: boolean;
-    env: Record<string, string | undefined>;
-  }
+interface World {
+  branch: string;
+  status: string;
+  head: string;
+  originHead: string;
+  tags: string[];
+  versions: string[];
+  distTags: Record<string, string>;
+  deprecated: Record<string, string>;
+  registryMissing: boolean;
+  registryBroken: boolean;
+  loggedIn: boolean;
+  failScript: string | null;
+  installFailures: number;
+  publishAfterPolls: number;
+  smokeFails: boolean;
+  interactive: boolean;
+  answer: boolean;
+  ci: 'green' | 'red' | 'unreachable';
+  npmVersion: string;
+  ghReleaseExists: boolean;
+  refuses: boolean;
+  publisher: string | null;
+  listedVersions: string[] | null;
+  npmMcpName: string;
+  stage: { id: string; version: string; shasum: string; afterPolls: number } | null;
+  run:
+    | { status: string; conclusion: string | null; html_url: string }
+    | null
+    | 'unreachable'
+    | 'empty';
+  releaseSha1: string | null;
+  approvedPublic: boolean;
+  env: Record<string, string | undefined>;
+}
 
-  /** A fake git + npm + pnpm + file system that records every command it is asked to run. */
-  function fakeWorld(overrides: Partial<World> = {}) {
-    const world: World = {
-      branch: 'main',
-      status: '',
-      head: 'abc',
-      originHead: 'abc',
-      tags: [],
-      versions: ['1.4.0'],
-      distTags: { latest: '1.4.0' },
-      deprecated: {},
-      registryMissing: false,
-      registryBroken: false,
-      loggedIn: true,
-      failScript: null,
-      installFailures: 0,
-      publishAfterPolls: 0,
-      smokeFails: false,
-      interactive: true,
-      answer: true,
-      ci: 'green',
-      npmVersion: '11.6.0',
-      ghReleaseExists: false,
-      refuses: true,
-      publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.7 (commit: abc, built: x)',
-      listedVersions: [],
-      npmMcpName: 'io.github.illicomedia/skills-mcp-server',
-      stage: null,
-      run: null,
-      releaseSha1: null,
-      approvedPublic: true,
-      env: {},
-      ...overrides,
-    };
-    const files = new Map<string, string>([
-      [path.join(PKG_DIR, 'CHANGELOG.md'), CHANGELOG],
-      [path.join(PKG_DIR, 'package.json'), '{}'],
-    ]);
-    const calls: string[] = [];
-    const logs: string[] = [];
-    const removed: string[] = [];
-    const questions: string[] = [];
-    const summaries: string[] = [];
-    /** Folder listings: what `pnpm pack` / `npm pack` wrote, or what a test put there. */
-    const dirs = new Map<string, string[]>();
-    let polls = 0;
+/** A fake git + npm + pnpm + file system that records every command it is asked to run. */
+function fakeWorld(overrides: Partial<World> = {}) {
+  const world: World = {
+    branch: 'main',
+    status: '',
+    head: 'abc',
+    originHead: 'abc',
+    tags: [],
+    versions: ['1.4.0'],
+    distTags: { latest: '1.4.0' },
+    deprecated: {},
+    registryMissing: false,
+    registryBroken: false,
+    loggedIn: true,
+    failScript: null,
+    installFailures: 0,
+    publishAfterPolls: 0,
+    smokeFails: false,
+    interactive: true,
+    answer: true,
+    ci: 'green',
+    npmVersion: '11.6.0',
+    ghReleaseExists: false,
+    refuses: true,
+    publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.7 (commit: abc, built: x)',
+    listedVersions: [],
+    npmMcpName: 'io.github.illicomedia/skills-mcp-server',
+    stage: null,
+    run: null,
+    releaseSha1: null,
+    approvedPublic: true,
+    env: {},
+    ...overrides,
+  };
+  const files = new Map<string, string>([
+    [path.join(PKG_DIR, 'CHANGELOG.md'), CHANGELOG],
+    [path.join(PKG_DIR, 'package.json'), '{}'],
+  ]);
+  const calls: string[] = [];
+  const logs: string[] = [];
+  const removed: string[] = [];
+  const questions: string[] = [];
+  const summaries: string[] = [];
+  /** Folder listings: what `pnpm pack` / `npm pack` wrote, or what a test put there. */
+  const dirs = new Map<string, string[]>();
+  let polls = 0;
 
-    const packInto = (dir: string, packageJsonDir: string): string => {
-      const raw = files.get(path.join(packageJsonDir, 'package.json')) as string;
-      const version = (JSON.parse(raw) as { version?: string }).version ?? '1.4.0';
-      dirs.set(dir, [...(dirs.get(dir) ?? []), `illicomedia-skills-mcp-server-${version}.tgz`]);
-      return '';
-    };
+  const packInto = (dir: string, packageJsonDir: string): string => {
+    const raw = files.get(path.join(packageJsonDir, 'package.json')) as string;
+    const version = (JSON.parse(raw) as { version?: string }).version ?? '1.4.0';
+    dirs.set(dir, [...(dirs.get(dir) ?? []), `illicomedia-skills-mcp-server-${version}.tgz`]);
+    return '';
+  };
 
-    const git = (args: string[]): string => {
-      const line = args.join(' ');
-      if (line === 'rev-parse --abbrev-ref HEAD') {
-        return world.branch;
-      }
-      if (line === 'status --porcelain') {
-        return world.status;
-      }
-      if (line === 'rev-parse HEAD') {
-        return world.head;
-      }
-      if (line === 'rev-parse origin/main') {
-        return world.originHead;
-      }
-      if (args[0] === 'tag' && args[1] === '--list') {
-        return world.tags.includes(args[2]) ? args[2] : '';
-      }
-      return '';
-    };
+  const git = (args: string[]): string => {
+    const line = args.join(' ');
+    if (line === 'rev-parse --abbrev-ref HEAD') {
+      return world.branch;
+    }
+    if (line === 'status --porcelain') {
+      return world.status;
+    }
+    if (line === 'rev-parse HEAD') {
+      return world.head;
+    }
+    if (line === 'rev-parse origin/main') {
+      return world.originHead;
+    }
+    if (args[0] === 'tag' && args[1] === '--list') {
+      return world.tags.includes(args[2]) ? args[2] : '';
+    }
+    return '';
+  };
 
-    const npmView = (args: string[]): string => {
-      if (args.includes('dist-tags')) {
-        if (world.registryBroken) {
-          throw new Error('npm view failed: ETIMEDOUT');
-        }
-        if (world.registryMissing) {
-          throw new Error('npm view failed: E404 Not Found');
-        }
-        polls += 1;
-        const versions =
-          polls > world.publishAfterPolls ? world.versions : world.versions.slice(0, -1);
-        return JSON.stringify([{ versions, 'dist-tags': world.distTags }]);
+  const npmView = (args: string[]): string => {
+    if (args.includes('dist-tags')) {
+      if (world.registryBroken) {
+        throw new Error('npm view failed: ETIMEDOUT');
       }
-      if (args[2] === 'mcpName') {
-        return world.npmMcpName;
+      if (world.registryMissing) {
+        throw new Error('npm view failed: E404 Not Found');
       }
-      return world.deprecated[args[1].split('@').at(-1) as string] ?? '';
-    };
+      polls += 1;
+      const versions =
+        polls > world.publishAfterPolls ? world.versions : world.versions.slice(0, -1);
+      return JSON.stringify([{ versions, 'dist-tags': world.distTags }]);
+    }
+    if (args[2] === 'mcpName') {
+      return world.npmMcpName;
+    }
+    return world.deprecated[args[1].split('@').at(-1) as string] ?? '';
+  };
 
-    const npmWhoami = (): string => {
-      if (!world.loggedIn) {
-        throw new Error('ENEEDAUTH');
-      }
-      return 'illicomedia';
-    };
+  const npmWhoami = (): string => {
+    if (!world.loggedIn) {
+      throw new Error('ENEEDAUTH');
+    }
+    return 'illicomedia';
+  };
 
-    const npmInstall = (): string => {
-      if (world.installFailures > 0) {
-        world.installFailures -= 1;
-        throw new Error('ETARGET No matching version');
-      }
-      return '';
-    };
+  const npmInstall = (): string => {
+    if (world.installFailures > 0) {
+      world.installFailures -= 1;
+      throw new Error('ETARGET No matching version');
+    }
+    return '';
+  };
 
-    let stagePolls = 0;
-    const npmStage = (args: string[]): string => {
-      const stage = world.stage;
-      if (args[1] === 'approve') {
-        if (world.approvedPublic && stage) {
-          world.versions.push(stage.version);
-        }
-        return '';
-      }
-      stagePolls += 1;
-      if (!stage || stagePolls <= stage.afterPolls) {
-        return `No staged versions of package name "${NAME}".`;
-      }
-      return `id: ${stage.id}\npackage name: ${NAME}\nversion: ${stage.version}\nstatus: staged\ntag: next\nshasum: ${stage.shasum}`;
-    };
-
-    const npmHandlers: Record<string, (args: string[]) => string> = {
-      stage: npmStage,
-      view: npmView,
-      whoami: npmWhoami,
-      install: npmInstall,
-      '--version': () => world.npmVersion,
-    };
-    const npm = (args: string[]): string => npmHandlers[args[0]]?.(args) ?? '';
-
-    const pnpm = (args: string[]): string => {
-      if (args[0] === 'run' && args[1] === world.failScript) {
-        throw new Error(`${args[1]} failed`);
-      }
-      if (args[0] === 'pack') {
-        return packInto(args[2], PKG_DIR);
+  let stagePolls = 0;
+  const npmStage = (args: string[]): string => {
+    const stage = world.stage;
+    if (args[1] === 'approve') {
+      if (world.approvedPublic && stage) {
+        world.versions.push(stage.version);
       }
       return '';
-    };
+    }
+    stagePolls += 1;
+    if (!stage || stagePolls <= stage.afterPolls) {
+      return `No staged versions of package name "${NAME}".`;
+    }
+    return `id: ${stage.id}\npackage name: ${NAME}\nversion: ${stage.version}\nstatus: staged\ntag: next\nshasum: ${stage.shasum}`;
+  };
 
-    const gh = (args: string[]): string => {
-      if (args[1] === 'view' && !world.ghReleaseExists) {
-        throw new Error('release not found');
-      }
-      return '';
-    };
+  const npmHandlers: Record<string, (args: string[]) => string> = {
+    stage: npmStage,
+    view: npmView,
+    whoami: npmWhoami,
+    install: npmInstall,
+    '--version': () => world.npmVersion,
+  };
+  const npm = (args: string[]): string => npmHandlers[args[0]]?.(args) ?? '';
 
-    const ctx: ReleaseContext = {
-      pkgDir: PKG_DIR,
-      async downloadSha1(url) {
-        calls.push(`download ${url}`);
-        return world.releaseSha1;
-      },
-      async fetchJson(url) {
-        calls.push(`fetch ${url}`);
-        if (url.includes('/actions/workflows/release.yml/runs')) {
-          if (world.run === 'unreachable') {
-            throw new Error('403 rate limit exceeded');
-          }
-          if (world.run === 'empty') {
-            return {};
-          }
-          return { workflow_runs: world.run ? [world.run] : [] };
-        }
-        if (url.startsWith('https://registry.modelcontextprotocol.io/')) {
-          if (world.listedVersions === null) {
-            return {};
-          }
-          return {
-            servers: world.listedVersions.map((version) => ({
-              server: { name: 'io.github.illicomedia/skills-mcp-server', version },
-            })),
-          };
-        }
-        if (world.ci === 'unreachable') {
+  const pnpm = (args: string[]): string => {
+    if (args[0] === 'run' && args[1] === world.failScript) {
+      throw new Error(`${args[1]} failed`);
+    }
+    if (args[0] === 'pack') {
+      return packInto(args[2], PKG_DIR);
+    }
+    return '';
+  };
+
+  const gh = (args: string[]): string => {
+    if (args[1] === 'view' && !world.ghReleaseExists) {
+      throw new Error('release not found');
+    }
+    return '';
+  };
+
+  const ctx: ReleaseContext = {
+    pkgDir: PKG_DIR,
+    async downloadSha1(url) {
+      calls.push(`download ${url}`);
+      return world.releaseSha1;
+    },
+    async fetchJson(url) {
+      calls.push(`fetch ${url}`);
+      if (url.includes('/actions/workflows/release.yml/runs')) {
+        if (world.run === 'unreachable') {
           throw new Error('403 rate limit exceeded');
         }
-        const conclusion = world.ci === 'green' ? 'success' : 'failure';
-        return { check_runs: [{ name: 'quality', status: 'completed', conclusion }] };
-      },
-      interactive: world.interactive,
-      sh(command, args, options = {}) {
-        calls.push(`${command} ${args.join(' ')}${options.cwd ? ` @${options.cwd}` : ''}`);
-        if (command === 'git') {
-          return git(args);
+        if (world.run === 'empty') {
+          return {};
         }
-        if (command === 'npm' && args[0] === 'pack') {
-          return packInto(args[2], options.cwd as string);
+        return { workflow_runs: world.run ? [world.run] : [] };
+      }
+      if (url.startsWith('https://registry.modelcontextprotocol.io/')) {
+        if (world.listedVersions === null) {
+          return {};
         }
-        if (command === 'npm') {
-          return npm(args);
+        return {
+          servers: world.listedVersions.map((version) => ({
+            server: { name: 'io.github.illicomedia/skills-mcp-server', version },
+          })),
+        };
+      }
+      if (world.ci === 'unreachable') {
+        throw new Error('403 rate limit exceeded');
+      }
+      const conclusion = world.ci === 'green' ? 'success' : 'failure';
+      return { check_runs: [{ name: 'quality', status: 'completed', conclusion }] };
+    },
+    interactive: world.interactive,
+    sh(command, args, options = {}) {
+      calls.push(`${command} ${args.join(' ')}${options.cwd ? ` @${options.cwd}` : ''}`);
+      if (command === 'git') {
+        return git(args);
+      }
+      if (command === 'npm' && args[0] === 'pack') {
+        return packInto(args[2], options.cwd as string);
+      }
+      if (command === 'npm') {
+        return npm(args);
+      }
+      if (command === 'gh') {
+        return gh(args);
+      }
+      if (command === 'mcp-publisher') {
+        if (world.publisher === null) {
+          throw new Error('mcp-publisher: command not found');
         }
-        if (command === 'gh') {
-          return gh(args);
-        }
-        if (command === 'mcp-publisher') {
-          if (world.publisher === null) {
-            throw new Error('mcp-publisher: command not found');
-          }
-          return args[0] === '--version' && options.withStderr ? world.publisher : '';
-        }
-        return pnpm(args);
-      },
-      async confirm(question) {
-        questions.push(question);
-        return world.answer;
-      },
-      async smokeServer() {
-        if (world.smokeFails) {
-          throw new Error('server crashed');
-        }
-        return { tools: 9 };
-      },
-      async refusingServer() {
-        if (!world.refuses) {
-          throw new Error('Expected a refusal, got exit 0');
-        }
-        return '[FATAL] Node.js v20.20.2 is not supported';
-      },
-      sleep: async () => undefined,
-      log: (message) => logs.push(message),
-      ok: (message) => logs.push(message),
-      warn: (message) => logs.push(message),
-      join: path.join,
-      resolve: (file) => file,
-      readFile: (file) => files.get(file) as string,
-      writeFile: (file, text) => {
-        files.set(file, text);
-      },
-      listDir: (dir) => dirs.get(dir) ?? [],
-      copy: (from, to) => {
-        calls.push(`copy ${from} ${to}`);
-      },
-      summary: (markdown) => {
-        summaries.push(markdown);
-      },
-      env: world.env,
-      makeTempDir: () => `/tmp/fqa-${calls.length}-${removed.length}-${dirs.size}`,
-      removeDir: (dir) => {
-        removed.push(dir);
-      },
-      today: () => '2026-11-03',
-    };
-    return { world, ctx, files, calls, logs, removed, questions, summaries, dirs };
-  }
-
-  const PKG: Pkg = {
-    name: NAME,
-    version: '1.4.0',
-    files: ['dist', 'README.md', 'CHANGELOG.md', 'LICENSE'],
-    repository: { type: 'git', url: 'git+https://github.com/illicomedia/skills-mcp-server.git' },
+        return args[0] === '--version' && options.withStderr ? world.publisher : '';
+      }
+      return pnpm(args);
+    },
+    async confirm(question) {
+      questions.push(question);
+      return world.answer;
+    },
+    async smokeServer() {
+      if (world.smokeFails) {
+        throw new Error('server crashed');
+      }
+      return { tools: 9 };
+    },
+    async refusingServer() {
+      if (!world.refuses) {
+        throw new Error('Expected a refusal, got exit 0');
+      }
+      return '[FATAL] Node.js v20.20.2 is not supported';
+    },
+    sleep: async () => undefined,
+    log: (message) => logs.push(message),
+    ok: (message) => logs.push(message),
+    warn: (message) => logs.push(message),
+    join: path.join,
+    resolve: (file) => file,
+    readFile: (file) => files.get(file) as string,
+    writeFile: (file, text) => {
+      files.set(file, text);
+    },
+    listDir: (dir) => dirs.get(dir) ?? [],
+    copy: (from, to) => {
+      calls.push(`copy ${from} ${to}`);
+    },
+    summary: (markdown) => {
+      summaries.push(markdown);
+    },
+    env: world.env,
+    makeTempDir: () => `/tmp/fqa-${calls.length}-${removed.length}-${dirs.size}`,
+    removeDir: (dir) => {
+      removed.push(dir);
+    },
+    today: () => '2026-11-03',
   };
+  return { world, ctx, files, calls, logs, removed, questions, summaries, dirs };
+}
+
+const PKG: Pkg = {
+  name: NAME,
+  version: '1.4.0',
+  files: ['dist', 'README.md', 'CHANGELOG.md', 'LICENSE'],
+  repository: { type: 'git', url: 'git+https://github.com/illicomedia/skills-mcp-server.git' },
+};
+
+describe('release › release-flow', () => {
   const has = (calls: string[], prefix: string) => calls.some((call) => call.startsWith(prefix));
 
   test('registryState: an unknown package has no versions; other registry errors surface', () => {
