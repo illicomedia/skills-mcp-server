@@ -10,6 +10,7 @@ import type { JsonRpcRequest } from '../../dist/types.js';
 import { SERVER_VERSION } from '../../dist/version.js';
 import { signedLicense, TEST_LICENSE_OPTIONS } from '../helpers/license-fixture.ts';
 import { callToolText, goProjectWithSkills, withTempDir } from '../helpers/mcp-fixture.ts';
+import { REPO_ROOT } from '../helpers/paths.ts';
 import { writeSkillSources } from '../helpers/skill-fixture.ts';
 
 describe('server › mcp-server', () => {
@@ -195,7 +196,7 @@ describe('server › mcp-server', () => {
 
   test('MCP Server: quick_check without confirm returns preview and requires confirmation', () => {
     const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
-    const text = callToolText(server, 'quick_check', { project_path: process.cwd() });
+    const text = callToolText(server, 'quick_check', { project_path: REPO_ROOT });
     const preview = JSON.parse(text);
     assert.strictEqual(preview.previewOnly, true);
     assert.strictEqual(preview.requiresConfirmation, true);
@@ -206,7 +207,7 @@ describe('server › mcp-server', () => {
   test('MCP Server: quick_check with confirm: true returns structured preflight report', () => {
     const server = new FredoQaMcpServer(undefined, TEST_LICENSE_OPTIONS);
     const text = callToolText(server, 'quick_check', {
-      project_path: process.cwd(),
+      project_path: REPO_ROOT,
       confirm: true,
     });
     const report = JSON.parse(text);

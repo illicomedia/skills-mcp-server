@@ -1,12 +1,14 @@
 import * as assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, describe, test } from 'node:test';
 import { runComplianceAudit } from '../../dist/audit/index.js';
 import { loadSkillContent, SkillNotInstalledError } from '../../dist/skills/catalog.js';
+import { runModuleInChild } from '../helpers/child.ts';
 import { auditCheckPassed, repo, writeFiles } from '../helpers/git-fixture.ts';
+import { distFile } from '../helpers/paths.ts';
 
 describe('security › project-file-reads', () => {
   /**
@@ -21,35 +23,7 @@ describe('security › project-file-reads', () => {
   const MiB = 1024 * 1024;
   const ENV_CHECK = '.gitignore mentions .env';
 
-  /** Runs `body` (ES module code) in a child process; false when it had to be killed. */
-  async function finishesInTime(
-    body: string,
-    ms = 30_000,
-  ): Promise<{ done: boolean; out: string }> {
-    const child = spawn(process.execPath, ['--input-type=module', '-e', body], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let out = '';
-    child.stdout.on('data', (d) => {
-      out += d.toString();
-    });
-    child.stderr.on('data', (d) => {
-      out += d.toString();
-    });
-    const done = await new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL');
-        resolve(false);
-      }, ms);
-      child.on('close', () => {
-        clearTimeout(timer);
-        resolve(true);
-      });
-    });
-    return { done, out };
-  }
-
-  const dist = (rel: string): string => JSON.stringify(path.resolve('dist', rel));
+  const dist = (rel: string): string => JSON.stringify(distFile(rel));
 
   for (const name of [
     '.gitignore',
@@ -66,13 +40,13 @@ describe('security › project-file-reads', () => {
       fs.writeFileSync(path.join(dir, 'package.json'), '{}');
       fs.rmSync(path.join(dir, name), { force: true });
       execFileSync('mkfifo', [path.join(dir, name)]);
-      const { done, out } = await finishesInTime(`
+      const { done, out, err } = await runModuleInChild(`
       import { runComplianceAudit } from ${dist('audit/index.js')};
       const r = runComplianceAudit(${JSON.stringify(dir)}, { confirm: true });
       console.log('checks', r.results.length);
     `);
       assert.equal(done, true, `the audit blocked on ${name}`);
-      assert.match(out, /^checks \d+/, out);
+      assert.match(out, /^checks \d+/, err);
     });
 
     test(`quick_check: ${name} linked to /dev/zero cannot exhaust memory`, {
@@ -83,13 +57,13 @@ describe('security › project-file-reads', () => {
       fs.writeFileSync(path.join(dir, 'package.json'), '{}');
       fs.rmSync(path.join(dir, name), { force: true });
       fs.symlinkSync('/dev/zero', path.join(dir, name));
-      const { done, out } = await finishesInTime(`
+      const { done, out, err } = await runModuleInChild(`
       import { runComplianceAudit } from ${dist('audit/index.js')};
       const r = runComplianceAudit(${JSON.stringify(dir)}, { confirm: true });
       console.log('checks', r.results.length);
     `);
       assert.equal(done, true, `the audit kept reading ${name}`);
-      assert.match(out, /^checks \d+/, out);
+      assert.match(out, /^checks \d+/, err);
     });
   }
 
@@ -103,14 +77,14 @@ describe('security › project-file-reads', () => {
     const other = fs.mkdtempSync(path.join(root, 'license-fifo-'));
     writeFiles(other, { 'skills/qa-core/SKILL.md': '# qa-core\n' });
     execFileSync('mkfifo', [path.join(other, 'LICENSE')]);
-    const { done, out } = await finishesInTime(`
+    const { done, out, err } = await runModuleInChild(`
     import { installSkill } from ${dist('skills/installer.js')};
     const a = installSkill('qa-core', ${JSON.stringify(dir)}, undefined, { confirm: true });
     const b = installSkill('qa-core', ${JSON.stringify(other)}, undefined, { confirm: true });
     console.log('done', a.success, b.success);
   `);
     assert.equal(done, true, 'an install blocked on a named pipe');
-    assert.match(out, /^done false true/, out);
+    assert.match(out, /^done false true/, err);
   });
 
   test('quick_check: a .gitignore over 1 MiB is not trusted (fail closed), up to 1 MiB it is read', () => {

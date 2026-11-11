@@ -1,10 +1,10 @@
 import * as assert from 'node:assert';
 import { spawn } from 'node:child_process';
-import * as path from 'node:path';
 import test, { describe } from 'node:test';
 import { LineFramer } from '../../dist/server/framing.js';
 import { FredoQaMcpServer, MAX_REQUEST_BYTES } from '../../dist/server/server.js';
 import { runStdio } from '../helpers/mcp-fixture.ts';
+import { distFile } from '../helpers/paths.ts';
 
 describe('server › framing', () => {
   function framer(max = 8) {
@@ -89,7 +89,7 @@ describe('server › framing', () => {
   });
 
   test('built server: a huge line without newline is dropped and the next request is still answered', async () => {
-    const entry = path.resolve('dist/index.js');
+    const entry = distFile('index.js');
     const child = spawn(process.execPath, [entry], { stdio: ['pipe', 'pipe', 'ignore'] });
     let out = '';
     child.stdout.on('data', (d) => {

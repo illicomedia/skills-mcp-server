@@ -1,9 +1,11 @@
 import * as assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { after, describe, test } from 'node:test';
+import { runModuleInChild } from '../helpers/child.ts';
+import { distFile } from '../helpers/paths.ts';
 
 describe('license › license-read-race', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-race-'));
@@ -39,7 +41,7 @@ for (let i = 0; ; i += 1) {
 }
 `,
     );
-    const guard = path.resolve('dist/security/path-guard.js');
+    const guard = distFile('security/path-guard.js');
     const script = `
       import { Worker } from 'node:worker_threads';
       import { readTextBounded } from ${JSON.stringify(guard)};
@@ -51,27 +53,7 @@ for (let i = 0; ; i += 1) {
       await worker.terminate();
       console.log('done', refused);
     `;
-    const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let out = '';
-    let err = '';
-    child.stdout.on('data', (d) => {
-      out += d.toString();
-    });
-    child.stderr.on('data', (d) => {
-      err += d.toString();
-    });
-    const finished = await new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL');
-        resolve(false);
-      }, 30_000);
-      child.on('close', () => {
-        clearTimeout(timer);
-        resolve(true);
-      });
-    });
+    const { done: finished, out, err } = await runModuleInChild(script);
     assert.equal(finished, true, 'the read blocked on a named pipe');
     assert.match(out, /^done \d+/, err);
     // The swap really happened: some reads found the pipe (and were refused), others the file.

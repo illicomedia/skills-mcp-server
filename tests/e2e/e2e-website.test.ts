@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import test, { describe } from 'node:test';
 import { SERVER_VERSION } from '../../dist/version.js';
+import { distFile } from '../helpers/paths.ts';
 import { writeSkillSources } from '../helpers/skill-fixture.ts';
 
 describe('e2e › e2e-website', () => {
@@ -86,7 +87,7 @@ describe('e2e › e2e-website', () => {
   }
 
   test('E2E Real Website: Full MCP Agent Lifecycle against website/ application', async () => {
-    const cliPath = path.resolve('dist/index.js');
+    const cliPath = distFile('index.js');
     const websiteDir = path.resolve(import.meta.dirname, '..', 'fixtures/sample-website');
 
     // Run from the repository root, where real skill sources live under skills/ (the package ships none)

@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import test, { describe } from 'node:test';
+import { REPO_ROOT } from '../helpers/paths.ts';
 
 describe('security › source-hygiene', () => {
   /**
@@ -39,7 +40,9 @@ describe('security › source-hygiene', () => {
   }
 
   test('sources contain no invisible or bidirectional characters', () => {
-    const files = ['src', 'tests', 'scripts'].flatMap(sourceFiles);
+    const files = ['src', 'tests', 'scripts'].flatMap((dir) =>
+      sourceFiles(path.join(REPO_ROOT, dir)),
+    );
     assert.ok(files.length > 20);
     const found: string[] = [];
     for (const file of files) {
@@ -54,5 +57,24 @@ describe('security › source-hygiene', () => {
       });
     }
     assert.deepEqual(found, []);
+  });
+
+  test('tests never resolve a path from the folder they are started from', () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles(path.join(REPO_ROOT, 'tests'))) {
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      lines.forEach((line, index) => {
+        const fromCwd =
+          /path\.resolve\(\s*'(?!\/)/.test(line) ||
+          /path\.resolve\(\s*\)/.test(line) ||
+          /(readFileSync|readdirSync|existsSync|statSync|sourceFiles)\(\s*'(?!\/)[^']*'\s*[,)]/.test(
+            line,
+          );
+        if (fromCwd) {
+          offenders.push(`${file}:${index + 1}`);
+        }
+      });
+    }
+    assert.deepEqual(offenders, [], 'use REPO_ROOT or distFile() from tests/helpers/paths.ts');
   });
 });

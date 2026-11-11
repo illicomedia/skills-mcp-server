@@ -23,6 +23,7 @@ import { syncWorkspaceSkills } from '../../dist/skills/sync.js';
 import { smokeTestServer } from '../../scripts/release-lib.mjs';
 import { makeProject, rule } from '../helpers/audit-fixture.ts';
 import { signedLicense, TEST_LICENSE_OPTIONS } from '../helpers/license-fixture.ts';
+import { REPO_ROOT } from '../helpers/paths.ts';
 
 describe('regression › edge-cases', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fqa-edge-'));
@@ -116,7 +117,7 @@ describe('regression › edge-cases', () => {
     );
 
     assert.ok(
-      detectProjectSkills(path.resolve('.')).includes('qa-mcp'),
+      detectProjectSkills(REPO_ROOT).includes('qa-mcp'),
       'this repository ships mcpName and server.json',
     );
   });

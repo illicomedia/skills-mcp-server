@@ -21,6 +21,7 @@ import { installSkill } from '../../dist/skills/installer.js';
 import { detectProjectSkills } from '../../dist/skills/stack-detection.js';
 import { signedLicense, TEST_KEY_ID, TEST_LICENSE_OPTIONS } from '../helpers/license-fixture.ts';
 import { runStdio } from '../helpers/mcp-fixture.ts';
+import { distFile } from '../helpers/paths.ts';
 import { writeSkillSources } from '../helpers/skill-fixture.ts';
 
 describe('regression › coverage-expansion', () => {
@@ -475,7 +476,7 @@ describe('regression › coverage-expansion', () => {
   test('CLI: Pre-flight lock and clean exit on stdin close', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fredo-qa-cli-test-'));
     try {
-      const cliPath = path.resolve('dist/index.js');
+      const cliPath = distFile('index.js');
       const child = spawn(process.execPath, [cliPath], {
         cwd: tmp,
         env: { ...process.env, NODE_ENV: 'test' },
