@@ -56,10 +56,14 @@ test('installSkill: refuses a bad project and a symlink escape, without writing'
 });
 
 test('installSkill: a write failure is reported', () => {
-  const dir = project('skills/free/qa-core/SKILL.md', '.agents');
+  // A real skill source, and a file where the .agents folder must be created.
+  const dir = makeProject(root, ['skills/free/qa-core/SKILL.md', '.agents'], (name) =>
+    name.endsWith('SKILL.md') ? '# qa-core\n' : '',
+  );
   const result = installSkill('qa-core', dir, undefined, { confirm: true });
   assert.equal(result.success, false);
-  assert.match(result.message, /Failed to install/);
+  assert.match(result.message, /Failed to install skill 'qa-core'/);
+  assert.doesNotMatch(result.message, /empty|not installed/);
 });
 
 test('detectProjectSkills: well-known and DNS projects', () => {
