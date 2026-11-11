@@ -46,6 +46,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      - name: Type-check the tests (against the built dist/)
+        run: pnpm run lint:types
       - name: Dead code (knip)
         run: pnpm run lint:dead
       - name: Duplicated code (jscpd)

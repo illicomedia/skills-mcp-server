@@ -254,9 +254,16 @@ describe('release › workflows', () => {
     assert.match(packageManager, /^pnpm@\d+\.\d+\.\d+\+sha512\.[0-9a-f]{128}$/);
   });
 
-  test('D18: CI runs every quality gate: lint, dead code, duplicates, coverage, package metadata', () => {
+  test('D18: CI runs every quality gate: lint, test types, dead code, duplicates, coverage, package metadata', () => {
     const runs = (ci.jobs.quality.steps ?? []).map((step) => step.run);
-    for (const gate of ['lint', 'lint:dead', 'lint:duplicates', 'test:coverage', 'lint:package']) {
+    for (const gate of [
+      'lint',
+      'lint:types',
+      'lint:dead',
+      'lint:duplicates',
+      'test:coverage',
+      'lint:package',
+    ]) {
       assert.ok(runs.includes(`pnpm run ${gate}`), `quality job must run pnpm run ${gate}`);
     }
   });
