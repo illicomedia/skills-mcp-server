@@ -9,16 +9,24 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { isBlockedSystemPath } from './system-paths.js';
 
+/** Credential stores under the home directory: never a project, nor anything inside them. */
+const CREDENTIAL_STORES: readonly string[] = [
+  '.ssh',
+  '.aws',
+  '.gnupg',
+  '.azure',
+  '.kube',
+  '.docker',
+  '.config/gcloud',
+  '.config/gh',
+  '.password-store',
+  '.oci',
+  'Library/Keychains',
+];
+
 function getSensitiveUserDirs(): string[] {
   const home = os.homedir();
-  return [
-    path.join(home, '.ssh'),
-    path.join(home, '.aws'),
-    path.join(home, '.gnupg'),
-    path.join(home, '.azure'),
-    path.join(home, '.kube'),
-    path.join(home, '.docker'),
-  ];
+  return CREDENTIAL_STORES.map((store) => path.join(home, ...store.split('/')));
 }
 
 /**
