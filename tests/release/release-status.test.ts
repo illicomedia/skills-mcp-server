@@ -90,6 +90,22 @@ describe('release › release-status', () => {
       () => parseReleaseArgs(['--undeprecate', '3.1.0', '--message', 'x']),
       /--message/,
     );
+    // A word without dashes, a switch given a value, a value option given last: clear errors.
+    assert.throws(() => parseReleaseArgs(['patch']), /^Error: Unknown option: patch$/);
+    assert.throws(() => parseReleaseArgs(['-z']), /^Error: Unknown option: -z$/);
+    assert.throws(
+      () => parseReleaseArgs(['--bump', 'minor', 'now']),
+      /^Error: Unknown option: now$/,
+    );
+    assert.throws(() => parseReleaseArgs(['--yes=no']), /^Error: --yes takes no value$/);
+    assert.throws(() => parseReleaseArgs(['--dry-run=1']), /^Error: --dry-run takes no value$/);
+    assert.throws(() => parseReleaseArgs(['--bump']), /^Error: --bump expects one of patch/);
+    assert.throws(() => parseReleaseArgs(['--bump', '--dry-run']), /^Error: --bump expects one of/);
+    assert.throws(
+      () => parseReleaseArgs(['--promote=']),
+      /^Error: --promote expects an exact version/,
+    );
+    assert.equal(parseReleaseArgs(['--bump=minor']).bump, 'minor');
   });
 
   test('unreleasedSummary: headings, entries and the bump they call for', () => {
