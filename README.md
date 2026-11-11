@@ -315,6 +315,39 @@ Or run directly from the compiled JavaScript bundle without global binaries:
 }
 ```
 
+### 4. GitHub Copilot and VS Code
+
+Copilot reads `~/.copilot/mcp-config.json` (or `$COPILOT_HOME/mcp-config.json`), and a workspace-root `.mcp.json`, both with a top-level `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "fredo-qa": {
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"]
+    }
+  }
+}
+```
+
+VS Code's own `.vscode/mcp.json` (or the user-profile `mcp.json`) uses `servers` with `"type": "stdio"`. VS Code describes that format as deprecated for Copilot sessions and forwards existing entries ([MCP configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)):
+
+```json
+{
+  "servers": {
+    "fredo-qa": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@illicomedia/skills-mcp-server"]
+    }
+  }
+}
+```
+
+### 5. Other clients (Windsurf, Cline, ...)
+
+Any MCP client that starts a local `stdio` server works: give it the command `npx` with the arguments `-y @illicomedia/skills-mcp-server` (or `fredo-qa-mcp-server` when installed globally). Where the configuration file lives depends on the client and its version: see its MCP documentation.
+
 ---
 
 ## Complete Uninstallation & Clean Removal
@@ -336,7 +369,8 @@ Simply delete the `"fredo-qa"` block from your client's configuration file:
   - Linux: `~/.config/Claude/claude_desktop_config.json`
 - **Cursor IDE**: Delete `"fredo-qa"` from `.cursor/mcp.json` or remove it in **Cursor Settings > Features > MCP**.
 - **Google Antigravity**: Delete `"fredo-qa"` from `~/.gemini/config/mcp_config.json` or disable it in the Antigravity MCP settings.
-- **VS Code / Windsurf**: Delete `"fredo-qa"` from `.vscode/mcp.json` or user settings.
+- **GitHub Copilot / VS Code**: Delete `"fredo-qa"` from `~/.copilot/mcp-config.json`, `.mcp.json`, `.vscode/mcp.json` or the user-profile `mcp.json`.
+- **Other clients**: Delete the `fredo-qa` entry from the client's MCP configuration.
 
 ### Step 2: Uninstall the Package
 
