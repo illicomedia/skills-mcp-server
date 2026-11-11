@@ -728,6 +728,32 @@ export async function deprecate(ctx, pkg, { version, message, dryRun = false, ye
   ctx.ok(`Deprecated ${pkg.name}@${version}.`);
 }
 
+/**
+ * Lifts the deprecation of one version (npm's empty message), the first step of an emergency
+ * rollback: --promote refuses a deprecated version. Never done in bulk, always confirmed.
+ */
+export async function undeprecate(ctx, pkg, { version, dryRun = false, yes = false }) {
+  const { versions } = registryState(ctx, pkg.name);
+  if (!versions.includes(version)) {
+    throw new Error(`${pkg.name}@${version} is not published.`);
+  }
+  if (!deprecationOf(ctx, pkg.name, version)) {
+    throw new Error(`${pkg.name}@${version} is not deprecated.`);
+  }
+  if (dryRun) {
+    ctx.log(`[dry-run] Would run: npm deprecate ${pkg.name}@${version} ""`);
+    return;
+  }
+  requireLogin(ctx);
+  const question = `Un-deprecate v${version} (it installs again without any warning)?`;
+  if (!(await approve(ctx, question, { yes }))) {
+    ctx.log('Un-deprecation cancelled.');
+    return;
+  }
+  ctx.sh('npm', ['deprecate', `${pkg.name}@${version}`, ''], { interactive: true });
+  ctx.ok(`${pkg.name}@${version} is no longer deprecated.`);
+}
+
 /** prepare, wait for CI to publish to `next`, then verify and promote (with confirmation). */
 export async function ship(ctx, pkg, options) {
   const { version, pushed } = await prepare(ctx, pkg, options);

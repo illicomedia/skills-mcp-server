@@ -100,15 +100,11 @@ Each step can be run on its own. If CI failed, fix forward: a new commit and a n
 
 ## 5. When a Release Goes Wrong
 
-1. **Roll back `latest`** to the last good supported version (e.g. `2.0.2`):
-   ```bash
-   pnpm release --promote 2.0.2
-   ```
-2. **Warn users of the faulty or unsupported version only** using a normalized deprecation message:
-   ```bash
-   pnpm release --deprecate <version> --message "<NormalizedMessage>"
-   ```
-3. **Fix forward** with a new patch version.
+Fix forward with a patch release whenever the version is still usable. When it is not, roll back:
+lift the deprecation of the last good version (`pnpm release --undeprecate <good>`, since
+`--promote` refuses a deprecated version), move `latest` back (`pnpm release --promote <good>`),
+deprecate the broken one, then fix forward. Step by step:
+[runbook, Emergency: roll back a release](release-runbook.md#emergency-roll-back-a-release-you--2fa).
 
 ---
 
@@ -132,15 +128,15 @@ Every deprecation applied to npm via `npm deprecate` or `pnpm release --deprecat
 
 ### Deprecation Registry
 
-Applied by the npm account owner (2FA) on 2026-11-04 (3.0.0 on 2026-11-05). After 3.1.0, deprecate 3.0.1 and retarget 3.0.0 (commands below); then mark those rows Applied. The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`.
+Applied by the npm account owner (2FA). Rows marked pending are to run next (commands below), then marked Applied. The registry shows the state: `npm view @illicomedia/skills-mcp-server@<version> deprecated`, and `pnpm release` lists what is published.
 
 | Versions | Message | Applied |
 | :--- | :--- | :--- |
 | `1.4.0`, `1.4.1`, `1.4.3`, `1.4.4`, `1.4.5`, `1.4.6`, `1.4.7` | `End of life: 1.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
 | `1.4.2` | `Fails to start with npm or npx (EBADDEVENGINES), and 1.x is end of life. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (requires Node.js 22+).` | 2026-11-04 |
 | `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | 2026-11-04 |
-| `3.0.0` | `Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.1.0 (drop-in, no setup change).` | 2026-11-05 (retarget pending) |
-| `3.0.1` | `Out of support: only the newest 3.x patch receives fixes. Upgrade to @illicomedia/skills-mcp-server@^3.1.0 (drop-in, no setup change).` | pending |
+| `3.0.0` | `Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).` | pending (retarget from ^3.1.0) |
+| `3.0.1`, `3.1.0` | `Security: <version> can be hung or run out of memory by a crafted project or license path, and its license errors reveal file content. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).` | pending (3.1.0 carries a vague message set outside the tool; 3.0.1 points to ^3.1.0) |
 
 These replace earlier messages that sent 1.4.x users to 1.4.7 (or 2.0.2) and 2.0.1 users to 2.0.2,
 both now end of life. Each command asks for confirmation; with npm's web login, the 2FA page's
@@ -156,12 +152,14 @@ for v in 2.0.1 2.0.2; do
 done
 ```
 
-3.0.0 stays deprecated for its security defects (retargeted to `^3.1.0` when 3.1.0 became
-`latest`). Older patches of the supported major may be deprecated toward the newest patch (D3):
+Since 3.2.0 every older 3.x version carries the security defects 3.2.0 fixed, so all point to
+`^3.2.0` (1.x and 2.x already point to `^3.0.0`, which resolves to the newest 3.x):
 
 ```bash
-pnpm release --deprecate 3.0.1 --message 'Out of support: only the newest 3.x patch receives fixes. Upgrade to @illicomedia/skills-mcp-server@^3.1.0 (drop-in, no setup change).'
-pnpm release --deprecate 3.0.0 --message 'Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.1.0 (drop-in, no setup change).'
+for v in 3.0.1 3.1.0; do
+  pnpm release --deprecate "$v" --message "Security: $v can be hung or run out of memory by a crafted project or license path, and its license errors reveal file content. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change)."
+done
+pnpm release --deprecate 3.0.0 --message 'Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).'
 ```
 
 ---
@@ -170,12 +168,16 @@ pnpm release --deprecate 3.0.0 --message 'Security: 3.0.0 reads a confirm of "fa
 
 | Command | Where | What it does |
 | :--- | :--- | :--- |
-| `pnpm run check` | laptop | Lint, build, coverage gate, packed-tarball smoke test |
-| `pnpm release [--bump X]` | laptop | Prepare: preflight, version, changelog, gates, commit, tag, push |
+| `pnpm release` | laptop | Status, read-only: versions on npm, pending commits and notes, the next command; then the help |
+| `pnpm release --help` | anywhere | Every action and option, the process in order |
+| `pnpm run check` / `pnpm run check:clean` | laptop | All gates / the same on a clean copy of HEAD (before every push) |
+| `pnpm release --bump X` | laptop | Prepare: preflight, version, changelog, gates, commit, tag, push |
 | `pnpm release --ship [--bump X]` | laptop | Prepare, wait for CI to stage and you to approve, promote |
-| `pnpm release --promote <v>` | laptop | Verify from npm, move `latest` (or roll back) |
-| `pnpm release --deprecate <v> --message "<reason>. Use <v>."` | laptop | Deprecate one version |
-| `pnpm release --smoke-only [--tarball <file>]` | laptop, CI | Install a tarball into an empty project and run an MCP session |
+| `pnpm release --approve <v>` | laptop | Make the staged version public under `next` (2FA) |
+| `pnpm release --promote <v>` | laptop | Verify from npm, move `latest` (2FA), also to roll back |
+| `pnpm release --deprecate <v> --message "<cause>. Upgrade to <pkg>@<range> (<prerequisites>)."` | laptop | Deprecate one version (2FA, D21 message) |
+| `pnpm release --undeprecate <v>` | laptop | Lift a deprecation (2FA): first step of a rollback |
+| `pnpm release --smoke-only [--tarball-dir <dir>]` | laptop, CI | Install a tarball into an empty project and run an MCP session |
 | `pnpm release --check-tag <tag>` | CI | Fail unless the tag is `v` + the `package.json` version |
 | `pnpm release --release-notes <v>` | CI | Print the changelog section of a version |
 

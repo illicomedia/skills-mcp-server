@@ -10,6 +10,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 - Maintainer scripts: `--help` / `-h` on `pnpm release`, `github:check` / `github:apply`, `check:clean`, `test:coverage` and `scripts/github-audit.sh`. Each prints its usage, options and process, then exits without doing anything else, whatever else is on the command line. A wrong option now points to `--help`.
 - `pnpm release` without an action or `--bump` shows a read-only status (versions on npm, pending commits and changelog notes, the next command) followed by the help. Cutting a release always needs an explicit `--bump`.
+- `pnpm release --undeprecate <version>`: lifts a deprecation (checked, confirmed), the first step of an emergency rollback since `--promote` refuses a deprecated version. The release runbook now explains deprecating a version and the emergency rollback step by step.
 
 ### Changed
 

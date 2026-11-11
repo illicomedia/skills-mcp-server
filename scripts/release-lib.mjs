@@ -16,6 +16,7 @@ const FLAGS_WITH_VALUE = [
   '--preid',
   '--promote',
   '--deprecate',
+  '--undeprecate',
   '--message',
   '--tarball-dir',
   '--check-tag',
@@ -40,6 +41,7 @@ const ACTIONS = [
   '--publish-listing',
   '--promote',
   '--deprecate',
+  '--undeprecate',
   '--smoke-only',
   '--expect-refusal',
   '--stage',
@@ -176,6 +178,8 @@ export function parseReleaseArgs(argv) {
       const message = requireValue(flags, '--message', '"<reason>. Use <version>."');
       return { action: 'deprecate', ...base, version, message };
     }
+    case '--undeprecate':
+      return { action: 'undeprecate', ...base, version: exactVersion(action, flags.get(action)) };
     case '--publish-listing':
       return { action: 'publish-listing', ...base };
     case '--smoke-only':

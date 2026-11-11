@@ -17,6 +17,7 @@ import {
   ship,
   smoke,
   stage,
+  undeprecate,
   verifyFromRegistry,
 } from '../../scripts/release-flow.mjs';
 
@@ -766,6 +767,39 @@ describe('release › release-flow', () => {
       deprecate(fakeWorld().ctx, PKG, { version: '9.9.9', message }),
       /not published/,
     );
+  });
+
+  test('undeprecate: only a deprecated, published version, after a yes; the rollback path', async () => {
+    const DEPRECATED = { ...STAGED, deprecated: { '1.4.0': 'Out of support. Upgrade.' } };
+    const live = fakeWorld(DEPRECATED);
+    await undeprecate(live.ctx, PKG, { version: '1.4.0' });
+    assert.ok(live.calls.includes(`npm deprecate ${NAME}@1.4.0 `), live.calls.join('\n'));
+    assert.ok(has(live.calls, 'npm whoami'), 'needs an npm login');
+    assert.ok(live.questions.some((q) => /Un-deprecate v1\.4\.0/.test(q)));
+
+    const no = fakeWorld({ ...DEPRECATED, answer: false });
+    await undeprecate(no.ctx, PKG, { version: '1.4.0' });
+    assert.ok(!has(no.calls, 'npm deprecate'));
+
+    const dry = fakeWorld(DEPRECATED);
+    await undeprecate(dry.ctx, PKG, { version: '1.4.0', dryRun: true });
+    assert.ok(!has(dry.calls, 'npm deprecate'));
+    assert.ok(dry.logs.some((line) => line.includes(`npm deprecate ${NAME}@1.4.0 ""`)));
+
+    const headless = fakeWorld({ ...DEPRECATED, interactive: false });
+    await assert.rejects(undeprecate(headless.ctx, PKG, { version: '1.4.0' }), /--yes/);
+    assert.ok(!has(headless.calls, 'npm deprecate'));
+
+    await assert.rejects(
+      undeprecate(fakeWorld(STAGED).ctx, PKG, { version: '1.4.0' }),
+      /is not deprecated/,
+    );
+    await assert.rejects(
+      undeprecate(fakeWorld(DEPRECATED).ctx, PKG, { version: '9.9.9' }),
+      /not published/,
+    );
+    const loggedOut = fakeWorld({ ...DEPRECATED, loggedIn: false });
+    await assert.rejects(undeprecate(loggedOut.ctx, PKG, { version: '1.4.0' }), /npm login/);
   });
 
   test('ship: prepare, wait for CI, verify, promote; never deprecates anything', async () => {

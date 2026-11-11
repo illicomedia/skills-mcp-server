@@ -59,6 +59,7 @@ describe('release › cli-help', () => {
       '--with-listing',
       '--publish-listing',
       '--deprecate',
+      '--undeprecate',
       '--message',
       '--smoke-only',
       '--tarball-dir',
@@ -79,6 +80,7 @@ describe('release › cli-help', () => {
     assert.match(RELEASE_HELP, /2FA/);
     assert.match(RELEASE_HELP, /never publishes/);
     assert.match(RELEASE_HELP, /docs\/operations\/release-runbook\.md/);
+    assert.match(RELEASE_HELP, /Emergency rollback/);
     const order = ['1.', '2.', '3.', '4.', '5.'].map((step) => RELEASE_HELP.indexOf(`\n  ${step}`));
     assert.deepEqual(
       [...order].sort((a, b) => a - b),

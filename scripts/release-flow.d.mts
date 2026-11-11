@@ -77,6 +77,11 @@ export function deprecate(
   pkg: Pkg,
   options: { version: string; message: string; dryRun?: boolean; yes?: boolean },
 ): Promise<void>;
+export function undeprecate(
+  ctx: ReleaseContext,
+  pkg: Pkg,
+  options: { version: string; dryRun?: boolean; yes?: boolean },
+): Promise<void>;
 export function ship(
   ctx: ReleaseContext,
   pkg: Pkg,

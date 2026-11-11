@@ -41,6 +41,7 @@ import {
   smoke,
   stage,
   status,
+  undeprecate,
 } from './release-flow.mjs';
 import {
   ciTagOutputs,
@@ -224,6 +225,9 @@ async function main() {
       return;
     case 'deprecate':
       await deprecate(ctx, pkg, options);
+      return;
+    case 'undeprecate':
+      await undeprecate(ctx, pkg, options);
       return;
     case 'ship':
       await ship(ctx, pkg, options);

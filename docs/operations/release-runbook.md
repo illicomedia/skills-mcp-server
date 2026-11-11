@@ -268,6 +268,61 @@ After the first release has been staged and approved:
 
 ---
 
+## Deprecate a version (YOU + 2FA)
+
+A deprecation is a warning npm prints when someone installs that version, pointing to the one to
+use. It is how users of a broken or unsupported version learn to upgrade. Nothing is removed:
+pinned installs keep working.
+
+When:
+- a released version is broken or has a security defect (once its replacement is `latest`);
+- a new patch or minor makes the older ones of the same major unsupported (only the newest is);
+- a new major makes the previous majors end of life.
+
+How, one version at a time (never `latest`; a bulk change is a loop you write yourself):
+
+```bash
+pnpm release                                           # status: what is published and where
+pnpm release --deprecate 3.1.0 --dry-run --message "Security: 3.1.0 can be hung or run out of memory by a crafted project or license path, and its license errors reveal file content. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change)."
+pnpm release --deprecate 3.1.0 --message "<the same message>"   # asks, then npm 2FA
+npm view @illicomedia/skills-mcp-server@3.1.0 deprecated    # check
+```
+
+The message must follow D21: `<Cause>. Upgrade to <package>@<range> (<prerequisites>).`, at most
+256 characters, no shell command. The command refuses anything else before calling npm. Write
+the cause first ("Security: ...", "End of life: ...", "Fails to start ..."), never just
+"deprecated" or "use latest". Record every deprecation in the registry table of
+[mcp-publish-process.md](mcp-publish-process.md#deprecation-registry).
+
+To lift one (a mistake, or the first step of a rollback): `pnpm release --undeprecate <version>`.
+
+## Emergency: roll back a release (YOU + 2FA)
+
+Use it when the version just promoted to `latest` cannot be used (it does not install or start,
+it corrupts files, it breaks every client). For anything less, fix forward: a patch release takes
+20 minutes and keeps every security fix.
+
+Rolling back means moving `latest` to the previous good version. Every version older than
+`latest` is deprecated, and `--promote` refuses a deprecated version, so lift its deprecation
+first:
+
+```bash
+pnpm release                              # 1. status: which version is latest, which is good
+pnpm release --undeprecate 3.1.0          # 2. the good version installs without a warning again
+pnpm release --promote 3.1.0              # 3. `latest` goes back to it (npm verifies it first)
+pnpm release --deprecate 3.2.0 --message "Broken: 3.2.0 <what fails>. Upgrade to @illicomedia/skills-mcp-server@^3.2.1 (drop-in)."
+                                          # 4. warn the users of the broken version
+```
+
+Then fix forward: commit the fix, `pnpm release --bump patch`, approve and promote 3.2.1 as usual,
+and deprecate 3.1.0 again if it is out of support (the rollback version usually carries the
+security defects the broken release fixed: keep the rollback short). Each step asks for
+confirmation; add `--dry-run` to any of them to see what it would do.
+
+Rolling back does not reach users who pinned the broken version or whose `npx` cache holds it:
+the deprecation warning is what tells them. Removing a version from npm is only for a leaked
+secret, within 72 hours ([publish process, section 7](mcp-publish-process.md)).
+
 ## When something goes wrong
 
 | Where | What you see | What to do |
@@ -281,4 +336,4 @@ After the first release has been staged and approved:
 | Step 4 | Staging failed with a git error (`ls-remote`, exit code 128) | npm read the tarball path as a GitHub repository; the workflow must pass an absolute path. CI's "Dry-run the npm staging command" catches this on every push |
 | Step 4 | "not allowed to deploy to npm-publish" | The environment needs a deployment rule of type **Tag**, pattern `v*` |
 | Step 5 | The staged version is wrong | `npm stage reject <stage-id>`; fix forward with the next patch version |
-| After 7 | A problem in the released version | Roll back: `pnpm release --promote 2.0.2`. Warn users of that version only using the normalized spec: `pnpm release --deprecate <version> --message "<reason>. Upgrade to <version>."`. Fix forward with next patch version |
+| After 7 | A problem in the released version | Fix forward with the next patch. If the version cannot be used at all, roll back: [Emergency: roll back a release](#emergency-roll-back-a-release-you--2fa) |

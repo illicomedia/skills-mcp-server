@@ -77,6 +77,19 @@ describe('release › release-status', () => {
     assert.equal(parseReleaseArgs(['--bump', 'patch']).action, 'prepare');
     assert.equal(parseReleaseArgs(['--bump', 'minor', '--dry-run']).action, 'prepare');
     assert.throws(() => parseReleaseArgs(['--preid', 'rc']), /--preid only applies with --bump/);
+    assert.deepEqual(parseReleaseArgs(['--undeprecate', '3.1.0', '--dry-run']), {
+      action: 'undeprecate',
+      dryRun: true,
+      yes: false,
+      version: '3.1.0',
+    });
+    for (const bad of [['--undeprecate'], ['--undeprecate', 'latest'], ['--undeprecate', '3.1']]) {
+      assert.throws(() => parseReleaseArgs(bad), /--undeprecate/, bad.join(' '));
+    }
+    assert.throws(
+      () => parseReleaseArgs(['--undeprecate', '3.1.0', '--message', 'x']),
+      /--message/,
+    );
   });
 
   test('unreleasedSummary: headings, entries and the bump they call for', () => {

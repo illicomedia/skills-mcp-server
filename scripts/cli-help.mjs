@@ -37,7 +37,8 @@ Actions (one at a time):
   --promote <version>           verify from npm, move "latest" (2FA)
   --publish-listing             retry the MCP Registry listing of this version
   --deprecate <version> --message "<reason>. Upgrade to <package>@<range> (<prerequisites>)."
-                                one version, never "latest"
+                                one version, never "latest" (npm 2FA)
+  --undeprecate <version>       lift a deprecation (npm 2FA): first step of a rollback
   --smoke-only [--tarball-dir <dir>]   pack (or take) a tarball and run an MCP session on it
 
 Options:
@@ -53,6 +54,12 @@ Used by CI (.github/workflows):
   --stage --tarball-dir <dir>            stage the tarball on npm under "next"
   --github-release <tag> --tarball-dir <dir>   create the GitHub Release
   --release-notes <version>              print that version's changelog section
+
+Emergency rollback (a released version is broken; details in the runbook):
+  1. pnpm release --undeprecate <good>   the last good version (all older ones are deprecated)
+  2. pnpm release --promote <good>       "latest" goes back to it
+  3. pnpm release --deprecate <broken> --message "<cause>. Upgrade to <package>@^<good> (...)."
+  4. fix forward with the next patch; promote it; deprecate <good> again if out of support
 
 Before a release: CI green on main, notes under "## Unreleased" in CHANGELOG.md, npm login
 (npm whoami). A failed gate restores package.json and CHANGELOG.md: nothing is committed.
