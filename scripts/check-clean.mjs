@@ -19,8 +19,11 @@ const run = (command, args, options = {}) =>
     ...options,
   });
 try {
-  const archive = execFileSync('git', ['archive', '--format=tar', 'HEAD']);
-  execFileSync('tar', ['-x', '-C', dir], { input: archive });
+  // Through a file, not a buffer: execFileSync caps output at 1 MiB, and the archive is larger.
+  const archive = join(dir, 'HEAD.tar');
+  execFileSync('git', ['archive', '--format=tar', `--output=${archive}`, 'HEAD']);
+  execFileSync('tar', ['-x', '-f', archive, '-C', dir]);
+  rmSync(archive);
   const env = { ...process.env, CI: 'true' };
   run('pnpm', ['install', '--frozen-lockfile'], { cwd: dir, env });
   run('pnpm', ['run', 'check'], { cwd: dir, env });
