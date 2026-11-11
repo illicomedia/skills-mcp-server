@@ -1,62 +1,20 @@
-import { gitignoreOf, isIgnoredAtRoot } from '../gitignore.js';
+import { gitignoreRules, isIgnored } from '../gitignore.js';
 import type { AuditCheckResult, AuditContext } from '../types.js';
-
-interface GitignoreRules {
-  ignoresEnv: boolean;
-  ignoresPrivateKeys: boolean;
-}
 
 const LICENSE_FILE = '.qa-license.json';
 
-function parseGitignoreRules(content: string): GitignoreRules {
-  const lines = content.split('\n').map((l) => l.trim());
-  let ignoresEnv = false;
-  let ignoresPrivateKeys = false;
-
-  for (const line of lines) {
-    if (!line || line.startsWith('#')) {
-      continue;
-    }
-
-    // Negations
-    if (line === '!.env' || line === '!.env*' || line === '!*.env') {
-      ignoresEnv = false;
-      continue;
-    }
-
-    // Active .env ignore rules
-    if (
-      line === '.env' ||
-      line === '.env*' ||
-      line === '*.env' ||
-      line === '.env.*' ||
-      line.startsWith('.env.') ||
-      line.startsWith('.env/') ||
-      line.endsWith('/.env')
-    ) {
-      ignoresEnv = true;
-    }
-
-    // Active key ignore rules
-    if (
-      (line.includes('*.pem') ||
-        line.includes('*.key') ||
-        line.includes('*.p12') ||
-        line.includes('*.pkcs12') ||
-        line.includes('*.pfx') ||
-        line.includes('id_rsa') ||
-        line.includes('id_ed25519') ||
-        line.includes('id_ecdsa') ||
-        line.includes('id_dsa') ||
-        line.includes('.aws')) &&
-      !line.startsWith('!')
-    ) {
-      ignoresPrivateKeys = true;
-    }
-  }
-
-  return { ignoresEnv, ignoresPrivateKeys };
-}
+/** Sample key file names: a .gitignore "has rules for private keys" when it ignores one of them. */
+const KEY_FILE_SAMPLES: readonly string[] = [
+  'server.pem',
+  'server.key',
+  'certificate.p12',
+  'certificate.pkcs12',
+  'certificate.pfx',
+  'id_rsa',
+  'id_ed25519',
+  'id_ecdsa',
+  'id_dsa',
+];
 
 function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
   const hasSecTxt =
@@ -103,8 +61,7 @@ function checkVulnerabilityPolicy(ctx: AuditContext): AuditCheckResult {
 }
 
 function checkGitignoreEnv(ctx: AuditContext): AuditCheckResult {
-  const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
-  const { ignoresEnv } = parseGitignoreRules(gitignoreContent);
+  const ignoresEnv = isIgnored(gitignoreRules(ctx), '.env');
 
   const envPassed = ignoresEnv;
   let envSeverity: 'blocker' | 'warning' | 'info' = 'warning';
@@ -132,8 +89,8 @@ function checkGitignoreEnv(ctx: AuditContext): AuditCheckResult {
 }
 
 function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
-  const gitignoreContent = ctx.readFile('.gitignore') ?? ctx.readParentFile('.gitignore') ?? '';
-  const { ignoresPrivateKeys: ignoresKeys } = parseGitignoreRules(gitignoreContent);
+  const rules = gitignoreRules(ctx);
+  const ignoresKeys = KEY_FILE_SAMPLES.some((name) => isIgnored(rules, name));
 
   // Scan up to 2 directory levels for raw private keys / certificates
   const isKeyFile = (_rel: string, fileName: string): boolean => {
@@ -151,7 +108,9 @@ function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
   };
 
   const detectedKeyFiles = ctx.findFiles(2, isKeyFile);
-  const hasRawKeyFile = detectedKeyFiles.length > 0 && !ignoresKeys;
+  // Each key file found must itself be ignored: a rule for another kind of key does not cover it.
+  const committedKeyFiles = detectedKeyFiles.filter((file) => !isIgnored(rules, file));
+  const hasRawKeyFile = committedKeyFiles.length > 0;
 
   let keyPassed = true;
   let keySeverity: 'blocker' | 'warning' | 'info' = 'warning';
@@ -160,7 +119,7 @@ function checkPrivateKeyHygiene(ctx: AuditContext): AuditCheckResult {
   if (hasRawKeyFile) {
     keyPassed = false;
     keySeverity = 'blocker';
-    keyDetails = `Raw private key or certificate file detected in workspace (${detectedKeyFiles.slice(0, 3).join(', ')}).`;
+    keyDetails = `Raw private key or certificate file not ignored by .gitignore (${committedKeyFiles.slice(0, 3).join(', ')}).`;
   } else if (ignoresKeys) {
     keyPassed = true;
     keySeverity = 'warning';
@@ -195,8 +154,7 @@ function checkLicenseFileIgnored(ctx: AuditContext): AuditCheckResult[] {
   if (!ctx.fileExists(LICENSE_FILE)) {
     return [];
   }
-  const { content, fromParent } = gitignoreOf(ctx);
-  const ignoresLicenseFile = isIgnoredAtRoot(content, LICENSE_FILE, fromParent);
+  const ignoresLicenseFile = isIgnored(gitignoreRules(ctx), LICENSE_FILE);
   return [
     {
       category: 'security',
