@@ -6,6 +6,7 @@ import {
   PROJECT_LICENSE_FILE,
   validateLicense,
 } from '../license/license.js';
+import { HELP_URL } from '../links.js';
 import { validateSafeProjectPath } from '../security/path-guard.js';
 import { findSkill, getAvailableSkills, loadSkillContent } from '../skills/catalog.js';
 import { SKILLS_CATALOG } from '../skills/catalog-data.js';
@@ -133,6 +134,7 @@ function getVersion(license: LicenseValidationResult): string {
       nodeVersion: process.version,
       skillsCount: SKILLS_CATALOG.length,
       licenseTier: license.tier.toUpperCase(),
+      helpUrl: HELP_URL,
     },
     null,
     2,

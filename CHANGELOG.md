@@ -12,6 +12,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 - `get_skill_rules`: optional `project_path`, so the skill is read from the project instead of the server's working directory (many MCP clients start the server elsewhere).
 - `get_version`: `supportedProtocolVersions` lists the MCP revisions the server implements. `initialize` answers the client's requested revision when it is supported, the latest supported one otherwise (still `2024-11-05` only).
 - `set_license_key`: the answer carries `sessionUpdated`.
+- `get_version`: `helpUrl`, the website to visit in case of a problem (`https://www.illicomedia.com/qa-skills/`).
 
 ### Changed
 
