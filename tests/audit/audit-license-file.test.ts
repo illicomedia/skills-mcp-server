@@ -134,15 +134,51 @@ describe('audit › audit-license-file', () => {
     assert.ok(Date.now() - started < 5000);
   });
 
-  test('license file: a parent .gitignore is used when the project has none', () => {
-    const parent = fs.mkdtempSync(path.join(root, 'parent-'));
-    fs.writeFileSync(path.join(parent, '.gitignore'), '.qa-license.json\n');
-    fs.mkdirSync(path.join(parent, '.git'));
-    const child = path.join(parent, 'child');
-    fs.mkdirSync(child);
-    fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
-    const report = runComplianceAudit(child, { confirm: true });
-    expectCheck(report, NAME, { passed: true });
+  // Without git: the differential tests against git are skipped where git is not installed.
+  for (const [rules, passed, why] of [
+    ['.qa-license.json\n', true, 'an unanchored rule applies to the project below it'],
+    ['/.qa-license.json\n', false, 'an anchored rule belongs to the folder of that .gitignore'],
+    [
+      '**/.qa-license.json\n/.qa-license.json\n',
+      true,
+      'a later anchored rule there changes nothing',
+    ],
+  ] as const) {
+    test(`license file: parent .gitignore ${JSON.stringify(rules)}: ${why}`, () => {
+      const parent = fs.mkdtempSync(path.join(root, 'parent-'));
+      fs.writeFileSync(path.join(parent, '.gitignore'), rules);
+      fs.mkdirSync(path.join(parent, '.git'));
+      const child = path.join(parent, 'child');
+      fs.mkdirSync(child);
+      fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
+      expectCheck(runComplianceAudit(child, { confirm: true }), NAME, { passed });
+    });
+  }
+
+  test('license file: a negation glob matches case-insensitively (git may run with core.ignorecase)', () => {
+    for (const [gitignore, passed] of [
+      ['.qa-license.json\n!*.JSON\n', false],
+      ['.qa-license.json\n!.QA-*\n', false],
+      ['.qa-license.json\n!*.yaml\n', true],
+    ] as const) {
+      expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
+        passed,
+        context: JSON.stringify(gitignore),
+      });
+    }
+  });
+
+  test('license file: a lone "!" or "/" line matches nothing and changes nothing', () => {
+    for (const [gitignore, passed] of [
+      ['.qa-license.json\n!\n', true],
+      ['.qa-license.json\n/\n', true],
+      ['!\n/\n', false],
+    ] as const) {
+      expectCheck(audit({ '.qa-license.json': '{}', '.gitignore': gitignore }), NAME, {
+        passed,
+        context: JSON.stringify(gitignore),
+      });
+    }
   });
 
   test('license file: the license content is never read or echoed by the audit', () => {

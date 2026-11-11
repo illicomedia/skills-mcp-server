@@ -57,3 +57,28 @@ export function writeFiles(dir: string, files: Record<string, string>): void {
     fs.writeFileSync(path.join(dir, rel), content);
   }
 }
+
+/** A differential case: the .gitignore content, and whether the audit must agree with git exactly. */
+export type GitCase = readonly [content: string, exact: boolean];
+
+/**
+ * Runs every case of a corpus through `probe` (git's answer and the audit's) and returns the
+ * disagreements: the audit reporting "ignored" while git would commit the file (never allowed),
+ * or, for exact cases with core.ignorecase off, any difference. An empty list: the audit agrees.
+ */
+export function disagreementsWithGit(
+  corpus: readonly GitCase[],
+  ignoreCase: boolean,
+  probe: (content: string, ignoreCase: boolean) => { gitSays: boolean; ours: boolean },
+): string[] {
+  const problems: string[] = [];
+  for (const [content, exact] of corpus) {
+    const { gitSays, ours } = probe(content, ignoreCase);
+    if (ours && !gitSays) {
+      problems.push(`${JSON.stringify(content)}: the audit says ignored, git would commit it`);
+    } else if (exact && !ignoreCase && ours !== gitSays) {
+      problems.push(`${JSON.stringify(content)}: the audit says ${ours}, git says ${gitSays}`);
+    }
+  }
+  return problems;
+}

@@ -2,7 +2,14 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, test } from 'node:test';
-import { auditCheckPassed, gitAvailable, gitIgnores, repo } from '../helpers/git-fixture.ts';
+import {
+  auditCheckPassed,
+  disagreementsWithGit,
+  type GitCase,
+  gitAvailable,
+  gitIgnores,
+  repo,
+} from '../helpers/git-fixture.ts';
 
 describe('audit › audit-gitignore-git', () => {
   /**
@@ -15,7 +22,7 @@ describe('audit › audit-gitignore-git', () => {
   const auditSays = (project: string): boolean => auditCheckPassed(project, NAME);
 
   /** [gitignore content, does the audit have to agree exactly with git?] */
-  const OWN: [string, boolean][] = [
+  const OWN: GitCase[] = [
     ['.qa-license.json\n', true],
     [' .qa-license.json\n', true],
     ['\t.qa-license.json\n', true],
@@ -60,7 +67,7 @@ describe('audit › audit-gitignore-git', () => {
   ];
 
   /** Rules in the repository root's .gitignore, the audited project being a sub-folder. */
-  const PARENT: [string, boolean][] = [
+  const PARENT: GitCase[] = [
     ['.qa-license.json\n', true],
     ['/.qa-license.json\n', true],
     ['**/.qa-license.json\n', true],
@@ -73,39 +80,36 @@ describe('audit › audit-gitignore-git', () => {
     ['.qa-license.json\n!*.json\n', true],
   ];
 
-  for (const ignoreCase of [false, true]) {
-    for (const [content, exact] of OWN) {
-      test(`gitignore vs git (own, ignorecase=${ignoreCase}): ${JSON.stringify(content)}`, {
-        skip: !gitAvailable,
-      }, () => {
-        const dir = repo();
-        fs.writeFileSync(path.join(dir, '.qa-license.json'), '{}');
-        fs.writeFileSync(path.join(dir, '.gitignore'), content);
-        const gitSays = gitIgnores(dir, '.qa-license.json', ignoreCase);
-        const ours = auditSays(dir);
-        assert.ok(!(ours && !gitSays), 'audit says ignored but git would commit the file');
-        if (exact && !ignoreCase) {
-          assert.equal(ours, gitSays);
-        }
-      });
-    }
+  const own = (content: string, ignoreCase: boolean) => {
+    const dir = repo();
+    fs.writeFileSync(path.join(dir, '.qa-license.json'), '{}');
+    fs.writeFileSync(path.join(dir, '.gitignore'), content);
+    return { gitSays: gitIgnores(dir, '.qa-license.json', ignoreCase), ours: auditSays(dir) };
+  };
 
-    for (const [content, exact] of PARENT) {
-      test(`gitignore vs git (parent, ignorecase=${ignoreCase}): ${JSON.stringify(content)}`, {
-        skip: !gitAvailable,
-      }, () => {
-        const top = repo();
-        const child = path.join(top, 'child');
-        fs.mkdirSync(child);
-        fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
-        fs.writeFileSync(path.join(top, '.gitignore'), content);
-        const gitSays = gitIgnores(top, 'child/.qa-license.json', ignoreCase);
-        const ours = auditSays(child);
-        assert.ok(!(ours && !gitSays), 'audit says ignored but git would commit the file');
-        if (exact && !ignoreCase) {
-          assert.equal(ours, gitSays);
-        }
-      });
-    }
+  const parent = (content: string, ignoreCase: boolean) => {
+    const top = repo();
+    const child = path.join(top, 'child');
+    fs.mkdirSync(child);
+    fs.writeFileSync(path.join(child, '.qa-license.json'), '{}');
+    fs.writeFileSync(path.join(top, '.gitignore'), content);
+    return {
+      gitSays: gitIgnores(top, 'child/.qa-license.json', ignoreCase),
+      ours: auditSays(child),
+    };
+  };
+
+  for (const ignoreCase of [false, true]) {
+    test(`project .gitignore, core.ignorecase=${ignoreCase}: ${OWN.length} cases agree with git`, {
+      skip: !gitAvailable,
+    }, () => {
+      assert.deepEqual(disagreementsWithGit(OWN, ignoreCase, own), []);
+    });
+
+    test(`parent .gitignore, core.ignorecase=${ignoreCase}: ${PARENT.length} cases agree with git`, {
+      skip: !gitAvailable,
+    }, () => {
+      assert.deepEqual(disagreementsWithGit(PARENT, ignoreCase, parent), []);
+    });
   }
 });

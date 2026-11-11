@@ -3,6 +3,8 @@ import * as path from 'node:path';
 import { describe, test } from 'node:test';
 import {
   auditCheckPassed,
+  disagreementsWithGit,
+  type GitCase,
   gitAvailable,
   gitIgnores,
   repo,
@@ -20,7 +22,7 @@ describe('audit › audit-gitignore-secrets', () => {
   const BOM = String.fromCharCode(0xfeff);
 
   /** [gitignore content, must the audit agree exactly with git?] */
-  const ENV: [string, boolean][] = [
+  const ENV: GitCase[] = [
     ['.env\n', true],
     ['.env*\n', true],
     ['*.env\n', true],
@@ -44,7 +46,7 @@ describe('audit › audit-gitignore-secrets', () => {
   ];
 
   /** A nested key file, so folder rules count: [gitignore content, exact?] */
-  const NESTED_KEY: [string, boolean][] = [
+  const NESTED_KEY: GitCase[] = [
     ['*.key\n', true],
     ['*.pem\n', true],
     ['certs/\n', true],
@@ -70,7 +72,7 @@ describe('audit › audit-gitignore-secrets', () => {
   ];
 
   /** A key at the project root: [gitignore content, exact?] */
-  const ROOT_KEY: [string, boolean][] = [
+  const ROOT_KEY: GitCase[] = [
     ['id_rsa\n', true],
     ['id_*\n', true],
     ['/id_rsa\n', true],
@@ -81,26 +83,22 @@ describe('audit › audit-gitignore-secrets', () => {
 
   function differential(
     label: string,
-    corpus: [string, boolean][],
+    corpus: GitCase[],
     files: Record<string, string>,
     probe: string,
     check: string,
   ): void {
+    const run = (content: string, ignoreCase: boolean) => {
+      const dir = repo();
+      writeFiles(dir, { ...files, '.gitignore': content });
+      return { gitSays: gitIgnores(dir, probe, ignoreCase), ours: auditCheckPassed(dir, check) };
+    };
     for (const ignoreCase of [false, true]) {
-      for (const [content, exact] of corpus) {
-        test(`${label} vs git (ignorecase=${ignoreCase}): ${JSON.stringify(content)}`, {
-          skip: !gitAvailable,
-        }, () => {
-          const dir = repo();
-          writeFiles(dir, { ...files, '.gitignore': content });
-          const gitSays = gitIgnores(dir, probe, ignoreCase);
-          const ours = auditCheckPassed(dir, check);
-          assert.ok(!(ours && !gitSays), 'audit says ignored but git would commit the secret');
-          if (exact && !ignoreCase) {
-            assert.equal(ours, gitSays);
-          }
-        });
-      }
+      test(`${label}, core.ignorecase=${ignoreCase}: ${corpus.length} cases agree with git`, {
+        skip: !gitAvailable,
+      }, () => {
+        assert.deepEqual(disagreementsWithGit(corpus, ignoreCase, run), []);
+      });
     }
   }
 
