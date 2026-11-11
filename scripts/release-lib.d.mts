@@ -9,6 +9,7 @@ export function bumpVersion(version: string, bump: string, preid?: string | null
 export function tagForVersion(version: string): string;
 export function checkTagMatchesVersion(tag: string, version: string): string;
 export function changelogHasVersion(changelog: string, version: string): boolean;
+export function unreleasedSummary(changelog: string): { headings: string[]; entries: number; bump: string | null };
 export function extractChangelogSection(changelog: string, version: string): string;
 export function stampChangelog(changelog: string, version: string, date: string): string;
 export function stampReleaseDate(source: string, date: string): string;

@@ -29,12 +29,11 @@ import {
 } from '../../scripts/release-lib.mjs';
 
 describe('release › release', () => {
-  test('Release args: prepare needs nothing but accepts a bump, and the npm "--" separator is ignored', () => {
+  test('Release args: prepare needs a bump, and the npm "--" separator is ignored', () => {
     assert.deepStrictEqual(parseReleaseArgs([]), {
-      action: 'prepare',
+      action: 'status',
       dryRun: false,
       yes: false,
-      bump: null,
     });
     assert.deepStrictEqual(parseReleaseArgs(['--', '--dry-run', '--bump', 'minor', '--yes']), {
       action: 'prepare',
@@ -43,10 +42,9 @@ describe('release › release', () => {
       bump: 'minor',
     });
     assert.deepStrictEqual(parseReleaseArgs(['-y']), {
-      action: 'prepare',
+      action: 'status',
       dryRun: false,
       yes: true,
-      bump: null,
     });
   });
 

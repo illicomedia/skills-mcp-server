@@ -205,7 +205,10 @@ export function parseReleaseArgs(argv) {
       }
       return { action: 'release-notes', ...base, version: flags.get(action) };
     default:
-      return { action: 'prepare', ...base, bump: bumpOf(flags), ...preidOf(flags) };
+      // No action and no --bump: the read-only status. Cutting a release is always explicit.
+      return flags.has('--bump')
+        ? { action: 'prepare', ...base, bump: bumpOf(flags), ...preidOf(flags) }
+        : { action: 'status', ...base };
   }
 }
 
@@ -297,6 +300,31 @@ function sectionAfter(lines, startIndex) {
     sectionLines.push(lines[i]);
   }
   return sectionLines.join('\n').trim();
+}
+
+/**
+ * What waits under `## Unreleased`: its `###` headings, the number of entries, and the bump they
+ * call for (Breaking: major; Added or Changed: minor; anything else: patch; nothing: null).
+ */
+export function unreleasedSummary(changelog) {
+  const lines = changelog.split('\n');
+  const index = lines.findIndex((line) => UNRELEASED_HEADING.test(line));
+  const section = index === -1 ? [] : sectionAfter(lines, index).split('\n');
+  const headings = section
+    .filter((line) => line.startsWith('### '))
+    .map((line) => line.slice(4).trim());
+  const entries = section.filter((line) => line.startsWith('- ')).length;
+  let bump = null;
+  if (entries > 0) {
+    bump = 'patch';
+    if (headings.some((heading) => /^(added|changed)$/i.test(heading))) {
+      bump = 'minor';
+    }
+    if (headings.some((heading) => /^breaking$/i.test(heading))) {
+      bump = 'major';
+    }
+  }
+  return { headings, entries, bump };
 }
 
 /** Extracts the markdown section for a release version from CHANGELOG.md. */

@@ -49,6 +49,17 @@ export function expectRefusal(ctx: ReleaseContext, pkg: Pkg, options: { tarballD
 export function stage(ctx: ReleaseContext, pkg: Pkg, options: { tarballDir: string }): void;
 export function rehearse(ctx: ReleaseContext, pkg: Pkg, options: { tarballDir: string }): void;
 export function githubRelease(ctx: ReleaseContext, pkg: Pkg, options: { tag: string; tarballDir: string }): void;
+export interface ReleaseStatus {
+  version: string;
+  latest: string | null;
+  next: string | null;
+  tagged: boolean;
+  commitsSinceTag: number | null;
+  unpushed: number;
+  dirty: number;
+  bump: string | null;
+}
+export function status(ctx: ReleaseContext, pkg: Pkg): Promise<ReleaseStatus>;
 export function prepare(
   ctx: ReleaseContext,
   pkg: Pkg,

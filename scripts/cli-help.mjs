@@ -25,7 +25,10 @@ The process, in order (details: docs/operations/release-runbook.md):
   4. pnpm release --approve <version>         npm 2FA: public under "next"
   5. pnpm release --promote <version>         npm 2FA: moves "latest"
 
-Actions (one at a time; none given = prepare a release):
+Without any action or --bump: shows the status (published versions, pending commits and
+changelog notes, the next command) and this help. It changes nothing.
+
+Actions (one at a time):
   --bump patch|minor|major      prepare: fixes only / new features / a "### Breaking" heading
   --bump major --preid rc       a release candidate (3.0.0-rc.0), staged under "next"
   --bump prerelease|release     the next candidate (rc.1) / the final version

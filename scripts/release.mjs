@@ -40,6 +40,7 @@ import {
   ship,
   smoke,
   stage,
+  status,
 } from './release-flow.mjs';
 import {
   ciTagOutputs,
@@ -226,6 +227,10 @@ async function main() {
       return;
     case 'ship':
       await ship(ctx, pkg, options);
+      return;
+    case 'status':
+      await status(ctx, pkg);
+      process.stdout.write(`\n${RELEASE_HELP}`);
       return;
     default:
       await prepare(ctx, pkg, options);

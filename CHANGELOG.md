@@ -9,6 +9,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 ### Added
 
 - Maintainer scripts: `--help` / `-h` on `pnpm release`, `github:check` / `github:apply`, `check:clean`, `test:coverage` and `scripts/github-audit.sh`. Each prints its usage, options and process, then exits without doing anything else, whatever else is on the command line. A wrong option now points to `--help`.
+- `pnpm release` without an action or `--bump` shows a read-only status (versions on npm, pending commits and changelog notes, the next command) followed by the help. Cutting a release always needs an explicit `--bump`.
 
 ### Changed
 
