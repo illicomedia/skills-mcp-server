@@ -4,6 +4,7 @@ import {
   type LicenseOptions,
   PRICING_URL,
   PROJECT_LICENSE_FILE,
+  provenanceId,
   validateLicense,
 } from '../license/license.js';
 import { HELP_URL } from '../links.js';
@@ -119,7 +120,7 @@ function getSkillRules(args: ToolArguments, license: LicenseValidationResult): s
       ? validateSafeProjectPath(args.project_path as string, 'get_skill_rules')
       : undefined,
   );
-  const watermark = generateCanaryWatermark(license.customerName || 'community_user', skillId);
+  const watermark = generateCanaryWatermark(provenanceId(license), skillId);
 
   return `${watermark}\n\n${content}`;
 }

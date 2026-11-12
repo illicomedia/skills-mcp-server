@@ -1,5 +1,10 @@
 import * as path from 'node:path';
-import { generateCanaryWatermark, PRICING_URL, validateLicense } from '../license/license.js';
+import {
+  generateCanaryWatermark,
+  PRICING_URL,
+  provenanceId,
+  validateLicense,
+} from '../license/license.js';
 import {
   isSymbolicLink,
   makeDirInside,
@@ -165,7 +170,7 @@ export function installSkill(
     const skillContent =
       meta.tier === 'free'
         ? rawSkillContent
-        : `${generateCanaryWatermark(license.customerName || 'pro_subscriber', skillId)}\n\n${rawSkillContent}`;
+        : `${generateCanaryWatermark(provenanceId(license), skillId)}\n\n${rawSkillContent}`;
 
     const licenseContent = loadSkillLicense(skillId, license, projectPath);
 

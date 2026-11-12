@@ -264,14 +264,24 @@ function validateLicenseDetailed(
 }
 
 /**
- * Generates a comment-based canary watermark for provenance tracking of distributed skills.
+ * The id written into provenance marks: the license id. Never a name or an email (GDPR action
+ * G2): the marked files are committed and sent to AI providers.
  */
-export function generateCanaryWatermark(licenseeId: string, skillId: string): string {
+export function provenanceId(license: LicenseValidationResult): string {
+  return license.licenseId || 'community';
+}
+
+/**
+ * A comment-based canary watermark for provenance tracking of distributed skills. Only letters,
+ * digits, '-', '_' and '/' are written, so no value can close the HTML comment or add a line.
+ */
+export function generateCanaryWatermark(provenance: string, skillId: string): string {
+  const id = provenance.replace(/[^A-Za-z0-9_/-]/g, '_');
   const hash = crypto
     .createHmac('sha256', HMAC_SALT)
-    .update(`${licenseeId}:${skillId}:${new Date().toISOString().slice(0, 10)}`)
+    .update(`${id}:${skillId}:${new Date().toISOString().slice(0, 10)}`)
     .digest('hex')
     .slice(0, 16);
 
-  return `<!-- Fredo QA Skills Provenance: Licensee=${licenseeId}; Skill=${skillId}; Token=${hash}; Copyright (c) Frédéric Charles Viallet -->`;
+  return `<!-- Fredo QA Skills Provenance: License=${id}; Skill=${skillId}; Token=${hash}; Copyright (c) Frédéric Charles Viallet -->`;
 }

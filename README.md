@@ -22,7 +22,7 @@ Connects AI coding assistants (**Claude Desktop, Cursor, Google Antigravity, Win
   - Strict path traversal (`..`), system root (`/etc`, `/`), and credential vault (`~/.ssh`, `~/.aws`) write containment guards.
 - **Modular Static Preflight Sensor (`quick_check`)**: Fast static intake inspection assessing repository governance, security, quality gates, supply chain, and DevOps across 8 language stacks plus a generic fallback, with user-confirmed directory traversal and zero arbitrary code execution.
 - **Signed, Offline License Verification**: Pro and Enterprise skills unlock from a digitally signed license file, checked locally with no network. Version retention follows the terms of sale. Open-source MIT skills remain free and unlocked forever.
-- **Provenance Watermark**: Skill rules served or installed through this server start with a provenance comment naming the licensee and the skill. It helps trace where a copy came from; it is a deterrent, not a technical protection, because anyone can delete it.
+- **Provenance Watermark**: Skill rules served or installed through this server start with a provenance comment giving the license id and the skill, never a name or an email: these files are committed and sent to AI providers. It helps trace where a copy came from; it is a deterrent, not a technical protection, because anyone can delete it.
 
 ---
 

@@ -137,6 +137,7 @@ Applied by the npm account owner (2FA). Rows marked pending are to run next (com
 | `2.0.1`, `2.0.2` | `End of life: 2.x no longer receives fixes, security fixes included. Upgrade to @illicomedia/skills-mcp-server@^3.0.0 (put the license in ~/.config/fredo-qa/license.json or .qa-license.json: FREDO_QA_LICENSE_FILE is no longer read).` | 2026-11-04 |
 | `3.0.0` | `Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).` | pending (retarget from ^3.1.0) |
 | `3.0.1`, `3.1.0` | `Security: <version> can be hung or run out of memory by a crafted project or license path, and its license errors reveal file content. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).` | pending (3.1.0 carries a vague message set outside the tool; 3.0.1 points to ^3.1.0) |
+| `3.2.0` | `Privacy: 3.2.0 writes the licensee name into installed paid skills and get_skill_rules answers. Upgrade to @illicomedia/skills-mcp-server@^3.2.1 (drop-in, no setup change).` | pending: only once 3.2.1 is `latest` |
 
 These replace earlier messages that sent 1.4.x users to 1.4.7 (or 2.0.2) and 2.0.1 users to 2.0.2,
 both now end of life. Each command asks for confirmation; with npm's web login, the 2FA page's
@@ -160,6 +161,12 @@ for v in 3.0.1 3.1.0; do
   pnpm release --deprecate "$v" --message "Security: $v can be hung or run out of memory by a crafted project or license path, and its license errors reveal file content. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change)."
 done
 pnpm release --deprecate 3.0.0 --message 'Security: 3.0.0 reads a confirm of "false" as true (applies changes instead of previewing) and accepts a symlink to ~/.ssh, ~/.aws or a system folder as project. Upgrade to @illicomedia/skills-mcp-server@^3.2.0 (drop-in, no setup change).'
+```
+
+Once 3.2.1 is `latest` (never before: `--deprecate` refuses the `latest` version), 3.2.0 points to it:
+
+```bash
+pnpm release --deprecate 3.2.0 --message "Privacy: 3.2.0 writes the licensee name into installed paid skills and get_skill_rules answers. Upgrade to @illicomedia/skills-mcp-server@^3.2.1 (drop-in, no setup change)."
 ```
 
 ---

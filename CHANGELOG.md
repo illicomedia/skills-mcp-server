@@ -6,17 +6,19 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
-### Added
+### Security
+
+- Installed paid skills and `get_skill_rules` answers no longer carry the licensee's name. Their provenance watermark now gives the license id (`License=<id>`; it was `Licensee=<name>`). These files are committed by projects and sent to AI providers, and the name could be the buyer's email. The watermark writes only letters, digits, `-`, `_` and `/`.
+
+### Maintainers (not in the published package)
 
 - Maintainer scripts: `--help` / `-h` on `pnpm release`, `github:check` / `github:apply`, `check:clean`, `test:coverage` and `scripts/github-audit.sh`. Each prints its usage, options and process, then exits without doing anything else, whatever else is on the command line. A wrong option now points to `--help`.
 - `pnpm release` without an action or `--bump` shows a read-only status (versions on npm, pending commits and changelog notes, the next command) followed by the help. Cutting a release always needs an explicit `--bump`.
 - `pnpm release --undeprecate <version>`: lifts a deprecation (checked, confirmed), the first step of an emergency rollback since `--promote` refuses a deprecated version. The release runbook now explains deprecating a version and the emergency rollback step by step.
-
-### Changed
-
-- Dependencies: pnpm installs only versions published at least 7 days ago (`minimumReleaseAge`), so a hijacked release cannot reach the release job the day it is published. Pnpm enforces it on every install, the frozen CI ones included, so the dev tools move to their newest versions at least 7 days old: Biome 2.6.5, jscpd 5.4.2, knip 6.44.1 (which brings `zod`). Development tooling only; the published package still has no dependency.
+- Dependencies: pnpm installs only versions published at least 7 days ago (`minimumReleaseAge`), so a hijacked release cannot reach the release job the day it is published. pnpm enforces it on every install, CI's frozen installs included, so the dev tools move to their newest versions at least 7 days old: Biome 2.6.5, jscpd 5.4.2, knip 6.44.1 (which brings `zod`).
+- pnpm 12.18.0 (pinned by hash). The WebAssembly fallback of knip's resolver is no longer installed, which removes 7 packages from the lockfile (`tslib`, `@emnapi/*`, `@napi-rs/wasm-runtime`, ...).
 - Release tooling: the MCP Registry publisher is pinned to `mcp-publisher` 1.8.9 (Sigstore-verified; 1.8.8 updated its `go-jose` dependency), and the Scorecard workflow uses `github/codeql-action/upload-sarif` 4.39.3.
-- Development tooling only (the published package still has no dependency): pnpm 12.18.0 (pinned by hash), knip 6.45.0, and the WebAssembly fallback of knip's resolver is no longer installed, which removes 7 packages from the lockfile (`tslib`, `@emnapi/*`, `@napi-rs/wasm-runtime`, ...).
+- Tests and fixtures use fictitious people only.
 
 ## 3.2.0 - 2026-11-11
 
