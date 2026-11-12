@@ -5,3 +5,8 @@ allowBuilds:
 # platform has one, and the fallback alone pulls in 7 packages (tslib, emnapi, wasm-runtime).
 ignoredOptionalDependencies:
   - '@oxc-resolver/binding-wasm32-wasi'
+
+# Supply chain: install only versions published at least 7 days ago (in minutes). Most hijacked or
+# malicious releases are pulled from the registry within days; the release job installs every dev
+# dependency (with install scripts) before it builds and packs the published tarball.
+minimumReleaseAge: 10080
