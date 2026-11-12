@@ -8,12 +8,12 @@
     "source": "github"
   },
   "websiteUrl": "https://www.illicomedia.com/qa-skills/mcp",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@illicomedia/skills-mcp-server",
-      "version": "3.2.0",
+      "version": "3.2.1",
       "transport": {
         "type": "stdio"
       }

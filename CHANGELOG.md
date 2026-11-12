@@ -6,6 +6,8 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ## Unreleased
 
+## 3.2.1 - 2026-11-12
+
 ### Security
 
 - Installed paid skills and `get_skill_rules` answers no longer carry the licensee's name. Their provenance watermark now gives the license id (`License=<id>`; it was `Licensee=<name>`). These files are committed by projects and sent to AI providers, and the name could be the buyer's email. The watermark writes only letters, digits, `-`, `_` and `/`.

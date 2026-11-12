@@ -1,7 +1,7 @@
 {
   "name": "@illicomedia/skills-mcp-server",
   "mcpName": "io.github.illicomedia/skills-mcp-server",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "MCP server that gives AI coding agents QA skills and a local code audit: security, accessibility, performance, GDPR, DevOps and more.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
