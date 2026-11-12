@@ -14,6 +14,7 @@ Add notes under `## Unreleased` as you work; `pnpm release` turns that section i
 
 ### Changed
 
+- Release tooling: the MCP Registry publisher is pinned to `mcp-publisher` 1.8.9 (Sigstore-verified; 1.8.8 updated its `go-jose` dependency), and the Scorecard workflow uses `github/codeql-action/upload-sarif` 4.39.3.
 - Development tooling only (the published package still has no dependency): pnpm 12.18.0 (pinned by hash), knip 6.45.0, and the WebAssembly fallback of knip's resolver is no longer installed, which removes 7 packages from the lockfile (`tslib`, `@emnapi/*`, `@napi-rs/wasm-runtime`, ...).
 
 ## 3.2.0 - 2026-11-11

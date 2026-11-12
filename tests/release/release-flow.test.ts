@@ -86,7 +86,7 @@ function fakeWorld(overrides: Partial<World> = {}) {
     npmVersion: '11.6.0',
     ghReleaseExists: false,
     refuses: true,
-    publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.7 (commit: abc, built: x)',
+    publisher: '2026/11/03 10:00:00 mcp-publisher v1.8.9 (commit: abc, built: x)',
     listedVersions: [],
     npmMcpName: 'io.github.illicomedia/skills-mcp-server',
     stage: null,
@@ -990,12 +990,12 @@ describe('release › release-flow', () => {
     const missing = withListing('1.5.0', { ...PUBLIC_150, publisher: null });
     await assert.rejects(
       publishListing(missing.ctx, LISTED_PKG, { version: '1.5.0' }),
-      /mcp-publisher 1\.8\.7 is required \(found: none\)/,
+      /mcp-publisher 1\.8\.9 is required \(found: none\)/,
     );
-    const newer = withListing('1.5.0', { ...PUBLIC_150, publisher: 'mcp-publisher v1.8.70 (x' });
+    const newer = withListing('1.5.0', { ...PUBLIC_150, publisher: 'mcp-publisher v1.8.90 (x' });
     await assert.rejects(
       publishListing(newer.ctx, LISTED_PKG, { version: '1.5.0' }),
-      /is required \(found: mcp-publisher v1\.8\.70/,
+      /is required \(found: mcp-publisher v1\.8\.90/,
     );
     assert.ok(!has(newer.calls, 'mcp-publisher publish'));
   });

@@ -6,7 +6,7 @@
 import { approve, npm, registryState } from './shared.mjs';
 
 /** The official MCP Registry publisher the release accepts: installed by the maintainer, verified. */
-const MCP_PUBLISHER_VERSION = '1.8.7';
+const MCP_PUBLISHER_VERSION = '1.8.9';
 
 /** The schema of server.json, the MCP Registry listing. */
 const MCP_SERVER_SCHEMA =

@@ -229,11 +229,11 @@ The GitHub settings this process relies on (rulesets protecting `main` and the `
 ## MCP Registry publisher (once per machine)
 
 The listing is published with the registry's official tool, `mcp-publisher`, at exactly version
-1.8.7 (the release script refuses any other). Install it from its GitHub release and verify its
+1.8.9 (the release script refuses any other). Install it from its GitHub release and verify its
 Sigstore signature before use; do not install it if verification fails:
 
 ```bash
-V=v1.8.7
+V=v1.8.9
 F="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
 B="https://github.com/modelcontextprotocol/registry/releases/download/$V"
 curl -fsSL -o "$F" "$B/$F" && curl -fsSL -o "$F.sigstore.json" "$B/$F.sigstore.json"
@@ -241,11 +241,11 @@ cosign verify-blob --bundle "$F.sigstore.json" \
   --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/$V" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com "$F"
 tar -xzf "$F" mcp-publisher && sudo install mcp-publisher /usr/local/bin/ && rm -f "$F" "$F.sigstore.json"
-mcp-publisher --version                            # mcp-publisher v1.8.7 (...)
+mcp-publisher --version                            # mcp-publisher v1.8.9 (...)
 mcp-publisher login github                         # once, approved in the browser AS THE illicomedia ACCOUNT
 ```
 
-The certificate identity is exact: only the registry's own release workflow, at tag v1.8.7, can
+The certificate identity is exact: only the registry's own release workflow, at tag v1.8.9, can
 have signed the file. This is the check the registry's documentation uses.
 
 The listing's name, `io.github.illicomedia/skills-mcp-server`, is the **personal namespace** of
