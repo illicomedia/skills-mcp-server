@@ -17,7 +17,7 @@ describe('server › mcp-server', () => {
   test('Canary Watermark: Generates non-empty deterministic cryptographic token', () => {
     const token = generateCanaryWatermark('user_123', 'qa-security');
     assert.match(token, /Fredo QA Skills Provenance/);
-    assert.match(token, /Licensee=user_123/);
+    assert.match(token, /License=user_123/);
     assert.match(token, /Skill=qa-security/);
   });
 
@@ -105,7 +105,10 @@ describe('server › mcp-server', () => {
 
   test('MCP Server: list_skills under Pro tier unlocks Pro rows and keeps Enterprise rows locked', () => {
     const text = listSkillsText(
-      new FredoQaMcpServer(signedLicense({ licensee: 'Fred V.' }), TEST_LICENSE_OPTIONS),
+      new FredoQaMcpServer(
+        signedLicense({ licensee: 'Example Licensee Ltd' }),
+        TEST_LICENSE_OPTIONS,
+      ),
     );
     assert.match(text, /\| `qa-security` \| PRO \| ✅ Available \|/);
     assert.match(
@@ -116,7 +119,7 @@ describe('server › mcp-server', () => {
 
   test('MCP Server: list_skills category filter and Enterprise tier show no lock advisory', () => {
     const server = new FredoQaMcpServer(
-      signedLicense({ tier: 'enterprise', licensee: 'Fred V.' }),
+      signedLicense({ tier: 'enterprise', licensee: 'Example Licensee Ltd' }),
       TEST_LICENSE_OPTIONS,
     );
     const text = listSkillsText(server, { category: 'compliance' });

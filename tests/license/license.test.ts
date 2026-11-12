@@ -32,7 +32,7 @@ describe('license › license', () => {
     assert.equal(res.valid, true);
     assert.equal(res.tier, 'pro');
     assert.equal(res.keyType, 'signed');
-    assert.equal(res.customerName, 'Fred V.');
+    assert.equal(res.customerName, 'Example Licensee Ltd');
     assert.equal(res.licenseId, 'LIC-2026-000123');
     assert.equal(res.updatesUntil, '2027-10-01T00:00:00Z');
   });
