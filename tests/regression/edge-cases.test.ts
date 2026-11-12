@@ -248,9 +248,11 @@ describe('regression › edge-cases', () => {
     const run = (name: string, args: Record<string, unknown> = {}, key?: string) =>
       JSON.parse(ToolExecutor.execute(name, args, key, () => undefined, TEST_LICENSE_OPTIONS));
 
-    const valid = run('set_license_key', { license_key: signedLicense({ licensee: 'Fred V.' }) });
+    const valid = run('set_license_key', {
+      license_key: signedLicense({ licensee: 'Example Licensee Ltd' }),
+    });
     assert.equal(valid.status, 'AUTHENTICATED');
-    assert.equal(valid.customer, 'Fred V.');
+    assert.equal(valid.customer, 'Example Licensee Ltd');
     assert.equal(typeof valid.licenseId, 'string');
 
     const invalid = run('set_license_key', { license_key: 'not-a-license' });

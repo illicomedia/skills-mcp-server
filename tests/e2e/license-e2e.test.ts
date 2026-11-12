@@ -72,13 +72,13 @@ describe('e2e › license-e2e', () => {
     withWorkspace((ws) => {
       const server = serverWithUserLicense(
         ws,
-        signedLicense({ tier: 'enterprise', licensee: 'Fred V.' }),
+        signedLicense({ tier: 'enterprise', licensee: 'Example Licensee Ltd' }),
       );
 
       const status = JSON.parse(callTool(server, 'verify_license'));
       assert.equal(status.status, 'ACTIVE');
       assert.equal(status.tier, 'ENTERPRISE');
-      assert.equal(status.customer, 'Fred V.');
+      assert.equal(status.customer, 'Example Licensee Ltd');
       assert.equal(status.licenseId, 'LIC-2026-000123');
 
       assert.match(callTool(server, 'list_skills'), /25 accessible under ENTERPRISE plan/);
@@ -95,7 +95,7 @@ describe('e2e › license-e2e', () => {
         path.join(ws.project, '.agents', 'skills', 'qa-gdpr-rgpd', 'LICENSE'),
         'utf8',
       );
-      assert.match(licenseText, /Fred V./);
+      assert.match(licenseText, /Example Licensee Ltd/);
       assert.match(licenseText, /LIC-2026-000123/);
     });
   });

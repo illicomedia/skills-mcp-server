@@ -4,7 +4,7 @@ version: 1.7.0
 description: Core engineering policy for automated quality assurance across all programming
   languages and stacks. Defines standard quality profiles, local/CI parity, failure
   policies, exception management, side effects, and Definition of Done.
-author: Frédéric Charles Viallet (github.com/fcviallet)
+author: Example Author
 applies_when:
 - Any software repository requiring deterministic quality gates
 - Any repository needing language-agnostic QA governance or CI quality auditing
